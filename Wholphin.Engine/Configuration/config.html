@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Orca Engine</title>
+</head>
+<body>
+<div id="WholphinEngineConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="WholphinEngineConfigForm">
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Orca Engine</h2>
+                    <p>Server-side intelligence engine for the Orca X app.</p>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="Enabled" />
+                        <span>Enable engine</span>
+                    </label>
+                    <div class="fieldDescription">Global kill-switch. When off, clients fall back to their own home screen.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="RefreshIntervalMinutes">
+                        Refresh interval (minutes)
+                    </label>
+                    <input is="emby-input" type="number" id="RefreshIntervalMinutes" min="5" />
+                    <div class="fieldDescription">
+                        How often precomputed home rows and recommendations are refreshed.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="DefaultRowSize">Default row size</label>
+                    <input is="emby-input" type="number" id="DefaultRowSize" min="1" max="100" />
+                    <div class="fieldDescription">Items per row when the client does not request a size (1–100).</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="SpotlightCount">Spotlight size</label>
+                    <input is="emby-input" type="number" id="SpotlightCount" min="1" max="20" />
+                    <div class="fieldDescription">How many top picks rotate through the spotlight billboard (1–20).</div>
+                </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Features</h3>
+                </div>
+
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeaturePersonalization" /><span>Personalized recommendations (For You)</span></label>
+                </div>
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureSpotlight" /><span>Spotlight billboard</span></label>
+                </div>
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureContinueWatching" /><span>Continue Watching</span></label>
+                </div>
+                <div class="checkboxContainer">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureTrending" /><span>Trending</span></label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureSimilarityRows" /><span>Similarity rows (Because You Watched)</span></label>
+                    <div class="fieldDescription">Content-based "Because You Watched X" / "More Like This" rows.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureExploration" /><span>Exploration (serendipity)</span></label>
+                    <div class="fieldDescription">Mixes a small share of novel, unfamiliar-genre picks into recommendations to avoid a filter bubble.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureRequests" /><span>Engine-proxied requests (Milestone 2)</span></label>
+                    <div class="fieldDescription">Lets the app request unavailable titles through the engine via Jellyseerr.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureJellyseerrDiscovery" /><span>Availability-aware discovery (Milestone 2)</span></label>
+                    <div class="fieldDescription">Blends not-yet-available (requestable) titles into the catalog.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureTmdbDiscovery" /><span>TMDB-direct discovery (Milestone 7)</span></label>
+                    <div class="fieldDescription">Also pulls trending/popular titles straight from TMDB (needs a TMDB key). Genre names + artwork are resolved automatically.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureNewSinceAway" /><span>New Since You Were Away (Milestone 8)</span></label>
+                    <div class="fieldDescription">A row of titles added (or whose episodes aired) since the user's last visit.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureComingSoon" /><span>Coming Soon calendar (Milestone 8)</span></label>
+                    <div class="fieldDescription">Upcoming episodes/releases for catalog titles, from the *arr calendar (or TMDB).</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureMoodCollections" /><span>Mood collections (Milestone 8)</span></label>
+                    <div class="fieldDescription">Themed rows (Mind Bending, Dark Thrillers, Feel Good, …) rotated daily.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureTrailerPrebuffer" /><span>Trailer pre-buffer (Milestone 8)</span></label>
+                    <div class="fieldDescription">Server pre-fetches + transcodes low-bitrate trailers for card-focus previews. Requires <code>yt-dlp</code> and <code>ffmpeg</code> installed on the server; dormant otherwise.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureContentWarnings" /><span>Content advisories in the player</span></label>
+                    <div class="fieldDescription">Groq generates a per movie/series content-warning card shown briefly at the start of playback. Needs a Groq API key (below); pre-generated in the background and cached.</div>
+                </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Integrations (Milestone 2)</h3>
+                    <p>Optional. Leave blank to keep the engine library-only.</p>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="JellyseerrUrl">Jellyseerr URL</label>
+                    <input is="emby-input" type="text" id="JellyseerrUrl" placeholder="http://localhost:5055" />
+                    <div class="fieldDescription">Base URL of your Jellyseerr instance. Empty disables the integration.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="JellyseerrApiKey">Jellyseerr API key</label>
+                    <input is="emby-input" type="text" id="JellyseerrApiKey" />
+                    <div class="fieldDescription">Sent as the X-Api-Key header on engine-proxied requests.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key</label>
+                    <input is="emby-input" type="text" id="TmdbApiKey" />
+                    <div class="fieldDescription">Optional v3 key (or v4 read token). Enables TMDB-direct discovery and backfills genres + poster/backdrop artwork onto requestable titles.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="WatchProviderRegion">Studio-tag region</label>
+                    <input is="emby-input" type="text" id="WatchProviderRegion" placeholder="US" />
+                    <div class="fieldDescription">ISO country code (e.g. US, IN, GB) used to pick the streaming-provider brand (Netflix/Prime/Disney+/…) shown as the studio tag on cards, from TMDB watch providers. Needs a TMDB key.</div>
+                </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Calendar (Sonarr / Radarr — Milestone 8)</h3>
+                    <p>Optional. Powers "New Since You Were Away" + "Coming Soon" with accurate air dates. TMDB is the fallback when these are blank.</p>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="SonarrUrl">Sonarr URL</label>
+                    <input is="emby-input" type="text" id="SonarrUrl" placeholder="http://localhost:8989" />
+                    <div class="fieldDescription">Base URL of your Sonarr instance (TV calendar). Empty disables it.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="SonarrApiKey">Sonarr API key</label>
+                    <input is="emby-input" type="text" id="SonarrApiKey" />
+                    <div class="fieldDescription">Sent as the X-Api-Key header.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="RadarrUrl">Radarr URL</label>
+                    <input is="emby-input" type="text" id="RadarrUrl" placeholder="http://localhost:7878" />
+                    <div class="fieldDescription">Base URL of your Radarr instance (movie calendar). Empty disables it.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="RadarrApiKey">Radarr API key</label>
+                    <input is="emby-input" type="text" id="RadarrApiKey" />
+                    <div class="fieldDescription">Sent as the X-Api-Key header.</div>
+                </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">AI re-ranker (Groq)</h3>
+                    <p>Optional. A hosted LLM polishes the "For You" row (reorders + writes the row title and per-item "why"). The engine works fully without it; recommendations are always computed locally first. Only an anonymized taste summary + public title metadata are sent to Groq — never account identity.</p>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureLlmRerank" /><span>Enable Groq re-ranker</span></label>
+                    <div class="fieldDescription">Off until a Groq API key is set below. Applies only to warm profiles; fails soft to the local ranking.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="GroqApiKey">Groq API key</label>
+                    <input is="emby-input" type="text" id="GroqApiKey" />
+                    <div class="fieldDescription">Sent as the Bearer token to api.groq.com. Empty disables the re-ranker.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="GroqModel">Groq model</label>
+                    <input is="emby-input" type="text" id="GroqModel" placeholder="llama-3.3-70b-versatile" />
+                    <div class="fieldDescription">OpenAI-compatible chat model id (e.g. llama-3.3-70b-versatile, openai/gpt-oss-120b, llama-3.1-8b-instant).</div>
+                </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Embeddings (similarity vectors)</h3>
+                    <p>How "More Like This" / "Because You Watched" content vectors are produced. Default is local TF-IDF (free, on-device). Cloud/local-neural options give stronger semantic similarity; the engine falls back to TF-IDF when the chosen provider is unconfigured or fails. (Groq has no embeddings API, so it isn't an option here — it powers the re-ranker above.) Only the keys for the selected provider are needed.</p>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="EmbeddingProvider">Embedding provider</label>
+                    <select is="emby-select" id="EmbeddingProvider">
+                        <option value="tfidf">TF-IDF (local, default)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="gemini">Google Gemini</option>
+                        <option value="voyage">Voyage AI</option>
+                        <option value="jina">Jina</option>
+                        <option value="onnx">Local ONNX (not yet implemented)</option>
+                    </select>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="OpenAiApiKey">OpenAI API key</label>
+                    <input is="emby-input" type="text" id="OpenAiApiKey" />
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="OpenAiEmbeddingModel">OpenAI embedding model</label>
+                    <input is="emby-input" type="text" id="OpenAiEmbeddingModel" placeholder="text-embedding-3-small" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="GeminiApiKey">Gemini API key</label>
+                    <input is="emby-input" type="text" id="GeminiApiKey" />
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="GeminiEmbeddingModel">Gemini embedding model</label>
+                    <input is="emby-input" type="text" id="GeminiEmbeddingModel" placeholder="gemini-embedding-001" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="VoyageApiKey">Voyage API key</label>
+                    <input is="emby-input" type="text" id="VoyageApiKey" />
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="VoyageEmbeddingModel">Voyage embedding model</label>
+                    <input is="emby-input" type="text" id="VoyageEmbeddingModel" placeholder="voyage-3.5" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="JinaApiKey">Jina API key</label>
+                    <input is="emby-input" type="text" id="JinaApiKey" />
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="JinaEmbeddingModel">Jina embedding model</label>
+                    <input is="emby-input" type="text" id="JinaEmbeddingModel" placeholder="jina-embeddings-v3" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="OnnxModelPath">Local ONNX model path</label>
+                    <input is="emby-input" type="text" id="OnnxModelPath" />
+                    <div class="fieldDescription">Path to an ONNX sentence-transformer model on the server. On-box inference isn't implemented yet, so selecting ONNX currently falls back to TF-IDF.</div>
+                </div>
+
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
+
+            <div class="verticalSection" style="margin-top:2em;">
+                <h3 class="sectionTitle">Status &amp; Operations</h3>
+                <div id="WholphinEngineStatus" style="white-space:pre-wrap;font-family:monospace;opacity:.85;">Loading…</div>
+                <div style="margin-top:1em;">
+                    <button is="emby-button" type="button" id="WeRefreshStatus" class="raised block"><span>Refresh status</span></button>
+                    <button is="emby-button" type="button" id="WeResync" class="raised block"><span>Resync library</span></button>
+                    <button is="emby-button" type="button" id="WeImportDiscover" class="raised block"><span>Import discovery (Jellyseerr + TMDB)</span></button>
+                    <button is="emby-button" type="button" id="WeEnrichTmdb" class="raised block"><span>Enrich metadata (TMDB)</span></button>
+                    <button is="emby-button" type="button" id="WeRecomputeRatings" class="raised block"><span>Recompute Orca ratings</span></button>
+                    <button is="emby-button" type="button" id="WeReconcile" class="raised block"><span>Reconcile availability</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = 'b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e';
+
+            document.querySelector('#WholphinEngineConfigPage')
+                .addEventListener('viewshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        document.querySelector('#Enabled').checked = config.Enabled;
+                        document.querySelector('#RefreshIntervalMinutes').value = config.RefreshIntervalMinutes;
+                        document.querySelector('#DefaultRowSize').value = config.DefaultRowSize;
+                        document.querySelector('#SpotlightCount').value = config.SpotlightCount;
+                        document.querySelector('#FeaturePersonalization').checked = config.FeaturePersonalization;
+                        document.querySelector('#FeatureSpotlight').checked = config.FeatureSpotlight;
+                        document.querySelector('#FeatureContinueWatching').checked = config.FeatureContinueWatching;
+                        document.querySelector('#FeatureTrending').checked = config.FeatureTrending;
+                        document.querySelector('#FeatureSimilarityRows').checked = config.FeatureSimilarityRows;
+                        document.querySelector('#FeatureExploration').checked = config.FeatureExploration;
+                        document.querySelector('#FeatureRequests').checked = config.FeatureRequests;
+                        document.querySelector('#FeatureJellyseerrDiscovery').checked = config.FeatureJellyseerrDiscovery;
+                        document.querySelector('#FeatureTmdbDiscovery').checked = config.FeatureTmdbDiscovery;
+                        document.querySelector('#FeatureNewSinceAway').checked = config.FeatureNewSinceAway;
+                        document.querySelector('#FeatureComingSoon').checked = config.FeatureComingSoon;
+                        document.querySelector('#FeatureMoodCollections').checked = config.FeatureMoodCollections;
+                        document.querySelector('#FeatureTrailerPrebuffer').checked = config.FeatureTrailerPrebuffer;
+                        document.querySelector('#FeatureContentWarnings').checked = config.FeatureContentWarnings;
+                        document.querySelector('#JellyseerrUrl').value = config.JellyseerrUrl || '';
+                        document.querySelector('#JellyseerrApiKey').value = config.JellyseerrApiKey || '';
+                        document.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
+                        document.querySelector('#WatchProviderRegion').value = config.WatchProviderRegion || 'US';
+                        document.querySelector('#SonarrUrl').value = config.SonarrUrl || '';
+                        document.querySelector('#SonarrApiKey').value = config.SonarrApiKey || '';
+                        document.querySelector('#RadarrUrl').value = config.RadarrUrl || '';
+                        document.querySelector('#RadarrApiKey').value = config.RadarrApiKey || '';
+                        document.querySelector('#FeatureLlmRerank').checked = config.FeatureLlmRerank;
+                        document.querySelector('#GroqApiKey').value = config.GroqApiKey || '';
+                        document.querySelector('#GroqModel').value = config.GroqModel || '';
+                        document.querySelector('#EmbeddingProvider').value = config.EmbeddingProvider || 'tfidf';
+                        document.querySelector('#OpenAiApiKey').value = config.OpenAiApiKey || '';
+                        document.querySelector('#OpenAiEmbeddingModel').value = config.OpenAiEmbeddingModel || '';
+                        document.querySelector('#GeminiApiKey').value = config.GeminiApiKey || '';
+                        document.querySelector('#GeminiEmbeddingModel').value = config.GeminiEmbeddingModel || '';
+                        document.querySelector('#VoyageApiKey').value = config.VoyageApiKey || '';
+                        document.querySelector('#VoyageEmbeddingModel').value = config.VoyageEmbeddingModel || '';
+                        document.querySelector('#JinaApiKey').value = config.JinaApiKey || '';
+                        document.querySelector('#JinaEmbeddingModel').value = config.JinaEmbeddingModel || '';
+                        document.querySelector('#OnnxModelPath').value = config.OnnxModelPath || '';
+                        Dashboard.hideLoadingMsg();
+                        loadStatus();
+                    });
+                });
+
+            document.querySelector('#WholphinEngineConfigForm')
+                .addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        config.Enabled = document.querySelector('#Enabled').checked;
+                        config.RefreshIntervalMinutes =
+                            parseInt(document.querySelector('#RefreshIntervalMinutes').value, 10);
+                        config.DefaultRowSize = parseInt(document.querySelector('#DefaultRowSize').value, 10);
+                        config.SpotlightCount = parseInt(document.querySelector('#SpotlightCount').value, 10);
+                        config.FeaturePersonalization = document.querySelector('#FeaturePersonalization').checked;
+                        config.FeatureSpotlight = document.querySelector('#FeatureSpotlight').checked;
+                        config.FeatureContinueWatching = document.querySelector('#FeatureContinueWatching').checked;
+                        config.FeatureTrending = document.querySelector('#FeatureTrending').checked;
+                        config.FeatureSimilarityRows = document.querySelector('#FeatureSimilarityRows').checked;
+                        config.FeatureExploration = document.querySelector('#FeatureExploration').checked;
+                        config.FeatureRequests = document.querySelector('#FeatureRequests').checked;
+                        config.FeatureJellyseerrDiscovery = document.querySelector('#FeatureJellyseerrDiscovery').checked;
+                        config.FeatureTmdbDiscovery = document.querySelector('#FeatureTmdbDiscovery').checked;
+                        config.FeatureNewSinceAway = document.querySelector('#FeatureNewSinceAway').checked;
+                        config.FeatureComingSoon = document.querySelector('#FeatureComingSoon').checked;
+                        config.FeatureMoodCollections = document.querySelector('#FeatureMoodCollections').checked;
+                        config.FeatureTrailerPrebuffer = document.querySelector('#FeatureTrailerPrebuffer').checked;
+                        config.FeatureContentWarnings = document.querySelector('#FeatureContentWarnings').checked;
+                        config.JellyseerrUrl = document.querySelector('#JellyseerrUrl').value;
+                        config.JellyseerrApiKey = document.querySelector('#JellyseerrApiKey').value;
+                        config.TmdbApiKey = document.querySelector('#TmdbApiKey').value;
+                        config.WatchProviderRegion = document.querySelector('#WatchProviderRegion').value;
+                        config.SonarrUrl = document.querySelector('#SonarrUrl').value;
+                        config.SonarrApiKey = document.querySelector('#SonarrApiKey').value;
+                        config.RadarrUrl = document.querySelector('#RadarrUrl').value;
+                        config.RadarrApiKey = document.querySelector('#RadarrApiKey').value;
+                        config.FeatureLlmRerank = document.querySelector('#FeatureLlmRerank').checked;
+                        config.GroqApiKey = document.querySelector('#GroqApiKey').value;
+                        config.GroqModel = document.querySelector('#GroqModel').value;
+                        config.EmbeddingProvider = document.querySelector('#EmbeddingProvider').value;
+                        config.OpenAiApiKey = document.querySelector('#OpenAiApiKey').value;
+                        config.OpenAiEmbeddingModel = document.querySelector('#OpenAiEmbeddingModel').value;
+                        config.GeminiApiKey = document.querySelector('#GeminiApiKey').value;
+                        config.GeminiEmbeddingModel = document.querySelector('#GeminiEmbeddingModel').value;
+                        config.VoyageApiKey = document.querySelector('#VoyageApiKey').value;
+                        config.VoyageEmbeddingModel = document.querySelector('#VoyageEmbeddingModel').value;
+                        config.JinaApiKey = document.querySelector('#JinaApiKey').value;
+                        config.JinaEmbeddingModel = document.querySelector('#JinaEmbeddingModel').value;
+                        config.OnnxModelPath = document.querySelector('#OnnxModelPath').value;
+                        ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+                    return false;
+                });
+
+            function fmtMap(map) {
+                if (!map) return '—';
+                return Object.keys(map).map(function (k) { return k + '=' + map[k]; }).join(', ') || '—';
+            }
+
+            function loadStatus() {
+                var el = document.querySelector('#WholphinEngineStatus');
+                el.textContent = 'Loading…';
+                ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('WholphinEngine/Admin/Status'), dataType: 'json' })
+                    .then(function (s) {
+                        var f = s.Features || {};
+                        var cat = s.Catalog || {};
+                        var feats = Object.keys(f).filter(function (k) { return f[k]; }).join(', ');
+                        el.textContent =
+                            'Version ' + s.Version + ' · uptime ' + s.UptimeMinutes + ' min · enabled=' + s.Enabled + '\n' +
+                            'Catalog: ' + cat.Total + ' items\n' +
+                            '  by type: ' + fmtMap(cat.ByType) + '\n' +
+                            '  by availability: ' + fmtMap(cat.ByAvailability) + '\n' +
+                            'Behavior events: ' + s.BehaviorEvents + ' · profiles: ' + s.Profiles + ' · roaming settings: ' + s.RoamingSettings + '\n' +
+                            'Jellyseerr configured: ' + s.JellyseerrConfigured + ' · TMDB configured: ' + s.TmdbConfigured + ' · *arr configured: ' + s.ArrConfigured + '\n' +
+                            'Features on: ' + (feats || 'none');
+                    })
+                    .catch(function () { el.textContent = 'Engine status unavailable (is the plugin running?).'; });
+            }
+
+            function runOp(name, path) {
+                Dashboard.showLoadingMsg();
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl(path) })
+                    .then(function () {
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert(name + ' triggered.');
+                        setTimeout(loadStatus, 1500);
+                    })
+                    .catch(function () {
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert(name + ' failed.');
+                    });
+            }
+
+            document.querySelector('#WeRefreshStatus').addEventListener('click', loadStatus);
+            document.querySelector('#WeResync').addEventListener('click', function () { runOp('Resync', 'WholphinEngine/Catalog/Resync'); });
+            document.querySelector('#WeImportDiscover').addEventListener('click', function () { runOp('Discovery import', 'WholphinEngine/Catalog/ImportDiscover?pages=2'); });
+            document.querySelector('#WeEnrichTmdb').addEventListener('click', function () { runOp('TMDB enrichment', 'WholphinEngine/Catalog/EnrichTmdb?maxItems=100'); });
+            document.querySelector('#WeRecomputeRatings').addEventListener('click', function () { runOp('Recompute ratings', 'WholphinEngine/Analytics/CommunityRating/Recompute'); });
+            document.querySelector('#WeReconcile').addEventListener('click', function () { runOp('Reconcile', 'WholphinEngine/Catalog/Reconcile'); });
+        })();
+    </script>
+</div>
+</body>
+</html>

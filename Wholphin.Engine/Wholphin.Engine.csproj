@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Wholphin.Engine</RootNamespace>
+    <AssemblyName>Wholphin.Engine</AssemblyName>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ASP.NET types (ControllerBase) for the plugin's custom REST endpoints. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- Jellyfin plugin SDK. Pinned to 10.11.0 for broad 10.11.x compatibility;
+         bump to match your exact server version if needed. -->
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.0" />
+    <!-- Match Jellyfin 10.11's EF Core version so the plugin reuses the server's loaded assemblies. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\config.html" />
+  </ItemGroup>
+
+</Project>

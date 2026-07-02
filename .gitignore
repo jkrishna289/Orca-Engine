@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+out/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# SQLite (engine database)
+*.db
+*.db-wal
+*.db-shm
+
+# Plugin package artifacts
+*.zip
