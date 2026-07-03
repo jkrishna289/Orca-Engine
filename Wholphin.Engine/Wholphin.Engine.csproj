@@ -7,8 +7,11 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>Wholphin.Engine</RootNamespace>
     <AssemblyName>Wholphin.Engine</AssemblyName>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <!-- Jellyfin reports Plugin.Version from the ASSEMBLY version — keep in lockstep with
+         meta.json/build.yaml/manifest.json on every release (1.0.1-1.0.3 forgot this, so the
+         dashboard kept showing 1.0.0.0 even after successful catalog updates). -->
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 

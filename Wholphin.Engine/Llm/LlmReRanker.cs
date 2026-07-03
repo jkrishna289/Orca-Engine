@@ -39,6 +39,16 @@ public class LlmReRanker : ILlmReRanker
         + "may drop weak matches. Give 'reasons' for at least the top few. Never invent titles or facts. "
         + "Output JSON only, no prose.";
 
+    private const string SeedSystemPrompt =
+        "A viewer of a personal media server just watched a title. From the candidate titles, pick the "
+        + "ones a fan of that title would GENUINELY want to watch next — shared tone, themes, creators, "
+        + "or story appeal, not just matching genre labels. Return ONLY a JSON object of this exact shape: "
+        + "{\"order\":[<candidate indices, best first>],"
+        + "\"reasons\":{\"<index>\":\"<one short sentence tying the pick to the watched title, max 100 chars>\"}}. "
+        + "Rules: 'order' contains only indices from the candidates, no duplicates, best first; DROP weak "
+        + "matches rather than padding the list. Give 'reasons' for at least the top few. Never invent "
+        + "titles or facts. Output JSON only, no prose.";
+
     private readonly ILlmProvider _provider;
     private readonly IPersonalizationService _personalization;
     private readonly ICache _cache;
@@ -120,6 +130,91 @@ public class LlmReRanker : ILlmReRanker
             _logger.LogWarning(ex, "Orca Engine: LLM re-rank failed for {UserId}.", userId);
             return LlmReRankResult.PassThrough(candidates);
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<LlmReRankResult> PickForSeedAsync(
+        CatalogItem seed,
+        IReadOnlyList<CatalogItem> candidates,
+        CancellationToken ct = default)
+    {
+        // No confidence gate: the seed IS the context, so this works from the very first watch.
+        if (candidates.Count < MinCandidates
+            || Plugin.Instance?.Configuration?.FeatureLlmRerank != true
+            || !_provider.IsConfigured)
+        {
+            return LlmReRankResult.PassThrough(candidates);
+        }
+
+        var pool = candidates.Count > MaxCandidates
+            ? candidates.Take(MaxCandidates).ToList()
+            : candidates;
+
+        var cacheKey = $"llm:byw:{seed.Id}:{string.Join('-', pool.Select(p => p.Id))}";
+        if (_cache.TryGet<LlmReRankResult>(cacheKey, out var cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        try
+        {
+            var json = await _provider.CompleteAsync(SeedSystemPrompt, BuildSeedPrompt(seed, pool), ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                _metrics.Increment("llm.byw.skip");
+                return LlmReRankResult.PassThrough(candidates);
+            }
+
+            var result = Parse(json, pool, candidates);
+            if (result is null)
+            {
+                _metrics.Increment("llm.byw.error");
+                return LlmReRankResult.PassThrough(candidates);
+            }
+
+            _metrics.Increment("llm.byw.ok");
+            _cache.Set(cacheKey, result, CacheTtl);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment("llm.byw.error");
+            _logger.LogWarning(ex, "Orca Engine: LLM Because-You-Watched failed for seed {SeedId}.", seed.Id);
+            return LlmReRankResult.PassThrough(candidates);
+        }
+    }
+
+    private static string BuildSeedPrompt(CatalogItem seed, IReadOnlyList<CatalogItem> pool)
+    {
+        var sb = new StringBuilder();
+        var seedGenres = string.Join(", ", CatalogFeatures.Parse(seed.GenresJson).Take(5));
+        var seedYear = seed.ProductionYear?.ToString(CultureInfo.InvariantCulture) ?? "n/a";
+        sb.Append("Just watched: ").Append(string.IsNullOrWhiteSpace(seed.Title) ? "(untitled)" : seed.Title)
+          .Append(" (").Append(seedYear).Append(") | Type: ").Append(seed.MediaType)
+          .Append(" | Genres: ").AppendLine(string.IsNullOrEmpty(seedGenres) ? "n/a" : seedGenres);
+        if (!string.IsNullOrWhiteSpace(seed.Overview))
+        {
+            var overview = seed.Overview!;
+            sb.Append("About: ").AppendLine(overview.Length > 300 ? overview[..300] : overview);
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("Candidates:");
+        for (var i = 0; i < pool.Count; i++)
+        {
+            var item = pool[i];
+            var genres = string.Join(", ", CatalogFeatures.Parse(item.GenresJson).Take(4));
+            var year = item.ProductionYear?.ToString(CultureInfo.InvariantCulture) ?? "n/a";
+            var rating = item.CommunityRating?.ToString("0.0", CultureInfo.InvariantCulture) ?? "n/a";
+            var title = string.IsNullOrWhiteSpace(item.Title) ? "(untitled)" : item.Title;
+            sb.Append(i.ToString(CultureInfo.InvariantCulture)).Append(") ").Append(title)
+              .Append(" (").Append(year).Append(") | Type: ").Append(item.MediaType)
+              .Append(" | Genres: ").Append(string.IsNullOrEmpty(genres) ? "n/a" : genres)
+              .Append(" | Rating: ").Append(rating)
+              .AppendLine();
+        }
+
+        return sb.ToString();
     }
 
     // Keyed by the exact candidate set+order so re-uses are exact and a changed slate re-queries.

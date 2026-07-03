@@ -22,9 +22,8 @@ namespace Wholphin.Engine.Trailer;
 /// </summary>
 public class TrailerService : ITrailerService
 {
-    private const int ClipSeconds = 60;
-    private const int DownloadTimeoutMs = 120_000;
-    private const int TranscodeTimeoutMs = 120_000;
+    private const int DownloadTimeoutMs = 240_000;
+    private const int TranscodeTimeoutMs = 240_000;
 
     /// <summary>
     /// Hard cap per warm batch. Sized for the worker's two pools (24 WatchNow + 24 requestable) —
@@ -71,7 +70,9 @@ public class TrailerService : ITrailerService
             return null;
         }
 
-        var outPath = Path.Combine(CacheDir, $"{tmdbId}.mp4");
+        // ".full" distinguishes full-length trailers from the legacy 60s clips ("{id}.mp4"), so
+        // previously-warmed titles transparently re-warm at full length instead of serving the cut.
+        var outPath = Path.Combine(CacheDir, $"{tmdbId}.full.mp4");
         if (File.Exists(outPath) && new FileInfo(outPath).Length > 0)
         {
             return outPath;
@@ -135,9 +136,10 @@ public class TrailerService : ITrailerService
 
         try
         {
-            // 1. yt-dlp: grab the smallest mp4 (we only need a low-quality preview).
+            // 1. yt-dlp: best stream capped at 480p (full trailers are watched, so "worst" looked
+            // too rough), falling back down the format ladder when a capped mp4 isn't offered.
             var dl = await RunAsync("yt-dlp",
-                $"-f \"worst[ext=mp4]/worst\" --no-playlist --no-warnings --no-progress -o \"{tmp}\" \"{youtubeUrl}\"",
+                $"-f \"best[height<=480][ext=mp4]/best[height<=480]/worst[ext=mp4]/worst\" --no-playlist --no-warnings --no-progress -o \"{tmp}\" \"{youtubeUrl}\"",
                 DownloadTimeoutMs, ct).ConfigureAwait(false);
             if (!dl || !File.Exists(tmp))
             {
@@ -145,9 +147,10 @@ public class TrailerService : ITrailerService
                 return null;
             }
 
-            // 2. ffmpeg: cap length + downscale to 480p at a low bitrate for fast streaming.
+            // 2. ffmpeg: FULL length (no time cap — users watch the whole trailer), downscaled to
+            // 480p at a low bitrate for fast LAN streaming.
             var tx = await RunAsync("ffmpeg",
-                $"-y -i \"{tmp}\" -t {ClipSeconds} -vf scale=-2:480 -b:v 700k -maxrate 900k -bufsize 1200k " +
+                $"-y -i \"{tmp}\" -vf scale=-2:480 -b:v 700k -maxrate 900k -bufsize 1200k " +
                 $"-c:v libx264 -preset veryfast -c:a aac -b:a 96k -movflags +faststart \"{outPath}\"",
                 TranscodeTimeoutMs, ct).ConfigureAwait(false);
             if (!tx || !File.Exists(outPath))
@@ -155,6 +158,9 @@ public class TrailerService : ITrailerService
                 _metrics.Increment("trailer.transcode.error");
                 return null;
             }
+
+            // Drop the superseded 60s clip so the cache doesn't hold both variants.
+            TryDelete(Path.Combine(CacheDir, $"{tmdbId}.mp4"));
 
             _metrics.Increment("trailer.cache.ok");
             return outPath;

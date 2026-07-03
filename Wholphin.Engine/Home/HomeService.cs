@@ -38,17 +38,6 @@ public class HomeService
     /// </summary>
     private const int OverFetchFactor = 3;
 
-    /// <summary>Requestable candidate pool = <c>size</c> × this, sliced into the "… to Request" rows.</summary>
-    private const int RequestablePoolFactor = 12;
-
-    /// <summary>Minimum (pre-de-dup) items for a genre "… to Request" row to be worth adding.</summary>
-    private const int MinDiscoveryGenreRow = 6;
-
-    /// <summary>Genres sliced into their own "… to Request" rows from the requestable pool (variety).</summary>
-    private static readonly string[] RequestGenres =
-    {
-        "Action", "Comedy", "Drama", "Thriller", "Science Fiction", "Animation"
-    };
 
     /// <summary>Time a precomputed home read-model stays valid before a rebuild.</summary>
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(15);
@@ -174,14 +163,26 @@ public class HomeService
             var forYouTitle = string.IsNullOrWhiteSpace(reranked.RowTitle) ? "For You" : reranked.RowTitle!;
             AddRow(bundle, "foryou", forYouTitle, "recommended", reranked.Items, capabilities, reasons: reranked.Reasons);
 
-            // "Because You Watched X": content-similar titles seeded by the user's latest watch.
+            // "Because You Watched X": seeded by the user's latest watch. The similarity engine
+            // prefilters a wide candidate pool; when the LLM is configured it then GENUINELY picks
+            // which of those a fan of the seed would watch next (with per-item "why" blurbs shown as
+            // card subtitles). Fail-soft: without an LLM the similarity order stands unchanged.
             if (flags.SimilarityRows)
             {
-                var byw = await _similarity.BecauseYouWatchedAsync(userId!.Value, size, ct).ConfigureAwait(false);
+                var byw = await _similarity.BecauseYouWatchedAsync(userId!.Value, size * 2, ct).ConfigureAwait(false);
                 if (byw.Seed is { } seed && byw.Items.Count > 0)
                 {
+                    var candidates = byw.Items.Select(r => r.Item).ToList();
+                    var picked = await _llmReRanker.PickForSeedAsync(seed, candidates, ct).ConfigureAwait(false);
                     var title = string.IsNullOrWhiteSpace(seed.Title) ? "Because You Watched" : $"Because You Watched {seed.Title}";
-                    AddRow(bundle, "becauseyouwatched", title, "similar", byw.Items.Select(r => r.Item).ToList(), capabilities);
+                    AddRow(
+                        bundle,
+                        "becauseyouwatched",
+                        title,
+                        "similar",
+                        picked.Items.Take(size).ToList(),
+                        capabilities,
+                        reasons: picked.Applied ? picked.Reasons : null);
                 }
             }
 
@@ -246,43 +247,18 @@ public class HomeService
             }
         }
 
-        // Availability-aware discovery (Milestone 2): not-yet-available titles worth requesting.
-        // Pull a large requestable pool once, then slice it into several varied rows (highest-rated,
-        // newest, a few genres). De-dup (below) keeps the slices from repeating the same titles, so
-        // the home leans on fresh Jellyseerr content instead of re-showing the same library items.
+        // Availability-aware discovery (Milestone 2): one row of not-yet-available titles worth
+        // requesting. (The "... to Request" genre/newest slices were removed at the user's request —
+        // requestable variety lives in this single row; over-fetched so it survives de-dup.)
         if (flags.JellyseerrDiscovery)
         {
-            var requestable = await db.CatalogItems
+            var worthRequesting = await db.CatalogItems
                 .Where(c => c.Availability == AvailabilityState.Request)
                 .OrderByDescending(c => c.CommunityRating)
-                .Take(size * RequestablePoolFactor)
+                .Take(size * OverFetchFactor)
                 .ToListAsync(ct)
                 .ConfigureAwait(false);
-
-            // Highest-rated requestable titles.
-            AddRow(bundle, "discover", "Trending to Request", "discover", requestable.Take(size * OverFetchFactor).ToList(), capabilities);
-
-            // Newest requestable titles by release year.
-            var newest = requestable
-                .Where(c => c.ProductionYear is not null)
-                .OrderByDescending(c => c.ProductionYear)
-                .Take(size * OverFetchFactor)
-                .ToList();
-            AddRow(bundle, "discover:new", "New to Request", "discover", newest, capabilities);
-
-            // A few genre slices for variety (from the same pool; de-dup keeps the slices distinct).
-            foreach (var genre in RequestGenres)
-            {
-                var inGenre = requestable
-                    .Where(c => CatalogFeatures.Parse(c.GenresJson)
-                        .Any(g => string.Equals(g, genre, StringComparison.OrdinalIgnoreCase)))
-                    .Take(size * OverFetchFactor)
-                    .ToList();
-                if (inGenre.Count >= MinDiscoveryGenreRow)
-                {
-                    AddRow(bundle, $"discover:{genre.ToLowerInvariant()}", $"{genre} to Request", "discover", inGenre, capabilities);
-                }
-            }
+            AddRow(bundle, "discover", "Worth Requesting", "discover", worthRequesting, capabilities);
         }
 
         var movies = await db.CatalogItems

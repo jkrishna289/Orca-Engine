@@ -1,7 +1,7 @@
 ---
 name: "Orca Engine"
 guid: "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e"
-version: "1.0.3.0"
+version: "1.0.4.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Server-side intelligence engine for the Orca X app."

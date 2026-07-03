@@ -46,4 +46,16 @@ public interface ILlmReRanker
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The re-rank result (passthrough on any miss).</returns>
     Task<LlmReRankResult> ReRankAsync(Guid userId, IReadOnlyList<CatalogItem> candidates, double confidence, CancellationToken ct = default);
+
+    /// <summary>
+    /// Genuine LLM "Because You Watched": given the title the viewer just watched and a candidate
+    /// pool (content-similarity prefilter), asks the LLM which candidates a fan of the seed would
+    /// genuinely watch next — with a short "why" per pick. No confidence gate: the seed itself is
+    /// the context, so this works from the very first watch. Passthrough (input order) on any miss.
+    /// </summary>
+    /// <param name="seed">The most recently watched title seeding the row.</param>
+    /// <param name="candidates">The candidate pool to pick from (similarity-prefiltered).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The picked/ordered result (passthrough on any miss).</returns>
+    Task<LlmReRankResult> PickForSeedAsync(CatalogItem seed, IReadOnlyList<CatalogItem> candidates, CancellationToken ct = default);
 }

@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Trailer cache now pre-warms requestable (discover) titles too - the 16:9 rows that actually play inline trailers - with more titles per cycle (24+24 every 2h, was 12 WatchNow-only every 6h). The manual Prebuffer endpoint covers both pools and accepts up to 60 titles.",
+  "changelog": "Full-length trailers (no more 60s cut, better source quality, no looping client-side); Warm Orca trailer cache is now a real Jellyfin scheduled task (Dashboard > Scheduled Tasks, default every 60h, trigger user-editable); genuine LLM Because You Watched picks (Groq) with why-blurbs when configured; the ... to Request rows are folded back into a single Worth Requesting row; plugin now reports its real version (assembly version was stuck at 1.0.0.0).",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.0.3.0",
+  "version": "1.0.4.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
