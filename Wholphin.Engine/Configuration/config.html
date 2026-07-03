@@ -371,7 +371,7 @@
             function loadStatus() {
                 var el = document.querySelector('#WholphinEngineStatus');
                 el.textContent = 'Loading…';
-                ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('WholphinEngine/Admin/Status'), dataType: 'json' })
+                ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('OrcaEngine/Admin/Status'), dataType: 'json' })
                     .then(function (s) {
                         var f = s.Features || {};
                         var cat = s.Catalog || {};
@@ -403,11 +403,11 @@
             }
 
             document.querySelector('#WeRefreshStatus').addEventListener('click', loadStatus);
-            document.querySelector('#WeResync').addEventListener('click', function () { runOp('Resync', 'WholphinEngine/Catalog/Resync'); });
-            document.querySelector('#WeImportDiscover').addEventListener('click', function () { runOp('Discovery import', 'WholphinEngine/Catalog/ImportDiscover?pages=2'); });
-            document.querySelector('#WeEnrichTmdb').addEventListener('click', function () { runOp('TMDB enrichment', 'WholphinEngine/Catalog/EnrichTmdb?maxItems=100'); });
-            document.querySelector('#WeRecomputeRatings').addEventListener('click', function () { runOp('Recompute ratings', 'WholphinEngine/Analytics/CommunityRating/Recompute'); });
-            document.querySelector('#WeReconcile').addEventListener('click', function () { runOp('Reconcile', 'WholphinEngine/Catalog/Reconcile'); });
+            document.querySelector('#WeResync').addEventListener('click', function () { runOp('Resync', 'OrcaEngine/Catalog/Resync'); });
+            document.querySelector('#WeImportDiscover').addEventListener('click', function () { runOp('Discovery import', 'OrcaEngine/Catalog/ImportDiscover?pages=2'); });
+            document.querySelector('#WeEnrichTmdb').addEventListener('click', function () { runOp('TMDB enrichment', 'OrcaEngine/Catalog/EnrichTmdb?maxItems=100'); });
+            document.querySelector('#WeRecomputeRatings').addEventListener('click', function () { runOp('Recompute ratings', 'OrcaEngine/Analytics/CommunityRating/Recompute'); });
+            document.querySelector('#WeReconcile').addEventListener('click', function () { runOp('Reconcile', 'OrcaEngine/Catalog/Reconcile'); });
         })();
     </script>
 </div>
