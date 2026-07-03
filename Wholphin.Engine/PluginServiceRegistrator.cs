@@ -146,5 +146,9 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // dormant until the binaries are installed) + a periodic warmer for prominent titles.
         serviceCollection.AddSingleton<Trailer.ITrailerService, Trailer.TrailerService>();
         serviceCollection.AddHostedService<Trailer.TrailerPrebufferWorker>();
+
+        // LAN app-update channel: mirrors the newest Orca X GitHub release + disk-caches its APKs,
+        // so every TV client updates from the server instead of re-downloading from GitHub.
+        serviceCollection.AddSingleton<Wholphin.Engine.Update.IAppUpdateService, Wholphin.Engine.Update.AppUpdateService>();
     }
 }
