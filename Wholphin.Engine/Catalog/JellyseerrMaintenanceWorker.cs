@@ -21,11 +21,15 @@ public class JellyseerrMaintenanceWorker : IHostedService
     /// <summary>How often availability is reconciled.</summary>
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(15);
 
-    /// <summary>Run a discovery import every N ticks (≈ every 6 hours at a 15-minute interval).</summary>
-    private const int DiscoveryEveryNTicks = 24;
+    /// <summary>Run a discovery import every N ticks (≈ every 2 hours at a 15-minute interval).</summary>
+    private const int DiscoveryEveryNTicks = 8;
 
-    /// <summary>Discovery pages pulled per media type on each discovery cycle.</summary>
-    private const int DiscoveryPages = 2;
+    /// <summary>
+    /// Discovery pages pulled per media type on each discovery cycle. Pulled up so the catalog holds
+    /// a deep pool of requestable titles (≈20 items/page × movies+series × sources) — enough to fill
+    /// the several "… to Request" rows with fresh, varied content instead of repeating library items.
+    /// </summary>
+    private const int DiscoveryPages = 10;
 
     /// <summary>Requestable rows to backfill from TMDB per tick (round-robin; no-op when nothing's missing).</summary>
     private const int EnrichPerTick = 40;

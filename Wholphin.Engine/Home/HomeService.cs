@@ -31,6 +31,25 @@ public class HomeService
     /// <summary>Fixed size of a numbered Top-10 row.</summary>
     private const int Top10RowSize = 10;
 
+    /// <summary>
+    /// Over-fetch factor for the generic library/discovery queries so each row still fills to
+    /// <c>size</c> after cross-row de-duplication (<see cref="DeduplicateRows"/>) drops titles a
+    /// higher-priority row already claimed.
+    /// </summary>
+    private const int OverFetchFactor = 3;
+
+    /// <summary>Requestable candidate pool = <c>size</c> × this, sliced into the "… to Request" rows.</summary>
+    private const int RequestablePoolFactor = 12;
+
+    /// <summary>Minimum (pre-de-dup) items for a genre "… to Request" row to be worth adding.</summary>
+    private const int MinDiscoveryGenreRow = 6;
+
+    /// <summary>Genres sliced into their own "… to Request" rows from the requestable pool (variety).</summary>
+    private static readonly string[] RequestGenres =
+    {
+        "Action", "Comedy", "Drama", "Thriller", "Science Fiction", "Animation"
+    };
+
     /// <summary>Time a precomputed home read-model stays valid before a rebuild.</summary>
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(15);
 
@@ -185,7 +204,7 @@ public class HomeService
 
         var recentlyAdded = await db.CatalogItems
             .OrderByDescending(c => c.DateAdded)
-            .Take(size)
+            .Take(size * OverFetchFactor)
             .ToListAsync(ct)
             .ConfigureAwait(false);
         AddRow(bundle, "recent", "Recently Added", "recent", recentlyAdded, capabilities);
@@ -228,21 +247,48 @@ public class HomeService
         }
 
         // Availability-aware discovery (Milestone 2): not-yet-available titles worth requesting.
+        // Pull a large requestable pool once, then slice it into several varied rows (highest-rated,
+        // newest, a few genres). De-dup (below) keeps the slices from repeating the same titles, so
+        // the home leans on fresh Jellyseerr content instead of re-showing the same library items.
         if (flags.JellyseerrDiscovery)
         {
-            var worthRequesting = await db.CatalogItems
+            var requestable = await db.CatalogItems
                 .Where(c => c.Availability == AvailabilityState.Request)
                 .OrderByDescending(c => c.CommunityRating)
-                .Take(size)
+                .Take(size * RequestablePoolFactor)
                 .ToListAsync(ct)
                 .ConfigureAwait(false);
-            AddRow(bundle, "discover", "Worth Requesting", "discover", worthRequesting, capabilities);
+
+            // Highest-rated requestable titles.
+            AddRow(bundle, "discover", "Trending to Request", "discover", requestable.Take(size * OverFetchFactor).ToList(), capabilities);
+
+            // Newest requestable titles by release year.
+            var newest = requestable
+                .Where(c => c.ProductionYear is not null)
+                .OrderByDescending(c => c.ProductionYear)
+                .Take(size * OverFetchFactor)
+                .ToList();
+            AddRow(bundle, "discover:new", "New to Request", "discover", newest, capabilities);
+
+            // A few genre slices for variety (from the same pool; de-dup keeps the slices distinct).
+            foreach (var genre in RequestGenres)
+            {
+                var inGenre = requestable
+                    .Where(c => CatalogFeatures.Parse(c.GenresJson)
+                        .Any(g => string.Equals(g, genre, StringComparison.OrdinalIgnoreCase)))
+                    .Take(size * OverFetchFactor)
+                    .ToList();
+                if (inGenre.Count >= MinDiscoveryGenreRow)
+                {
+                    AddRow(bundle, $"discover:{genre.ToLowerInvariant()}", $"{genre} to Request", "discover", inGenre, capabilities);
+                }
+            }
         }
 
         var movies = await db.CatalogItems
             .Where(c => c.MediaType == MediaType.Movie)
             .OrderByDescending(c => c.DateAdded)
-            .Take(size)
+            .Take(size * OverFetchFactor)
             .ToListAsync(ct)
             .ConfigureAwait(false);
         AddRow(bundle, "movies", "Movies", "library", movies, capabilities);
@@ -250,7 +296,7 @@ public class HomeService
         var series = await db.CatalogItems
             .Where(c => c.MediaType == MediaType.Series)
             .OrderByDescending(c => c.DateAdded)
-            .Take(size)
+            .Take(size * OverFetchFactor)
             .ToListAsync(ct)
             .ConfigureAwait(false);
         AddRow(bundle, "series", "Series", "library", series, capabilities);
@@ -261,6 +307,11 @@ public class HomeService
         {
             ReorderByConfidence(bundle, confidence);
         }
+
+        // Cross-row de-duplication in final display order: the highest-priority row keeps each title,
+        // lower rows drop repeats — so the same movie/show stops appearing in nearly every row. Runs
+        // for non-personalized bundles too (there insertion order already is the display order).
+        DeduplicateRows(bundle, size);
 
         if (cacheKey is not null)
         {
@@ -275,6 +326,71 @@ public class HomeService
     {
         // OrderBy is a stable sort, so rows with equal priority keep their insertion order.
         bundle.Rows = bundle.Rows.OrderBy(r => LayoutPriority(r.Id, confidence)).ToList();
+    }
+
+    /// <summary>
+    /// Removes titles that already appear in a higher (earlier) row, walking rows in final display
+    /// order, and caps each de-duplicated row at <paramref name="maxPerRow"/>. The billboard is a
+    /// separate surface (left fully independent — its hero may also head "For You"); the numbered
+    /// Top-10 keeps all its items (removing any would leave gaps like 1, 2, 4) but still reserves its
+    /// titles so the generic rows below don't repeat the most-popular ones. Rows emptied out are dropped.
+    /// </summary>
+    private static void DeduplicateRows(RenderBundle bundle, int maxPerRow)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var row in bundle.Rows)
+        {
+            if (row.Id == "spotlight")
+            {
+                continue;
+            }
+
+            if (row.RowStyle == RowStyle.Top10)
+            {
+                foreach (var it in row.Items)
+                {
+                    seen.Add(MediaKey(it));
+                }
+
+                continue;
+            }
+
+            var kept = new List<RenderItem>(Math.Min(row.Items.Count, maxPerRow));
+            foreach (var it in row.Items)
+            {
+                if (kept.Count >= maxPerRow)
+                {
+                    break;
+                }
+
+                if (seen.Add(MediaKey(it)))
+                {
+                    kept.Add(it);
+                }
+            }
+
+            row.Items = kept;
+        }
+
+        bundle.Rows = bundle.Rows.Where(r => r.Items.Count > 0).ToList();
+    }
+
+    /// <summary>A stable per-title key for de-dup: Jellyfin id when in the library, else the TMDB id.</summary>
+    private static string MediaKey(RenderItem item)
+    {
+        var m = item.Media;
+        if (m.JellyfinId is { } jf && jf != Guid.Empty)
+        {
+            return $"jf:{jf:N}";
+        }
+
+        if (m.TmdbId is { } tmdb && tmdb > 0)
+        {
+            return $"tmdb:{tmdb}:{(int)m.MediaType}";
+        }
+
+        // No stable id → treat as unique so it's never wrongly de-duplicated away.
+        return $"anon:{Guid.NewGuid():N}";
     }
 
     private static int LayoutPriority(string rowId, double confidence)
@@ -293,6 +409,12 @@ public class HomeService
             return confidence >= ConfidenceLayoutThreshold ? 11 : 12;
         }
 
+        // All requestable/discovery rows (id "discover" or "discover:*") sit together as one block.
+        if (rowId.StartsWith("discover", StringComparison.Ordinal))
+        {
+            return confidence >= ConfidenceLayoutThreshold ? 8 : 5;
+        }
+
         var warm = confidence >= ConfidenceLayoutThreshold;
         return rowId switch
         {
@@ -301,7 +423,6 @@ public class HomeService
             "comingsoon" => warm ? 5 : 6,
             "recent" => warm ? 6 : 4,
             "trending" => warm ? 7 : 3,
-            "discover" => warm ? 8 : 5,
             "movies" => warm ? 9 : 13,
             "series" => warm ? 10 : 14,
             _ => 100,
