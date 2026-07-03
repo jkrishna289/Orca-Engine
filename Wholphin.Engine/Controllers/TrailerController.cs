@@ -57,8 +57,8 @@ public class TrailerController : ControllerBase
         return NotFound();
     }
 
-    /// <summary>Pre-buffers trailers for the most prominent catalog titles (top-rated, available).</summary>
-    /// <param name="maxItems">Maximum titles to warm (1-30, default 15).</param>
+    /// <summary>Pre-buffers trailers for the most prominent catalog titles (top-rated WatchNow + requestable).</summary>
+    /// <param name="maxItems">Maximum titles to warm (1-60, default 15).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of trailers cached.</returns>
     [HttpPost("Prebuffer")]
@@ -71,10 +71,13 @@ public class TrailerController : ControllerBase
         }
 
         await using var db = _factory.Create();
+
+        // WatchNow AND requestable titles: the discover rows are the 16:9 cards that play trailers.
         var items = await db.CatalogItems
-            .Where(c => c.TmdbId != null && c.Availability == AvailabilityState.WatchNow)
+            .Where(c => c.TmdbId != null
+                && (c.Availability == AvailabilityState.WatchNow || c.Availability == AvailabilityState.Request))
             .OrderByDescending(c => c.CommunityRating)
-            .Take(Math.Clamp(maxItems, 1, 30))
+            .Take(Math.Clamp(maxItems, 1, 60))
             .Select(c => new { TmdbId = c.TmdbId!.Value, c.MediaType })
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);

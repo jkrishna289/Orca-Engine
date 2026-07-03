@@ -25,7 +25,12 @@ public class TrailerService : ITrailerService
     private const int ClipSeconds = 60;
     private const int DownloadTimeoutMs = 120_000;
     private const int TranscodeTimeoutMs = 120_000;
-    private const int MaxPrebuffer = 15;
+
+    /// <summary>
+    /// Hard cap per warm batch. Sized for the worker's two pools (24 WatchNow + 24 requestable) —
+    /// it silently truncated larger batches when it was 15, starving the discover-row trailers.
+    /// </summary>
+    private const int MaxPrebuffer = 60;
 
     private readonly IApplicationPaths _appPaths;
     private readonly ITmdbClient _tmdb;

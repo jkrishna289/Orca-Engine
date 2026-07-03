@@ -12,15 +12,17 @@ using Wholphin.Engine.Settings;
 namespace Wholphin.Engine.Trailer;
 
 /// <summary>
-/// Periodically warms the trailer cache for the most prominent available titles (top-rated WatchNow),
-/// so card-focus previews hit the cache. Gated on the <c>TrailerPrebuffer</c> flag and the presence of
-/// yt-dlp/ffmpeg — a complete no-op (and cheap) when either is off/absent.
+/// Periodically warms the trailer cache for the most prominent titles so card-focus previews hit the
+/// cache: the top-rated WatchNow titles AND the top-rated requestable ones — the discover rows render
+/// as the 16:9 trailer cards, so their titles need warm trailers the most. Gated on the
+/// <c>TrailerPrebuffer</c> flag and the presence of yt-dlp/ffmpeg — a complete no-op when either is
+/// off/absent.
 /// </summary>
 public class TrailerPrebufferWorker : IHostedService
 {
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(6);
-    private const int PrebufferCount = 12;
+    private static readonly TimeSpan Interval = TimeSpan.FromHours(2);
+    private const int PrebufferCount = 24;
 
     private readonly ITrailerService _trailers;
     private readonly ISettingsService _settings;
@@ -98,7 +100,10 @@ public class TrailerPrebufferWorker : IHostedService
     private async Task PrebufferAsync(CancellationToken ct)
     {
         await using var db = _factory.Create();
-        var items = await db.CatalogItems
+
+        // Library titles (WatchNow) + requestable discover titles — the latter fill the 16:9
+        // BannerWide rows where inline trailers actually play, so they must be warmed too.
+        var watchNow = await db.CatalogItems
             .Where(c => c.TmdbId != null && c.Availability == AvailabilityState.WatchNow)
             .OrderByDescending(c => c.CommunityRating)
             .Take(PrebufferCount)
@@ -106,7 +111,20 @@ public class TrailerPrebufferWorker : IHostedService
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var cached = await _trailers.PrebufferAsync(items.Select(i => (i.TmdbId, i.MediaType)), ct).ConfigureAwait(false);
+        var requestable = await db.CatalogItems
+            .Where(c => c.TmdbId != null && c.Availability == AvailabilityState.Request)
+            .OrderByDescending(c => c.CommunityRating)
+            .Take(PrebufferCount)
+            .Select(c => new { TmdbId = c.TmdbId!.Value, c.MediaType })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var items = watchNow.Concat(requestable)
+            .Select(i => (i.TmdbId, i.MediaType))
+            .Distinct()
+            .ToList();
+
+        var cached = await _trailers.PrebufferAsync(items, ct).ConfigureAwait(false);
         if (cached > 0)
         {
             _logger.LogInformation("Orca Engine: pre-buffered {Count} trailers.", cached);
