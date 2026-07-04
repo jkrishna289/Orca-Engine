@@ -20,7 +20,6 @@ namespace Wholphin.Engine.Controllers;
 public class CatalogController : ControllerBase
 {
     private readonly ILibrarySyncService _sync;
-    private readonly IDiscoveryImporter _discovery;
     private readonly IAvailabilityReconciler _reconciler;
     private readonly ICatalogEnricher _enricher;
     private readonly IWatchProviderEnricher _watchProviders;
@@ -31,14 +30,12 @@ public class CatalogController : ControllerBase
     /// </summary>
     public CatalogController(
         ILibrarySyncService sync,
-        IDiscoveryImporter discovery,
         IAvailabilityReconciler reconciler,
         ICatalogEnricher enricher,
         IWatchProviderEnricher watchProviders,
         IWholphinDbContextFactory factory)
     {
         _sync = sync;
-        _discovery = discovery;
         _reconciler = reconciler;
         _enricher = enricher;
         _watchProviders = watchProviders;
@@ -75,18 +72,25 @@ public class CatalogController : ControllerBase
     }
 
     /// <summary>
-    /// Imports requestable (not-yet-available) titles from Jellyseerr discovery into the catalog.
-    /// No-op unless the availability-aware discovery feature is enabled and Jellyseerr is configured.
+    /// Deletes external (not-in-library) Request-state rows nothing justifies any more — no media
+    /// request, no behavior signal, no live discovery pick. The discovery sweep runs the same
+    /// predicate every cycle; this is the manual trigger.
     /// </summary>
-    /// <param name="pages">Discovery pages to pull per media type (1-20).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of new requestable items added.</returns>
-    [HttpPost("ImportDiscover")]
+    /// <returns>The number of rows deleted.</returns>
+    [HttpPost("PurgeUnjustified")]
     [AllowAnonymous]
-    public async Task<ActionResult> ImportDiscover([FromQuery] int pages = 1, CancellationToken cancellationToken = default)
+    public async Task<ActionResult> PurgeUnjustified(CancellationToken cancellationToken = default)
     {
-        var added = await _discovery.ImportAsync(pages, cancellationToken).ConfigureAwait(false);
-        return Ok(new { added });
+        await using var db = _factory.Create();
+        var deleted = await db.CatalogItems
+            .Where(c => c.JellyfinItemId == null && c.Availability == Data.Enums.AvailabilityState.Request)
+            .Where(c => c.TmdbId == null || !db.MediaRequests.Any(r => r.TmdbId == c.TmdbId.Value))
+            .Where(c => !db.BehaviorEvents.Any(e => e.CatalogItemId == c.Id))
+            .Where(c => !db.UserDiscoveryPicks.Any(p => p.CatalogItemId == c.Id))
+            .ExecuteDeleteAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return Ok(new { deleted });
     }
 
     /// <summary>

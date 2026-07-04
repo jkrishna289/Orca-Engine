@@ -20,7 +20,7 @@ namespace Wholphin.Engine.Data;
 public class DatabaseInitializer : IHostedService
 {
     /// <summary>The schema version this build expects.</summary>
-    public const int SchemaVersion = 6;
+    public const int SchemaVersion = 8;
 
     /// <summary>
     /// Idempotent migration steps keyed by the version they bring the schema TO. Each statement is
@@ -42,6 +42,75 @@ public class DatabaseInitializer : IHostedService
             );
             CREATE INDEX IF NOT EXISTS "IX_MediaRequests_CreatedAt" ON "MediaRequests" ("CreatedAt");
             CREATE INDEX IF NOT EXISTS "IX_MediaRequests_UserId" ON "MediaRequests" ("UserId");
+            """),
+        // v7 — justified discovery: pick/memory/run tables, plus a one-time purge of external
+        // Availability=Request rows left behind by the old blind discovery import. The DELETE only
+        // touches rows nothing references (no request by TmdbId, no behavior event, no pick), so
+        // re-running it is safe; in-flight rows (Requested/Downloading/RecentlyAdded) have a
+        // different Availability value and are untouched by construction.
+        (7,
+            """
+            CREATE TABLE IF NOT EXISTS "UserDiscoveryPicks" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_UserDiscoveryPicks" PRIMARY KEY AUTOINCREMENT,
+                "UserId" TEXT NOT NULL,
+                "CatalogItemId" INTEGER NOT NULL,
+                "Kind" INTEGER NOT NULL,
+                "SourceType" TEXT NULL,
+                "Reason" TEXT NULL,
+                "SeedTmdbId" INTEGER NULL,
+                "SeedTitle" TEXT NULL,
+                "Country" TEXT NULL,
+                "FinalScore" REAL NOT NULL,
+                "TasteScore" REAL NOT NULL,
+                "PopularityScore" REAL NOT NULL,
+                "FreshnessScore" REAL NOT NULL,
+                "ScoreExplanationJson" TEXT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                "ExpiresAt" TEXT NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_UserDiscoveryPicks_UserId_Kind" ON "UserDiscoveryPicks" ("UserId", "Kind");
+            CREATE INDEX IF NOT EXISTS "IX_UserDiscoveryPicks_CatalogItemId" ON "UserDiscoveryPicks" ("CatalogItemId");
+            CREATE INDEX IF NOT EXISTS "IX_UserDiscoveryPicks_ExpiresAt" ON "UserDiscoveryPicks" ("ExpiresAt");
+            CREATE INDEX IF NOT EXISTS "IX_UserDiscoveryPicks_Kind_Country" ON "UserDiscoveryPicks" ("Kind", "Country");
+            CREATE TABLE IF NOT EXISTS "UserItemMemories" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_UserItemMemories" PRIMARY KEY AUTOINCREMENT,
+                "UserId" TEXT NOT NULL,
+                "TmdbId" INTEGER NOT NULL,
+                "MediaType" INTEGER NOT NULL,
+                "TimesRecommended" INTEGER NOT NULL,
+                "LastRecommendedAt" TEXT NULL,
+                "Impressions" INTEGER NOT NULL,
+                "Engagements" INTEGER NOT NULL,
+                "LastEngagedAt" TEXT NULL,
+                "InterestScore" REAL NOT NULL,
+                "CooldownUntil" TEXT NULL,
+                "UpdatedAt" TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_UserItemMemories_UserId_TmdbId_MediaType" ON "UserItemMemories" ("UserId", "TmdbId", "MediaType");
+            CREATE INDEX IF NOT EXISTS "IX_UserItemMemories_UpdatedAt" ON "UserItemMemories" ("UpdatedAt");
+            CREATE TABLE IF NOT EXISTS "DiscoveryRuns" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_DiscoveryRuns" PRIMARY KEY AUTOINCREMENT,
+                "UserId" TEXT NOT NULL,
+                "StartedAt" TEXT NOT NULL,
+                "DurationMs" INTEGER NOT NULL,
+                "Generated" INTEGER NOT NULL,
+                "FilteredOut" INTEGER NOT NULL,
+                "FilterReasonsJson" TEXT NULL,
+                "Scored" INTEGER NOT NULL,
+                "DiversityReordered" INTEGER NOT NULL,
+                "BelowThreshold" INTEGER NOT NULL,
+                "Selected" INTEGER NOT NULL,
+                "Imported" INTEGER NOT NULL,
+                "PerSourceJson" TEXT NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_DiscoveryRuns_UserId_StartedAt" ON "DiscoveryRuns" ("UserId", "StartedAt");
+            CREATE INDEX IF NOT EXISTS "IX_DiscoveryRuns_StartedAt" ON "DiscoveryRuns" ("StartedAt");
+            DELETE FROM "CatalogItems"
+            WHERE "JellyfinItemId" IS NULL
+              AND "Availability" = 1
+              AND ("TmdbId" IS NULL OR "TmdbId" NOT IN (SELECT "TmdbId" FROM "MediaRequests"))
+              AND "Id" NOT IN (SELECT "CatalogItemId" FROM "BehaviorEvents" WHERE "CatalogItemId" IS NOT NULL)
+              AND "Id" NOT IN (SELECT "CatalogItemId" FROM "UserDiscoveryPicks");
             """),
     };
 
@@ -67,6 +136,9 @@ public class DatabaseInitializer : IHostedService
         // v6 — LLM-generated content advisories (player content-warning overlay).
         ("CatalogItems", "ContentWarningsJson", "TEXT"),
         ("CatalogItems", "ContentWarningsSyncedAt", "TEXT"),
+        // v8 — richer taste signals: original language + collection/franchise (affinity + diversity).
+        ("CatalogItems", "OriginalLanguage", "TEXT"),
+        ("CatalogItems", "CollectionName", "TEXT"),
     };
 
     private readonly IWholphinDbContextFactory _factory;

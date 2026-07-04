@@ -186,6 +186,12 @@ public class DiscoverResult
     /// <summary>Gets or sets the community (TMDB) rating.</summary>
     public float? CommunityRating { get; set; }
 
+    /// <summary>Gets or sets the TMDB popularity score, when the source supplies it (TMDB direct; null from Jellyseerr).</summary>
+    public double? Popularity { get; set; }
+
+    /// <summary>Gets or sets the ISO-639-1 original language, when the source supplies it (TMDB direct; null from Jellyseerr).</summary>
+    public string? OriginalLanguage { get; set; }
+
     /// <summary>Gets or sets the genre names, when the source supplies them (TMDB direct; Jellyseerr discover gives ids only).</summary>
     public List<string> Genres { get; set; } = new();
 

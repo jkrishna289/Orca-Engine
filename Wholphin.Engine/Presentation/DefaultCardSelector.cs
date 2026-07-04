@@ -135,7 +135,8 @@ public class DefaultCardSelector : ICardSelector
         return trimmed.Length <= SynopsisMaxLength ? trimmed : trimmed[..SynopsisMaxLength].TrimEnd() + "…";
     }
 
-    // Row purposes whose cards render wide (16:9): For You, Worth Requesting, Coming Soon, New Since Away.
+    // Row purposes whose cards render wide (16:9): For You, the discovery rows (You Might Like /
+    // Because You Watched / country), Coming Soon, New Since Away.
     private static bool IsWidePurpose(string? purpose) => purpose switch
     {
         "recommended" or "discover" or "upcoming" or "newsince" => true,

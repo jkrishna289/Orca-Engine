@@ -5,9 +5,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Wholphin.Engine.Behavior;
+using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
+using Wholphin.Engine.Discovery;
 
 namespace Wholphin.Engine.Controllers;
 
@@ -24,17 +27,24 @@ public class BehaviorController : ControllerBase
         BehaviorEventType.CardImpression,
         BehaviorEventType.CardFocused,
         BehaviorEventType.CardClicked,
+        BehaviorEventType.TrailerPlayed,
         BehaviorEventType.Browsed,
         BehaviorEventType.Searched,
     };
 
     private readonly IBehaviorService _behavior;
+    private readonly IWholphinDbContextFactory _factory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BehaviorController"/> class.
     /// </summary>
     /// <param name="behavior">The behavior capture service.</param>
-    public BehaviorController(IBehaviorService behavior) => _behavior = behavior;
+    /// <param name="factory">Database context factory (external-item attribution + memory).</param>
+    public BehaviorController(IBehaviorService behavior, IWholphinDbContextFactory factory)
+    {
+        _behavior = behavior;
+        _factory = factory;
+    }
 
     /// <summary>Records an explicit thumbs-up / thumbs-down for an item.</summary>
     /// <param name="request">The feedback request.</param>
@@ -60,22 +70,47 @@ public class BehaviorController : ControllerBase
     }
 
     /// <summary>
-    /// Batch-ingests home telemetry (impressions, focus/dwell, clicks). Batched so the client can
-    /// flush many cards in one round-trip. Only telemetry event types are accepted; anything else is
-    /// ignored (explicit feedback goes through <see cref="RecordFeedback"/>).
+    /// Batch-ingests home telemetry (impressions, focus/dwell, clicks, trailer plays). Batched so
+    /// the client can flush many cards in one round-trip. Only telemetry event types are accepted;
+    /// anything else is ignored (explicit feedback goes through <see cref="RecordFeedback"/>).
+    /// External (not-in-library) cards have no Jellyfin id — they attribute via
+    /// <see cref="TelemetryEvent.TmdbId"/> instead, which resolves to the catalog row and feeds
+    /// both taste learning and per-item recommendation memory.
     /// </summary>
     /// <param name="batch">The telemetry batch.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>How many events were accepted.</returns>
     [HttpPost("Events")]
     [AllowAnonymous]
-    public ActionResult RecordEvents([FromBody] TelemetryBatch batch)
+    public async Task<ActionResult> RecordEvents([FromBody] TelemetryBatch batch, CancellationToken cancellationToken)
     {
         if (batch.UserId == Guid.Empty || batch.Events is not { Count: > 0 })
         {
             return BadRequest(new { error = "UserId and at least one event are required." });
         }
 
+        // Resolve external-card TMDB ids to catalog rows once for the whole batch.
+        var externalIds = batch.Events
+            .Where(e => e.ItemId == Guid.Empty && e.TmdbId is > 0)
+            .Select(e => e.TmdbId!.Value)
+            .Distinct()
+            .ToList();
+        var externalRows = new Dictionary<int, CatalogItem>();
+        if (externalIds.Count > 0)
+        {
+            await using var db = _factory.Create();
+            var rows = await db.CatalogItems.AsNoTracking()
+                .Where(c => c.TmdbId != null && externalIds.Contains(c.TmdbId.Value))
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            foreach (var row in rows)
+            {
+                externalRows.TryAdd(row.TmdbId!.Value, row);
+            }
+        }
+
         var accepted = 0;
+        var memoryUpdates = new List<(CatalogItem Item, BehaviorEventType Type)>();
         foreach (var ev in batch.Events)
         {
             if (!Enum.TryParse<BehaviorEventType>(ev.EventType, ignoreCase: true, out var type) || !AllowedTelemetry.Contains(type))
@@ -83,18 +118,90 @@ public class BehaviorController : ControllerBase
                 continue;
             }
 
+            CatalogItem? external = null;
+            if (ev.ItemId == Guid.Empty && ev.TmdbId is { } tmdbId && tmdbId > 0)
+            {
+                // Unknown TMDB ids are dropped fail-soft: an event we can't attribute teaches nothing.
+                if (!externalRows.TryGetValue(tmdbId, out external))
+                {
+                    continue;
+                }
+            }
+
             _behavior.Record(new BehaviorEvent
             {
                 UserId = batch.UserId,
                 JellyfinItemId = ev.ItemId == Guid.Empty ? null : ev.ItemId,
+                CatalogItemId = external?.Id,
                 EventType = type,
                 Value = ev.Value,
                 ContextJson = ev.Context,
             });
             accepted++;
+
+            if (external is not null && type is BehaviorEventType.CardImpression
+                or BehaviorEventType.CardClicked
+                or BehaviorEventType.TrailerPlayed)
+            {
+                memoryUpdates.Add((external, type));
+            }
+        }
+
+        if (memoryUpdates.Count > 0)
+        {
+            await ApplyMemoryAsync(batch.UserId, memoryUpdates, cancellationToken).ConfigureAwait(false);
         }
 
         return Accepted(new { accepted });
+    }
+
+    /// <summary>
+    /// Feeds external-card engagement into recommendation memory: impressions count exposure,
+    /// clicks and trailer plays restore interest (the gradual counterpart of the ignored-cycle
+    /// decay applied by the discovery sweep).
+    /// </summary>
+    private async Task ApplyMemoryAsync(
+        Guid userId,
+        IReadOnlyList<(CatalogItem Item, BehaviorEventType Type)> updates,
+        CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        await using var db = _factory.Create();
+        var tmdbIds = updates.Select(u => u.Item.TmdbId!.Value).Distinct().ToList();
+        var memories = await db.UserItemMemories
+            .Where(m => m.UserId == userId && tmdbIds.Contains(m.TmdbId))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        var byKey = memories.ToDictionary(m => (m.TmdbId, m.MediaType), m => m);
+
+        foreach (var (item, type) in updates)
+        {
+            var key = (item.TmdbId!.Value, item.MediaType);
+            if (!byKey.TryGetValue(key, out var memory))
+            {
+                memory = new UserItemMemory
+                {
+                    UserId = userId,
+                    TmdbId = key.Item1,
+                    MediaType = key.Item2,
+                    InterestScore = 1.0,
+                    UpdatedAt = now,
+                };
+                db.UserItemMemories.Add(memory);
+                byKey[key] = memory;
+            }
+
+            if (type == BehaviorEventType.CardImpression)
+            {
+                InterestModel.OnImpression(memory, now);
+            }
+            else
+            {
+                InterestModel.OnEngaged(memory, type, now);
+            }
+        }
+
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>Returns the most recent behavior events (newest first).</summary>
@@ -148,13 +255,20 @@ public class BehaviorController : ControllerBase
         public List<TelemetryEvent> Events { get; set; } = new();
     }
 
-    /// <summary>A single telemetry event (impression / focus / click / browse / search).</summary>
+    /// <summary>A single telemetry event (impression / focus / click / trailer / browse / search).</summary>
     public class TelemetryEvent
     {
-        /// <summary>Gets or sets the Jellyfin item id (empty for non-item events like search).</summary>
+        /// <summary>Gets or sets the Jellyfin item id (empty for non-item events like search, and for external cards).</summary>
         public Guid ItemId { get; set; }
 
-        /// <summary>Gets or sets the event type name (CardImpression / CardFocused / CardClicked / Browsed / Searched).</summary>
+        /// <summary>
+        /// Gets or sets the TMDB id for external (not-in-library) cards, which have no Jellyfin id.
+        /// Used only when <see cref="ItemId"/> is empty; unknown ids are dropped. Optional —
+        /// older clients that never send it keep working unchanged.
+        /// </summary>
+        public int? TmdbId { get; set; }
+
+        /// <summary>Gets or sets the event type name (CardImpression / CardFocused / CardClicked / TrailerPlayed / Browsed / Searched).</summary>
         public string EventType { get; set; } = string.Empty;
 
         /// <summary>Gets or sets the value (e.g. focus/dwell seconds for CardFocused).</summary>

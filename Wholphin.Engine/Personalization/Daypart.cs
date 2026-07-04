@@ -3,10 +3,10 @@ using System;
 namespace Wholphin.Engine.Personalization;
 
 /// <summary>
-/// Buckets an hour-of-day into a daypart. Hours are interpreted in UTC to match how the behavior
-/// layer captures the event hour (see BehaviorEntryPoint.BuildContext), so the daypart a signal is
-/// learned under always equals the daypart it is later scored under. (Switching both to the user's
-/// local time is a future refinement; consistency between capture and selection is what matters.)
+/// Buckets an hour-of-day into a daypart. Hours are interpreted in the household's local time
+/// (see <see cref="HouseholdClock"/>) — both the behavior layer's capture
+/// (BehaviorEntryPoint.BuildContext) and selection use the same zone, so a signal is scored under
+/// the daypart it was learned in. <see cref="Of"/> stays a pure function of the hour.
 /// </summary>
 public static class Daypart
 {
@@ -33,7 +33,7 @@ public static class Daypart
         _ => Night,
     };
 
-    /// <summary>Returns the current daypart (UTC).</summary>
+    /// <summary>Returns the current daypart in the household time zone.</summary>
     /// <returns>The current daypart label.</returns>
-    public static string Current() => Of(DateTime.UtcNow.Hour);
+    public static string Current() => Of(HouseholdClock.Hour());
 }

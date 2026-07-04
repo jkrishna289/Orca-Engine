@@ -91,10 +91,46 @@ public class RequestService : IRequestService
         });
 
         await LogRequestAsync(userId, tmdbId, mediaType, title, ct).ConfigureAwait(false);
+        await TouchMemoryAsync(userId, tmdbId, mediaType, ct).ConfigureAwait(false);
 
         _metrics.Increment("requests.success");
         _logger.LogInformation("Orca Engine: proxied request for {MediaType} {TmdbId} by {UserId}.", mediaType, tmdbId, userId);
         return new RequestResult { Outcome = RequestOutcome.Success, Availability = AvailabilityState.Requested, Message = "Requested." };
+    }
+
+    /// <summary>
+    /// Marks the title fully re-engaged in the user's recommendation memory (a request is the
+    /// strongest discovery outcome — interest resets and any cooldown lifts). Best-effort.
+    /// </summary>
+    private async Task TouchMemoryAsync(Guid userId, int tmdbId, MediaType mediaType, CancellationToken ct)
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            await using var db = _factory.Create();
+            var memory = await db.UserItemMemories
+                .FirstOrDefaultAsync(m => m.UserId == userId && m.TmdbId == tmdbId && m.MediaType == mediaType, ct)
+                .ConfigureAwait(false);
+            if (memory is null)
+            {
+                memory = new Data.Entities.UserItemMemory
+                {
+                    UserId = userId,
+                    TmdbId = tmdbId,
+                    MediaType = mediaType,
+                    InterestScore = 1.0,
+                    UpdatedAt = now,
+                };
+                db.UserItemMemories.Add(memory);
+            }
+
+            Discovery.InterestModel.OnEngaged(memory, BehaviorEventType.RequestCreated, now);
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Orca Engine: request memory touch failed for {TmdbId}.", tmdbId);
+        }
     }
 
     /// <summary>Appends a durable request-log row (best-effort; never fails the request).</summary>

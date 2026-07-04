@@ -166,6 +166,8 @@ public class TmdbClient : ITmdbClient
                 Year = ParseYear(detail.ReleaseDate ?? detail.FirstAirDate),
                 CommunityRating = detail.VoteAverage is { } v ? (float)v : null,
                 RuntimeMinutes = runtime,
+                OriginalLanguage = string.IsNullOrWhiteSpace(detail.OriginalLanguage) ? null : detail.OriginalLanguage,
+                CollectionName = string.IsNullOrWhiteSpace(detail.BelongsToCollection?.Name) ? null : detail.BelongsToCollection!.Name,
             };
         }
         catch (Exception ex)
@@ -219,6 +221,74 @@ public class TmdbClient : ITmdbClient
         {
             _metrics.Increment("tmdb.discover.error");
             _logger.LogWarning(ex, "Orca Engine: TMDB discover failed for {Path} page {Page}.", path, safePage);
+            return Array.Empty<DiscoverResult>();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<DiscoverResult>> DiscoverFilteredAsync(MediaType mediaType, TmdbDiscoverFilters filters, int page, CancellationToken ct = default)
+    {
+        var kind = MediaKind(mediaType);
+        if (kind is null || !TryConfig(out var apiKey))
+        {
+            return Array.Empty<DiscoverResult>();
+        }
+
+        var safePage = page < 1 ? 1 : page;
+        var query = new List<string>
+        {
+            $"page={safePage}",
+            "sort_by=" + Uri.EscapeDataString(string.IsNullOrWhiteSpace(filters.SortBy) ? "popularity.desc" : filters.SortBy),
+        };
+        if (filters.WithGenres.Count > 0)
+        {
+            // '|' joins genre ids with OR semantics (',' would mean AND).
+            query.Add("with_genres=" + Uri.EscapeDataString(string.Join("|", filters.WithGenres)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.WithOriginalLanguage))
+        {
+            query.Add("with_original_language=" + Uri.EscapeDataString(filters.WithOriginalLanguage));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.WatchRegion))
+        {
+            // watch_region only takes effect together with monetization types.
+            query.Add("watch_region=" + Uri.EscapeDataString(filters.WatchRegion));
+            query.Add("with_watch_monetization_types=" + Uri.EscapeDataString(
+                string.IsNullOrWhiteSpace(filters.WithWatchMonetizationTypes) ? "flatrate" : filters.WithWatchMonetizationTypes));
+        }
+
+        if (filters.VoteCountGte is { } votes and > 0)
+        {
+            query.Add("vote_count.gte=" + votes.ToString(CultureInfo.InvariantCulture));
+        }
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient();
+            using var request = Build(HttpMethod.Get, Url(apiKey, $"/discover/{kind}", query.ToArray()), apiKey);
+            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _metrics.Increment("tmdb.discover.error");
+                return Array.Empty<DiscoverResult>();
+            }
+
+            var pageResult = await response.Content.ReadFromJsonAsync<TmdbDiscoverPage>(JsonOptions, ct).ConfigureAwait(false);
+            if (pageResult?.Results is not { Count: > 0 } items)
+            {
+                return Array.Empty<DiscoverResult>();
+            }
+
+            var genreMap = await GetGenreMapAsync(mediaType, ct).ConfigureAwait(false);
+            _metrics.Increment("tmdb.discover.ok");
+            return MapPage(items, mediaType, genreMap);
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment("tmdb.discover.error");
+            _logger.LogWarning(ex, "Orca Engine: TMDB filtered discover failed for {Kind} page {Page}.", kind, safePage);
             return Array.Empty<DiscoverResult>();
         }
     }
@@ -421,6 +491,8 @@ public class TmdbClient : ITmdbClient
                 Overview = item.Overview,
                 Year = ParseYear(item.ReleaseDate ?? item.FirstAirDate),
                 CommunityRating = item.VoteAverage is { } v ? (float)v : null,
+                Popularity = item.Popularity,
+                OriginalLanguage = item.OriginalLanguage,
                 Genres = item.GenreIds
                     .Select(id => genreMap.TryGetValue(id, out var name) ? name : null)
                     .Where(n => !string.IsNullOrWhiteSpace(n))

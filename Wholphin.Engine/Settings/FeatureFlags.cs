@@ -37,14 +37,11 @@ public class FeatureFlags
     /// <summary>Gets or sets a value indicating whether the server pre-buffers trailers (needs yt-dlp/ffmpeg). (Milestone 8.)</summary>
     public bool TrailerPrebuffer { get; set; } = true;
 
-    /// <summary>Gets or sets a value indicating whether availability-aware discovery (Jellyseerr/TMDB) rows are surfaced. (Milestone 2.)</summary>
-    public bool JellyseerrDiscovery { get; set; }
-
-    /// <summary>Gets or sets a value indicating whether TMDB-direct trending/popular discovery is pulled into the catalog. (Milestone 7.)</summary>
-    public bool TmdbDiscovery { get; set; }
-
     /// <summary>Gets or sets a value indicating whether engine-proxied requests are accepted. (Milestone 2.)</summary>
     public bool Requests { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether taste-driven discovery (justified per-user TMDB pulls + trending/country rows) is active.</summary>
+    public bool TasteDiscovery { get; set; }
 
     /// <summary>Returns a shallow copy so a resolved layer can be mutated without affecting defaults.</summary>
     /// <returns>A clone of these flags.</returns>

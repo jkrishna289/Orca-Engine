@@ -17,6 +17,34 @@ public enum TmdbDiscoverCategory
     TopRated,
 }
 
+/// <summary>
+/// Filters for the real TMDB <c>/discover/{movie|tv}</c> endpoint (as opposed to the fixed
+/// trending/popular/top-rated lists). Unset members are simply omitted from the query string.
+/// </summary>
+public class TmdbDiscoverFilters
+{
+    /// <summary>Gets or sets the TMDB genre ids to match; joined with <c>|</c> (OR semantics).</summary>
+    public IReadOnlyList<int> WithGenres { get; set; } = Array.Empty<int>();
+
+    /// <summary>Gets or sets the ISO-639-1 original-language filter (e.g. "hi").</summary>
+    public string? WithOriginalLanguage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the ISO-3166-1 watch region (e.g. "IN"). TMDB requires
+    /// <see cref="WithWatchMonetizationTypes"/> alongside it to have any effect.
+    /// </summary>
+    public string? WatchRegion { get; set; }
+
+    /// <summary>Gets or sets the monetization types for the watch region (e.g. "flatrate|free|ads").</summary>
+    public string? WithWatchMonetizationTypes { get; set; }
+
+    /// <summary>Gets or sets the sort order (TMDB default here is popularity, descending).</summary>
+    public string SortBy { get; set; } = "popularity.desc";
+
+    /// <summary>Gets or sets the minimum vote count, to filter out obscure/unrated titles.</summary>
+    public int? VoteCountGte { get; set; }
+}
+
 /// <summary>A TMDB genre {id, name}.</summary>
 public class TmdbGenre
 {
@@ -159,6 +187,14 @@ public class TmdbDetail
     [JsonPropertyName("vote_average")]
     public double? VoteAverage { get; set; }
 
+    /// <summary>Gets or sets the ISO-639-1 original language (e.g. "en", "hi").</summary>
+    [JsonPropertyName("original_language")]
+    public string? OriginalLanguage { get; set; }
+
+    /// <summary>Gets or sets the collection/franchise this title belongs to (movies only).</summary>
+    [JsonPropertyName("belongs_to_collection")]
+    public TmdbCollection? BelongsToCollection { get; set; }
+
     /// <summary>Gets or sets the movie runtime in minutes.</summary>
     [JsonPropertyName("runtime")]
     public int? Runtime { get; set; }
@@ -266,6 +302,14 @@ public class TmdbDiscoverItem
     /// <summary>Gets or sets the TMDB vote average.</summary>
     [JsonPropertyName("vote_average")]
     public double? VoteAverage { get; set; }
+
+    /// <summary>Gets or sets the TMDB popularity score (unbounded, relative; higher = more popular).</summary>
+    [JsonPropertyName("popularity")]
+    public double? Popularity { get; set; }
+
+    /// <summary>Gets or sets the ISO-639-1 original language (e.g. "hi", "en").</summary>
+    [JsonPropertyName("original_language")]
+    public string? OriginalLanguage { get; set; }
 
     /// <summary>Gets or sets the genre ids (discover gives ids only — resolve via the genre map).</summary>
     [JsonPropertyName("genre_ids")]
@@ -380,4 +424,22 @@ public class TmdbEnrichment
 
     /// <summary>Gets or sets the runtime in minutes.</summary>
     public int? RuntimeMinutes { get; set; }
+
+    /// <summary>Gets or sets the ISO-639-1 original language.</summary>
+    public string? OriginalLanguage { get; set; }
+
+    /// <summary>Gets or sets the collection/franchise name (movies only).</summary>
+    public string? CollectionName { get; set; }
+}
+
+/// <summary>A TMDB collection/franchise reference (from a movie detail's <c>belongs_to_collection</c>).</summary>
+public class TmdbCollection
+{
+    /// <summary>Gets or sets the collection id.</summary>
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+
+    /// <summary>Gets or sets the collection name (e.g. "The Dark Knight Collection").</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
 }

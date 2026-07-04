@@ -36,6 +36,12 @@ public class CatalogItem
     /// <summary>Gets or sets the original-language title.</summary>
     public string? OriginalTitle { get; set; }
 
+    /// <summary>Gets or sets the ISO-639-1 original language (e.g. "en", "hi"). Feeds the Language affinity dimension.</summary>
+    public string? OriginalLanguage { get; set; }
+
+    /// <summary>Gets or sets the collection/franchise name (e.g. "The Dark Knight Collection"). Feeds the Franchise affinity dimension + diversity.</summary>
+    public string? CollectionName { get; set; }
+
     /// <summary>Gets or sets the production year.</summary>
     public int? ProductionYear { get; set; }
 

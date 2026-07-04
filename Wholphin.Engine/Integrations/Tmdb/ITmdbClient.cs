@@ -47,6 +47,18 @@ public interface ITmdbClient
     /// <returns>The results (empty when unconfigured or on failure).</returns>
     Task<IReadOnlyList<DiscoverResult>> DiscoverAsync(MediaType mediaType, TmdbDiscoverCategory category, int page, CancellationToken ct = default);
 
+    /// <summary>
+    /// Pulls a page from the real TMDB <c>/discover/{movie|tv}</c> endpoint with filters (genres,
+    /// original language, watch region, vote count), mapped to the normalized
+    /// <see cref="DiscoverResult"/>. Powers taste-driven and per-country discovery.
+    /// </summary>
+    /// <param name="mediaType">Movie or Series.</param>
+    /// <param name="filters">The discover filters; unset members are omitted.</param>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The results (empty when unconfigured or on failure).</returns>
+    Task<IReadOnlyList<DiscoverResult>> DiscoverFilteredAsync(MediaType mediaType, TmdbDiscoverFilters filters, int page, CancellationToken ct = default);
+
     /// <summary>Fetches a title's keyword/theme names (TMDB keywords).</summary>
     /// <param name="tmdbId">The TMDB id.</param>
     /// <param name="mediaType">Movie or Series.</param>

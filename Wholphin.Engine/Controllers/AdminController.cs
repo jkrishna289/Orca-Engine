@@ -61,13 +61,17 @@ public class AdminController : ControllerBase
 
         await using var db = _factory.Create();
 
-        // Small catalog: project the two facets and group in memory.
+        // Small catalog: project the facets and group in memory.
         var facets = await db.CatalogItems
-            .Select(c => new { c.MediaType, c.Availability })
+            .Select(c => new { c.MediaType, c.Availability, IsExternal = c.JellyfinItemId == null })
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        var catalog = new CatalogSummary { Total = facets.Count };
+        var catalog = new CatalogSummary
+        {
+            Total = facets.Count,
+            ExternalRows = facets.Count(f => f.IsExternal),
+        };
         foreach (var group in facets.GroupBy(f => f.MediaType))
         {
             catalog.ByType[group.Key.ToString()] = group.Count();
@@ -107,6 +111,54 @@ public class AdminController : ControllerBase
     [HttpGet("Metrics")]
     [AllowAnonymous]
     public ActionResult<IReadOnlyDictionary<string, long>> GetMetrics() => Ok(_metrics.Snapshot());
+
+    /// <summary>
+    /// Returns operational diagnostics: recompute timing (bounded-cost check), the effective
+    /// daypart clock, retention window, cache bound, and the resolved ranking weights.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The diagnostics snapshot.</returns>
+    [HttpGet("Diagnostics")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetDiagnostics(CancellationToken cancellationToken)
+    {
+        var metrics = _metrics.Snapshot();
+        var recomputeCount = metrics.GetValueOrDefault("personalization.recompute.count");
+        var recomputeTotalMs = metrics.GetValueOrDefault("personalization.recompute.total_ms");
+
+        await using var db = _factory.Create();
+        var behaviorEvents = await db.BehaviorEvents.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        var config = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
+        var tz = Personalization.HouseholdClock.Resolve();
+        var scoring = new Ranking.ScoringPolicy();
+
+        return Ok(new
+        {
+            SchemaVersion = Data.DatabaseInitializer.SchemaVersion,
+            Recompute = new
+            {
+                Count = recomputeCount,
+                TotalMs = recomputeTotalMs,
+                AverageMs = recomputeCount > 0 ? Math.Round(recomputeTotalMs / (double)recomputeCount, 2) : 0,
+            },
+            Behavior = new
+            {
+                Events = behaviorEvents,
+                RetentionDays = config.BehaviorRetentionDays,
+                RetentionCutoffUtc = Personalization.PersonalizationService.RetentionCutoff(),
+            },
+            Daypart = new
+            {
+                ConfiguredTimeZone = string.IsNullOrWhiteSpace(config.HouseholdTimeZone) ? "(server local)" : config.HouseholdTimeZone,
+                ResolvedTimeZone = tz.Id,
+                CurrentHour = Personalization.HouseholdClock.Hour(),
+                Current = Personalization.Daypart.Current(),
+            },
+            Cache = new { EntrySizeLimit = 4096 },
+            Weights = new { Recommender = scoring.Recommender, Discovery = scoring.Discovery },
+        });
+    }
 
     /// <summary>Resets all operational metric counters.</summary>
     /// <returns>No content.</returns>
@@ -191,6 +243,9 @@ public class AdminController : ControllerBase
     {
         /// <summary>Gets or sets the total catalog item count.</summary>
         public int Total { get; set; }
+
+        /// <summary>Gets or sets how many rows are external (not in the library) — the discovery-growth watchdog.</summary>
+        public int ExternalRows { get; set; }
 
         /// <summary>Gets the per-media-type counts.</summary>
         public Dictionary<string, int> ByType { get; } = new();

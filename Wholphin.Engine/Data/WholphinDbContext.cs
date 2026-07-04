@@ -35,6 +35,15 @@ public class WholphinDbContext : DbContext
     /// <summary>Gets the durable log of engine-proxied media requests (schema v2).</summary>
     public DbSet<MediaRequest> MediaRequests => Set<MediaRequest>();
 
+    /// <summary>Gets the per-user justification records for currently-recommended external titles (schema v7).</summary>
+    public DbSet<UserDiscoveryPick> UserDiscoveryPicks => Set<UserDiscoveryPick>();
+
+    /// <summary>Gets the longitudinal per-(user, title) recommendation memory (schema v7).</summary>
+    public DbSet<UserItemMemory> UserItemMemories => Set<UserItemMemory>();
+
+    /// <summary>Gets the per-pull discovery funnel reports (schema v7).</summary>
+    public DbSet<DiscoveryRun> DiscoveryRuns => Set<DiscoveryRun>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,6 +87,29 @@ public class WholphinDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.CreatedAt);
             e.HasIndex(x => x.UserId);
+        });
+
+        modelBuilder.Entity<UserDiscoveryPick>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.Kind });
+            e.HasIndex(x => x.CatalogItemId);
+            e.HasIndex(x => x.ExpiresAt);
+            e.HasIndex(x => new { x.Kind, x.Country });
+        });
+
+        modelBuilder.Entity<UserItemMemory>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.TmdbId, x.MediaType }).IsUnique();
+            e.HasIndex(x => x.UpdatedAt);
+        });
+
+        modelBuilder.Entity<DiscoveryRun>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.StartedAt });
+            e.HasIndex(x => x.StartedAt);
         });
     }
 }

@@ -44,6 +44,18 @@
                     <div class="fieldDescription">How many top picks rotate through the spotlight billboard (1–20).</div>
                 </div>
 
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="HouseholdTimeZone">Household time zone</label>
+                    <input is="emby-input" type="text" id="HouseholdTimeZone" placeholder="(server local)" />
+                    <div class="fieldDescription">Time-zone id (e.g. "Asia/Kolkata", "America/New_York") for time-of-day recommendations. Leave blank to use the server's local time.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="BehaviorRetentionDays">Behavior retention (days)</label>
+                    <input is="emby-input" type="number" id="BehaviorRetentionDays" min="0" max="3650" />
+                    <div class="fieldDescription">How long raw behavior events are kept (older ones are pruned; the taste profile already decays them). 0 = keep everything. Default 400.</div>
+                </div>
+
                 <div class="verticalSection">
                     <h3 class="sectionTitle">Features</h3>
                 </div>
@@ -73,12 +85,8 @@
                     <div class="fieldDescription">Lets the app request unavailable titles through the engine via Jellyseerr.</div>
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
-                    <label><input is="emby-checkbox" type="checkbox" id="FeatureJellyseerrDiscovery" /><span>Availability-aware discovery (Milestone 2)</span></label>
-                    <div class="fieldDescription">Blends not-yet-available (requestable) titles into the catalog.</div>
-                </div>
-                <div class="checkboxContainer checkboxContainer-withDescription">
-                    <label><input is="emby-checkbox" type="checkbox" id="FeatureTmdbDiscovery" /><span>TMDB-direct discovery (Milestone 7)</span></label>
-                    <div class="fieldDescription">Also pulls trending/popular titles straight from TMDB (needs a TMDB key). Genre names + artwork are resolved automatically.</div>
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureTasteDiscovery" /><span>Taste-driven discovery (justified, per-user)</span></label>
+                    <div class="fieldDescription">Pulls TMDB titles matched to each user's taste (You Might Like / Because You Watched) plus the trending and per-country rows. Every imported title carries a per-user justification; nothing is imported blindly. Needs a TMDB key.</div>
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label><input is="emby-checkbox" type="checkbox" id="FeatureNewSinceAway" /><span>New Since You Were Away (Milestone 8)</span></label>
@@ -121,13 +129,54 @@
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key</label>
                     <input is="emby-input" type="text" id="TmdbApiKey" />
-                    <div class="fieldDescription">Optional v3 key (or v4 read token). Enables TMDB-direct discovery and backfills genres + poster/backdrop artwork onto requestable titles.</div>
+                    <div class="fieldDescription">Optional v3 key (or v4 read token). Enables taste-driven discovery (You Might Like / Because You Watched / Trending / country rows) and backfills genres + poster/backdrop artwork onto requestable titles.</div>
                 </div>
 
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="WatchProviderRegion">Studio-tag region</label>
                     <input is="emby-input" type="text" id="WatchProviderRegion" placeholder="US" />
-                    <div class="fieldDescription">ISO country code (e.g. US, IN, GB) used to pick the streaming-provider brand (Netflix/Prime/Disney+/…) shown as the studio tag on cards, from TMDB watch providers. Needs a TMDB key.</div>
+                    <div class="fieldDescription">ISO country code (e.g. US, IN, GB) used to pick the streaming-provider brand (Netflix/Prime/Disney+/…) shown as the studio tag on cards, and as the default country for the "What people are watching in …" row (users can override it with the roaming <code>pref.country</code> setting). Needs a TMDB key.</div>
+                </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Discovery tuning</h3>
+                    <p>Advanced knobs for taste-driven discovery. The defaults are the designed behavior; out-of-range values fall back to them.</p>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="DiscoveryMinConfidence">Minimum profile confidence</label>
+                    <input is="emby-input" type="number" id="DiscoveryMinConfidence" step="0.05" min="0" max="1" />
+                    <div class="fieldDescription">Below this confidence (0-1) a user gets no personal pulls yet — only the justified global rows. Default 0.40.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="DiscoveryMaxImportsPerPull">Max imports per pull</label>
+                    <input is="emby-input" type="number" id="DiscoveryMaxImportsPerPull" min="1" max="100" />
+                    <div class="fieldDescription">New catalog rows one per-user pull may import. Default 25.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="DiscoveryPickTtlDays">Pick lifetime (days)</label>
+                    <input is="emby-input" type="number" id="DiscoveryPickTtlDays" min="1" max="60" />
+                    <div class="fieldDescription">How long a taste pick stays on the home screen without engagement (seeded picks live twice as long). Default 7.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="DiscoveryMaxUsersPerCycle">Users per discovery cycle</label>
+                    <input is="emby-input" type="number" id="DiscoveryMaxUsersPerCycle" min="1" max="100" />
+                    <div class="fieldDescription">Per-user pulls per 2-hour cycle, rotated fairly. Default 10.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="DiscoveryExplorationFraction">Exploration share</label>
+                    <input is="emby-input" type="number" id="DiscoveryExplorationFraction" step="0.01" min="0.05" max="0.15" />
+                    <div class="fieldDescription">Share (0.05-0.15) of You-Might-Like slots reserved for honestly-labeled out-of-taste picks. Default 0.10.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="DiscoveryTrendingTasteWeight">Trending taste weight</label>
+                    <input is="emby-input" type="number" id="DiscoveryTrendingTasteWeight" step="0.05" min="0" max="1" />
+                    <div class="fieldDescription">How much a warm viewer's taste flavors the Trending row (0 = pure popularity). Default 0.30.</div>
                 </div>
 
                 <div class="verticalSection">
@@ -250,7 +299,8 @@
                 <div style="margin-top:1em;">
                     <button is="emby-button" type="button" id="WeRefreshStatus" class="raised block"><span>Refresh status</span></button>
                     <button is="emby-button" type="button" id="WeResync" class="raised block"><span>Resync library</span></button>
-                    <button is="emby-button" type="button" id="WeImportDiscover" class="raised block"><span>Import discovery (Jellyseerr + TMDB)</span></button>
+                    <button is="emby-button" type="button" id="WePullDiscovery" class="raised block"><span>Taste discovery pull (trending + countries)</span></button>
+                    <button is="emby-button" type="button" id="WePurgeUnjustified" class="raised block"><span>Purge unjustified items</span></button>
                     <button is="emby-button" type="button" id="WeEnrichTmdb" class="raised block"><span>Enrich metadata (TMDB)</span></button>
                     <button is="emby-button" type="button" id="WeRecomputeRatings" class="raised block"><span>Recompute Orca ratings</span></button>
                     <button is="emby-button" type="button" id="WeReconcile" class="raised block"><span>Reconcile availability</span></button>
@@ -271,6 +321,8 @@
                         document.querySelector('#RefreshIntervalMinutes').value = config.RefreshIntervalMinutes;
                         document.querySelector('#DefaultRowSize').value = config.DefaultRowSize;
                         document.querySelector('#SpotlightCount').value = config.SpotlightCount;
+                        document.querySelector('#HouseholdTimeZone').value = config.HouseholdTimeZone || '';
+                        document.querySelector('#BehaviorRetentionDays').value = config.BehaviorRetentionDays != null ? config.BehaviorRetentionDays : 400;
                         document.querySelector('#FeaturePersonalization').checked = config.FeaturePersonalization;
                         document.querySelector('#FeatureSpotlight').checked = config.FeatureSpotlight;
                         document.querySelector('#FeatureContinueWatching').checked = config.FeatureContinueWatching;
@@ -278,8 +330,13 @@
                         document.querySelector('#FeatureSimilarityRows').checked = config.FeatureSimilarityRows;
                         document.querySelector('#FeatureExploration').checked = config.FeatureExploration;
                         document.querySelector('#FeatureRequests').checked = config.FeatureRequests;
-                        document.querySelector('#FeatureJellyseerrDiscovery').checked = config.FeatureJellyseerrDiscovery;
-                        document.querySelector('#FeatureTmdbDiscovery').checked = config.FeatureTmdbDiscovery;
+                        document.querySelector('#FeatureTasteDiscovery').checked = config.FeatureTasteDiscovery;
+                        document.querySelector('#DiscoveryMinConfidence').value = config.DiscoveryMinConfidence != null ? config.DiscoveryMinConfidence : 0.40;
+                        document.querySelector('#DiscoveryMaxImportsPerPull').value = config.DiscoveryMaxImportsPerPull || 25;
+                        document.querySelector('#DiscoveryPickTtlDays').value = config.DiscoveryPickTtlDays || 7;
+                        document.querySelector('#DiscoveryMaxUsersPerCycle').value = config.DiscoveryMaxUsersPerCycle || 10;
+                        document.querySelector('#DiscoveryExplorationFraction').value = config.DiscoveryExplorationFraction != null ? config.DiscoveryExplorationFraction : 0.10;
+                        document.querySelector('#DiscoveryTrendingTasteWeight').value = config.DiscoveryTrendingTasteWeight != null ? config.DiscoveryTrendingTasteWeight : 0.30;
                         document.querySelector('#FeatureNewSinceAway').checked = config.FeatureNewSinceAway;
                         document.querySelector('#FeatureComingSoon').checked = config.FeatureComingSoon;
                         document.querySelector('#FeatureMoodCollections').checked = config.FeatureMoodCollections;
@@ -321,6 +378,8 @@
                             parseInt(document.querySelector('#RefreshIntervalMinutes').value, 10);
                         config.DefaultRowSize = parseInt(document.querySelector('#DefaultRowSize').value, 10);
                         config.SpotlightCount = parseInt(document.querySelector('#SpotlightCount').value, 10);
+                        config.HouseholdTimeZone = document.querySelector('#HouseholdTimeZone').value.trim();
+                        config.BehaviorRetentionDays = parseInt(document.querySelector('#BehaviorRetentionDays').value, 10) || 0;
                         config.FeaturePersonalization = document.querySelector('#FeaturePersonalization').checked;
                         config.FeatureSpotlight = document.querySelector('#FeatureSpotlight').checked;
                         config.FeatureContinueWatching = document.querySelector('#FeatureContinueWatching').checked;
@@ -328,8 +387,14 @@
                         config.FeatureSimilarityRows = document.querySelector('#FeatureSimilarityRows').checked;
                         config.FeatureExploration = document.querySelector('#FeatureExploration').checked;
                         config.FeatureRequests = document.querySelector('#FeatureRequests').checked;
-                        config.FeatureJellyseerrDiscovery = document.querySelector('#FeatureJellyseerrDiscovery').checked;
-                        config.FeatureTmdbDiscovery = document.querySelector('#FeatureTmdbDiscovery').checked;
+                        config.FeatureTasteDiscovery = document.querySelector('#FeatureTasteDiscovery').checked;
+                        config.DiscoveryMinConfidence = parseFloat(document.querySelector('#DiscoveryMinConfidence').value) || 0.40;
+                        config.DiscoveryMaxImportsPerPull = parseInt(document.querySelector('#DiscoveryMaxImportsPerPull').value, 10) || 25;
+                        config.DiscoveryPickTtlDays = parseInt(document.querySelector('#DiscoveryPickTtlDays').value, 10) || 7;
+                        config.DiscoveryMaxUsersPerCycle = parseInt(document.querySelector('#DiscoveryMaxUsersPerCycle').value, 10) || 10;
+                        config.DiscoveryExplorationFraction = parseFloat(document.querySelector('#DiscoveryExplorationFraction').value) || 0.10;
+                        config.DiscoveryTrendingTasteWeight = parseFloat(document.querySelector('#DiscoveryTrendingTasteWeight').value);
+                        if (isNaN(config.DiscoveryTrendingTasteWeight)) { config.DiscoveryTrendingTasteWeight = 0.30; }
                         config.FeatureNewSinceAway = document.querySelector('#FeatureNewSinceAway').checked;
                         config.FeatureComingSoon = document.querySelector('#FeatureComingSoon').checked;
                         config.FeatureMoodCollections = document.querySelector('#FeatureMoodCollections').checked;
@@ -404,7 +469,8 @@
 
             document.querySelector('#WeRefreshStatus').addEventListener('click', loadStatus);
             document.querySelector('#WeResync').addEventListener('click', function () { runOp('Resync', 'OrcaEngine/Catalog/Resync'); });
-            document.querySelector('#WeImportDiscover').addEventListener('click', function () { runOp('Discovery import', 'OrcaEngine/Catalog/ImportDiscover?pages=2'); });
+            document.querySelector('#WePullDiscovery').addEventListener('click', function () { runOp('Taste discovery pull', 'OrcaEngine/Discovery/PullGlobal'); });
+            document.querySelector('#WePurgeUnjustified').addEventListener('click', function () { runOp('Purge unjustified', 'OrcaEngine/Catalog/PurgeUnjustified'); });
             document.querySelector('#WeEnrichTmdb').addEventListener('click', function () { runOp('TMDB enrichment', 'OrcaEngine/Catalog/EnrichTmdb?maxItems=100'); });
             document.querySelector('#WeRecomputeRatings').addEventListener('click', function () { runOp('Recompute ratings', 'OrcaEngine/Analytics/CommunityRating/Recompute'); });
             document.querySelector('#WeReconcile').addEventListener('click', function () { runOp('Reconcile', 'OrcaEngine/Catalog/Reconcile'); });

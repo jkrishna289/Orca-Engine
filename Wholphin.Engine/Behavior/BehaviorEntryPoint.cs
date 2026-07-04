@@ -180,11 +180,13 @@ public class BehaviorEntryPoint : IHostedService
 
     private static string BuildContext(string? device, string? client, double? completion)
     {
-        var now = DateTime.UtcNow;
+        // Capture the household-local hour so a signal is scored under the daypart it was learned in
+        // (selection uses the same zone via Daypart.Current()).
+        var local = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Personalization.HouseholdClock.Resolve());
         var ctx = new Dictionary<string, object?>
         {
-            ["hour"] = now.Hour,
-            ["dow"] = (int)now.DayOfWeek
+            ["hour"] = local.Hour,
+            ["dow"] = (int)local.DayOfWeek
         };
 
         if (!string.IsNullOrEmpty(device))

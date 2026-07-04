@@ -29,7 +29,9 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     /// <inheritdoc />
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
-        serviceCollection.AddMemoryCache();
+        // Bound the shared cache so it can't grow without limit. Every InMemoryCache entry is size 1,
+        // so this caps the entry count; entries are evicted under pressure (all have TTLs anyway).
+        serviceCollection.AddMemoryCache(o => o.SizeLimit = 4096);
 
         // Operational metrics (in-process counters surfaced via /Admin/Metrics).
         serviceCollection.AddSingleton<IEngineMetrics, EngineMetrics>();
@@ -61,6 +63,18 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
 
         // Personalization: behavior log → per-user affinity vectors (weighted, decayed, confidence-scored).
         serviceCollection.AddSingleton<IPersonalizationService, PersonalizationService>();
+
+        // Deterministic explanation engine: every recommended card is self-explaining without the
+        // LLM (which, when configured, overrides these with richer copy).
+        serviceCollection.AddSingleton<Explanation.IExplanationService, Explanation.ExplanationService>();
+
+        // Per-user taste embedding file ({DataPath}/wholphin-engine/profiles/{userId}.json):
+        // seeds + taste vector derived from the content-vector snapshot; drives taste-matched pulls.
+        serviceCollection.AddSingleton<ITasteProfileService, TasteProfileService>();
+
+        // Shared scoring policy: one config-driven source of ranking weights for the recommender
+        // and the discovery scorer (defaults reproduce the historical constants).
+        serviceCollection.AddSingleton<Ranking.IScoringPolicy, Ranking.ScoringPolicy>();
 
         // Recommender v1: content-based hybrid ranking over the catalog.
         serviceCollection.AddSingleton<IRecommender, ContentRecommender>();
@@ -118,6 +132,10 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<INewSinceProvider, NewSinceProvider>();
         serviceCollection.AddSingleton<Catalog.IUpcomingProvider, Catalog.UpcomingProvider>();
 
+        // Pluggable home-row providers: the justified discovery rows (trending + taste blend,
+        // You Might Like, pulled Because You Watched, country) — future rows register here too.
+        serviceCollection.AddSingleton<IRowProvider, DiscoveryRowProvider>();
+
         // Home generator (content-based in v1; personalization/recommender layer in later).
         serviceCollection.AddSingleton<HomeService>();
 
@@ -133,8 +151,19 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<Integrations.Arr.IArrClient, Integrations.Arr.ArrClient>();
         // Engine-proxied requests (captures request affinity + reflects availability).
         serviceCollection.AddSingleton<IRequestService, RequestService>();
-        // Blends not-yet-available (requestable) titles into the catalog (Jellyseerr + TMDB-direct sources).
-        serviceCollection.AddSingleton<IDiscoveryImporter, DiscoveryImporter>();
+        // Taste-driven discovery pipeline: pluggable candidate sources (same IEnumerable pattern as
+        // the embedding providers) + the strict stage chain + the orchestrator port. Every external
+        // title shown traces to a justification pick written here.
+        serviceCollection.AddSingleton<Discovery.IDiscoverySource, Discovery.Sources.SeedRelatedSource>();
+        serviceCollection.AddSingleton<Discovery.IDiscoverySource, Discovery.Sources.TasteDiscoverSource>();
+        serviceCollection.AddSingleton<Discovery.IDiscoverySource, Discovery.Sources.TrendingSource>();
+        serviceCollection.AddSingleton<Discovery.IDiscoverySource, Discovery.Sources.CountrySource>();
+        serviceCollection.AddSingleton<Discovery.EligibilityFilter>();
+        serviceCollection.AddSingleton<Discovery.CandidateScorer>();
+        serviceCollection.AddSingleton<Discovery.DiversityStage>();
+        serviceCollection.AddSingleton<Discovery.SelectionStage>();
+        serviceCollection.AddSingleton<Discovery.PickPersistence>();
+        serviceCollection.AddSingleton<Discovery.IDiscoveryOrchestrator, Discovery.DiscoveryPipeline>();
         // Backfills genres + artwork + trailer onto requestable rows from TMDB (gated on a TMDB key).
         serviceCollection.AddSingleton<ICatalogEnricher, TmdbEnricher>();
         // Advances in-flight (Requested/Downloading) items through the availability state machine.

@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Full-length trailers (no more 60s cut, better source quality, no looping client-side); Warm Orca trailer cache is now a real Jellyfin scheduled task (Dashboard > Scheduled Tasks, default every 60h, trigger user-editable); genuine LLM Because You Watched picks (Groq) with why-blurbs when configured; the ... to Request rows are folded back into a single Worth Requesting row; plugin now reports its real version (assembly version was stuck at 1.0.0.0).",
+  "changelog": "Taste-driven discovery (opt-in): the engine pulls TMDB titles matched to each viewer instead of importing blindly - every external title on the home screen now has a traceable reason. New rows: You Might Like, Because You Watched X, Trending with a pinch of your taste, and What people are watching in your country. Adds a per-user taste profile, recommendation memory (stops re-surfacing titles you keep ignoring, with a cooldown that heals over time), and controlled exploration. For You is self-explaining even without an LLM. Richer taste signals: runtime length, maturity, language and franchise. Time-of-day recommendations now honor a configurable household time zone. Operational: behavior-event retention with bounded recompute, a bounded cache, and a new /Admin/Diagnostics endpoint. Enable it in the plugin settings (Taste-driven discovery) with a TMDB key; off by default.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.0.4.0",
+  "version": "1.0.5.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

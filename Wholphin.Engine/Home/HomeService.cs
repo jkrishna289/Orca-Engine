@@ -28,9 +28,6 @@ public class HomeService
     /// <summary>Default items-per-row used when precomputing the cached home read-model.</summary>
     public const int DefaultRowSize = 20;
 
-    /// <summary>Fixed size of a numbered Top-10 row.</summary>
-    private const int Top10RowSize = 10;
-
     /// <summary>
     /// Over-fetch factor for the generic library/discovery queries so each row still fills to
     /// <c>size</c> after cross-row de-duplication (<see cref="DeduplicateRows"/>) drops titles a
@@ -66,6 +63,8 @@ public class HomeService
     private readonly ISettingsService _settings;
     private readonly IEngineMetrics _metrics;
     private readonly ILlmReRanker _llmReRanker;
+    private readonly Explanation.IExplanationService _explanation;
+    private readonly IReadOnlyList<IRowProvider> _rowProviders;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeService"/> class.
@@ -83,7 +82,9 @@ public class HomeService
         ICache cache,
         ISettingsService settings,
         IEngineMetrics metrics,
-        ILlmReRanker llmReRanker)
+        ILlmReRanker llmReRanker,
+        Explanation.IExplanationService explanation,
+        IEnumerable<IRowProvider> rowProviders)
     {
         _factory = factory;
         _cardSelector = cardSelector;
@@ -98,6 +99,8 @@ public class HomeService
         _settings = settings;
         _metrics = metrics;
         _llmReRanker = llmReRanker;
+        _explanation = explanation;
+        _rowProviders = rowProviders.ToList();
     }
 
     /// <summary>The capability set used to precompute the cached home read-model.</summary>
@@ -145,7 +148,8 @@ public class HomeService
         var confidence = 0.0;
         if (personalized && flags.Personalization)
         {
-            confidence = (await _personalization.GetAsync(userId!.Value, ct).ConfigureAwait(false)).Confidence;
+            var affinity = await _personalization.GetAsync(userId!.Value, ct).ConfigureAwait(false);
+            confidence = affinity.Confidence;
 
             var recs = await _recommender.RecommendAsync(userId!.Value, size, ct).ConfigureAwait(false);
             var recItems = recs.Select(r => r.Item).ToList();
@@ -161,7 +165,22 @@ public class HomeService
             // blurbs. Self-gating + fail-soft — returns the local order unchanged when off/unconfigured.
             var reranked = await _llmReRanker.ReRankAsync(userId!.Value, recItems, confidence, ct).ConfigureAwait(false);
             var forYouTitle = string.IsNullOrWhiteSpace(reranked.RowTitle) ? "For You" : reranked.RowTitle!;
-            AddRow(bundle, "foryou", forYouTitle, "recommended", reranked.Items, capabilities, reasons: reranked.Reasons);
+
+            // Every card gets a deterministic reason from the explanation engine; the LLM's richer
+            // "why" (when configured + applied) overrides per item. So For You is self-explaining
+            // with Groq off, and better with it on.
+            var reasons = new Dictionary<long, string>();
+            foreach (var item in reranked.Items)
+            {
+                reasons[item.Id] = _explanation.ExplainRecommendation(item, affinity);
+            }
+
+            foreach (var (id, why) in reranked.Reasons)
+            {
+                reasons[id] = why;
+            }
+
+            AddRow(bundle, "foryou", forYouTitle, "recommended", reranked.Items, capabilities, reasons: reasons);
 
             // "Because You Watched X": seeded by the user's latest watch. The similarity engine
             // prefilters a wide candidate pool; when the LLM is configured it then GENUINELY picks
@@ -225,16 +244,24 @@ public class HomeService
             }
         }
 
-        // Trending: a numbered Top-10 row (TopRanked cards + rank badges via the card selector).
-        if (flags.Trending)
+        // Pluggable row providers: the justified discovery rows (trending with a pinch of taste,
+        // You Might Like, pulled Because You Watched, the country row) — and any future row —
+        // come from IRowProvider registrations, so new rows never require a HomeService change.
+        var providerPriorities = new Dictionary<string, (int Warm, int Cold)>(StringComparer.Ordinal);
+        var rowContext = new RowContext
         {
-            var trending = await db.CatalogItems
-                .Where(c => c.CommunityRating != null)
-                .OrderByDescending(c => c.CommunityRating)
-                .Take(Top10RowSize)
-                .ToListAsync(ct)
-                .ConfigureAwait(false);
-            AddRow(bundle, "trending", "Trending", "trending", trending, capabilities, RowStyle.Top10);
+            UserId = personalized ? userId : null,
+            Settings = settings,
+            Confidence = confidence,
+            RowSize = size,
+        };
+        foreach (var provider in _rowProviders)
+        {
+            foreach (var providerRow in await provider.BuildAsync(rowContext, ct).ConfigureAwait(false))
+            {
+                providerPriorities[providerRow.Id] = (providerRow.WarmPriority, providerRow.ColdPriority);
+                AddRow(bundle, providerRow.Id, providerRow.Title, providerRow.Purpose, providerRow.Items, capabilities, providerRow.RowStyle, providerRow.Reasons);
+            }
         }
 
         // Mood-based collections (Milestone 8): themed rows (Mind Bending, Dark Thrillers, …).
@@ -245,20 +272,6 @@ public class HomeService
             {
                 AddRow(bundle, $"mood:{mood.Id}", mood.Title, "mood", mood.Items, capabilities);
             }
-        }
-
-        // Availability-aware discovery (Milestone 2): one row of not-yet-available titles worth
-        // requesting. (The "... to Request" genre/newest slices were removed at the user's request —
-        // requestable variety lives in this single row; over-fetched so it survives de-dup.)
-        if (flags.JellyseerrDiscovery)
-        {
-            var worthRequesting = await db.CatalogItems
-                .Where(c => c.Availability == AvailabilityState.Request)
-                .OrderByDescending(c => c.CommunityRating)
-                .Take(size * OverFetchFactor)
-                .ToListAsync(ct)
-                .ConfigureAwait(false);
-            AddRow(bundle, "discover", "Worth Requesting", "discover", worthRequesting, capabilities);
         }
 
         var movies = await db.CatalogItems
@@ -281,7 +294,7 @@ public class HomeService
         // lead with personalized rows (spotlight + Continue Watching always stay pinned to the top).
         if (personalized && flags.Personalization)
         {
-            ReorderByConfidence(bundle, confidence);
+            ReorderByConfidence(bundle, confidence, providerPriorities);
         }
 
         // Cross-row de-duplication in final display order: the highest-priority row keeps each title,
@@ -298,10 +311,13 @@ public class HomeService
         return bundle;
     }
 
-    private static void ReorderByConfidence(RenderBundle bundle, double confidence)
+    private static void ReorderByConfidence(
+        RenderBundle bundle,
+        double confidence,
+        IReadOnlyDictionary<string, (int Warm, int Cold)> providerPriorities)
     {
         // OrderBy is a stable sort, so rows with equal priority keep their insertion order.
-        bundle.Rows = bundle.Rows.OrderBy(r => LayoutPriority(r.Id, confidence)).ToList();
+        bundle.Rows = bundle.Rows.OrderBy(r => LayoutPriority(r.Id, confidence, providerPriorities)).ToList();
     }
 
     /// <summary>
@@ -369,7 +385,10 @@ public class HomeService
         return $"anon:{Guid.NewGuid():N}";
     }
 
-    private static int LayoutPriority(string rowId, double confidence)
+    private static int LayoutPriority(
+        string rowId,
+        double confidence,
+        IReadOnlyDictionary<string, (int Warm, int Cold)> providerPriorities)
     {
         // Always pinned to the top regardless of confidence.
         switch (rowId)
@@ -377,6 +396,12 @@ public class HomeService
             case "spotlight": return 0;
             case "continue": return 1;
             case "newsince": return 2; // new content is always worth surfacing early
+        }
+
+        // Provider-supplied rows carry their own warm/cold priorities.
+        if (providerPriorities.TryGetValue(rowId, out var priority))
+        {
+            return confidence >= ConfidenceLayoutThreshold ? priority.Warm : priority.Cold;
         }
 
         // Mood collections sit together as a themed block, just above the library rows.

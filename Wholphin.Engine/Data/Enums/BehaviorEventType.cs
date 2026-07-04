@@ -57,6 +57,9 @@ public enum BehaviorEventType
     /// <summary>A card was clicked/selected (interest, even if playback never starts).</summary>
     CardClicked = 24,
 
+    /// <summary>A trailer preview actually played for the user (stronger interest than a click).</summary>
+    TrailerPlayed = 25,
+
     /// <summary>A request was created (strong positive signal; feeds request affinity).</summary>
     RequestCreated = 30,
 

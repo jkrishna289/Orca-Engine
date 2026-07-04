@@ -41,6 +41,12 @@ public class SettingsService : ISettingsService
     /// <summary>Roaming-settings key for a user's exploration opt-out.</summary>
     public const string KeyExploration = "feature.exploration";
 
+    /// <summary>Roaming-settings key for a user's taste-discovery opt-out.</summary>
+    public const string KeyTasteDiscovery = "feature.tasteDiscovery";
+
+    /// <summary>Roaming-settings key for a user's country override (ISO-3166-1, e.g. "IN").</summary>
+    public const string KeyCountry = "pref.country";
+
     /// <summary>Roaming-settings key for a user's preferred row size.</summary>
     public const string KeyRowSize = "pref.rowSize";
 
@@ -96,9 +102,13 @@ public class SettingsService : ISettingsService
         f.ComingSoon = config.FeatureComingSoon;
         f.MoodCollections = config.FeatureMoodCollections;
         f.TrailerPrebuffer = config.FeatureTrailerPrebuffer;
-        f.JellyseerrDiscovery = config.FeatureJellyseerrDiscovery;
-        f.TmdbDiscovery = config.FeatureTmdbDiscovery;
         f.Requests = config.FeatureRequests;
+        f.TasteDiscovery = config.FeatureTasteDiscovery;
+
+        if (IsCountry(config.WatchProviderRegion))
+        {
+            settings.CountryCode = config.WatchProviderRegion.Trim().ToUpperInvariant();
+        }
     }
 
     private async Task ApplyUserAsync(EngineSettings settings, Guid userId, CancellationToken ct)
@@ -122,7 +132,28 @@ public class SettingsService : ISettingsService
         f.Trending = Bool(overrides, KeyTrending, f.Trending);
         f.SimilarityRows = Bool(overrides, KeySimilarityRows, f.SimilarityRows);
         f.Exploration = Bool(overrides, KeyExploration, f.Exploration);
+        f.TasteDiscovery = Bool(overrides, KeyTasteDiscovery, f.TasteDiscovery);
         settings.DefaultRowSize = Clamp(Int(overrides, KeyRowSize, settings.DefaultRowSize), 1, 100, settings.DefaultRowSize);
+
+        if (overrides.TryGetValue(KeyCountry, out var country))
+        {
+            var cc = country.Trim().Trim('"').ToUpperInvariant();
+            if (IsCountry(cc))
+            {
+                settings.CountryCode = cc;
+            }
+        }
+    }
+
+    private static bool IsCountry(string? value)
+    {
+        var cc = value?.Trim().Trim('"');
+        if (cc is not { Length: 2 })
+        {
+            return false;
+        }
+
+        return char.IsAsciiLetter(cc[0]) && char.IsAsciiLetter(cc[1]);
     }
 
     private static bool Bool(IReadOnlyDictionary<string, string> map, string key, bool fallback)

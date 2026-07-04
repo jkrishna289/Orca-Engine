@@ -19,13 +19,6 @@ namespace Wholphin.Engine.Recommendation;
 /// </summary>
 public class ContentRecommender : IRecommender
 {
-    // Blueprint scoring weights.
-    private const double WPersonalization = 0.60;
-    private const double WQuality = 0.15;
-    private const double WRecency = 0.05;
-    private const double WAvailability = 0.10;
-    // WTrending = 0.10 is reserved; no trending signal exists in v1.
-
     private const double DiversityPenalty = 0.15;
 
     // Exploration (Feature K): reserve ~10% of slots for novelty, but only for warm profiles
@@ -37,6 +30,7 @@ public class ContentRecommender : IRecommender
     private readonly IPersonalizationService _personalization;
     private readonly Diagnostics.IEngineMetrics _metrics;
     private readonly Settings.ISettingsService _settings;
+    private readonly Ranking.IScoringPolicy _scoring;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ContentRecommender"/> class.
@@ -45,16 +39,19 @@ public class ContentRecommender : IRecommender
     /// <param name="personalization">Personalization service.</param>
     /// <param name="metrics">Operational metrics.</param>
     /// <param name="settings">Layered settings (gates exploration).</param>
+    /// <param name="scoring">The shared scoring policy (blend weights).</param>
     public ContentRecommender(
         IWholphinDbContextFactory factory,
         IPersonalizationService personalization,
         Diagnostics.IEngineMetrics metrics,
-        Settings.ISettingsService settings)
+        Settings.ISettingsService settings,
+        Ranking.IScoringPolicy scoring)
     {
         _factory = factory;
         _personalization = personalization;
         _metrics = metrics;
         _settings = settings;
+        _scoring = scoring;
     }
 
     /// <inheritdoc />
@@ -108,6 +105,7 @@ public class ContentRecommender : IRecommender
         var max = raw.Values.Max();
         var span = max - min;
 
+        var weights = _scoring.Recommender;
         var now = DateTime.UtcNow;
         var scored = new List<RecommendationResult>(candidates.Count);
         foreach (var c in candidates)
@@ -117,13 +115,16 @@ public class ContentRecommender : IRecommender
             var recency = Recency(c.DateAdded, now);
             var availability = c.Availability == AvailabilityState.WatchNow ? 1.0 : 0.5;
 
-            // Confidence blend: lean on global quality when we barely know the user.
-            var personalized = (affinity.Confidence * personalization) + ((1 - affinity.Confidence) * quality);
+            // Calibration: lean on the global quality prior when we barely know the user.
+            var personalized = Ranking.Calibration.Shrink(affinity.Confidence, personalization, quality);
 
-            var final = (WPersonalization * personalized)
-                + (WQuality * quality)
-                + (WRecency * recency)
-                + (WAvailability * availability);
+            var final = new Ranking.RecommendationSignals
+            {
+                Taste = personalized,
+                Quality = quality,
+                Freshness = recency,
+                Availability = availability,
+            }.Blend(weights);
 
             scored.Add(new RecommendationResult(c)
             {

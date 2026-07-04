@@ -4,10 +4,14 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Wholphin.Engine.Caching;
 
 /// <summary>
-/// Tier-1 in-process cache backed by <see cref="IMemoryCache"/>.
+/// Tier-1 in-process cache backed by <see cref="IMemoryCache"/>. Every entry counts as size 1 so
+/// the shared cache's <c>SizeLimit</c> bounds the entry count (and thus memory) — the oldest/least-
+/// used entries are evicted under pressure instead of growing without bound.
 /// </summary>
 public class InMemoryCache : ICache
 {
+    private const int EntrySize = 1;
+
     private readonly IMemoryCache _cache;
 
     /// <summary>
@@ -31,7 +35,7 @@ public class InMemoryCache : ICache
     /// <inheritdoc />
     public void Set<T>(string key, T value, TimeSpan? ttl = null)
     {
-        var options = new MemoryCacheEntryOptions();
+        var options = new MemoryCacheEntryOptions { Size = EntrySize };
         if (ttl.HasValue)
         {
             options.AbsoluteExpirationRelativeToNow = ttl;

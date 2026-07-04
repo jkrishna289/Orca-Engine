@@ -15,8 +15,8 @@ namespace Wholphin.Engine.Catalog;
 /// <summary>
 /// Default <see cref="ICatalogEnricher"/> backed by <see cref="ITmdbClient"/>. Selects requestable
 /// rows (no Jellyfin id, but a known TMDB id) that are missing genres or poster art and fills them
-/// in from a TMDB detail lookup — so "Worth Requesting" cards show real artwork and request affinity
-/// /similarity get genre signal for not-yet-available titles.
+/// in from a TMDB detail lookup — so discovery cards ("You Might Like" etc.) show real artwork and
+/// request affinity/similarity get genre signal for not-yet-available titles.
 /// </summary>
 public class TmdbEnricher : ICatalogEnricher
 {
@@ -143,6 +143,16 @@ public class TmdbEnricher : ICatalogEnricher
             if (item.RuntimeMinutes is null && e.RuntimeMinutes is not null)
             {
                 item.RuntimeMinutes = e.RuntimeMinutes;
+            }
+
+            if (string.IsNullOrEmpty(item.OriginalLanguage) && !string.IsNullOrEmpty(e.OriginalLanguage))
+            {
+                item.OriginalLanguage = e.OriginalLanguage;
+            }
+
+            if (string.IsNullOrEmpty(item.CollectionName) && !string.IsNullOrEmpty(e.CollectionName))
+            {
+                item.CollectionName = e.CollectionName;
             }
 
             if (changed)

@@ -26,6 +26,20 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the number of items in the rotating spotlight billboard.</summary>
     public int SpotlightCount { get; set; } = 5;
 
+    /// <summary>
+    /// Gets or sets how many days of raw behavior events to retain (older ones are pruned; the
+    /// affinity vector already decays them to near-zero). Bounds recompute cost as history grows.
+    /// 0 = keep everything (no pruning).
+    /// </summary>
+    public int BehaviorRetentionDays { get; set; } = 400;
+
+    /// <summary>
+    /// Gets or sets the household IANA/Windows time-zone id used for daypart bucketing (morning/
+    /// evening/…). Empty = the server's local time zone. Applied consistently to signal capture and
+    /// selection so a signal is scored under the daypart it was learned in.
+    /// </summary>
+    public string HouseholdTimeZone { get; set; } = string.Empty;
+
     // --- Feature flags (admin layer) -------------------------------------------------------
 
     /// <summary>Gets or sets a value indicating whether personalized recommendations are produced.</summary>
@@ -61,14 +75,64 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets a value indicating whether Groq-generated content advisories are produced and shown in the player. Needs a Groq key; independent of the LLM re-ranker.</summary>
     public bool FeatureContentWarnings { get; set; } = true;
 
-    /// <summary>Gets or sets a value indicating whether availability-aware discovery (Jellyseerr/TMDB) is active. (Milestone 2.)</summary>
-    public bool FeatureJellyseerrDiscovery { get; set; }
-
-    /// <summary>Gets or sets a value indicating whether TMDB-direct trending/popular discovery is pulled into the catalog. (Milestone 7.)</summary>
-    public bool FeatureTmdbDiscovery { get; set; }
-
     /// <summary>Gets or sets a value indicating whether engine-proxied requests are accepted. (Milestone 2.)</summary>
     public bool FeatureRequests { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether taste-driven discovery is active: per-user
+    /// justified TMDB pulls (You Might Like / Because You Watched) plus the global trending and
+    /// per-country rows. Needs a TMDB key. Replaces the old indiscriminate discovery import.
+    /// </summary>
+    public bool FeatureTasteDiscovery { get; set; }
+
+    // --- Discovery tuning (admin-only; defaults are the designed behavior) ------------------
+
+    /// <summary>Gets or sets the profile confidence (0-1) below which per-user taste pulls are skipped.</summary>
+    public double DiscoveryMinConfidence { get; set; } = 0.40;
+
+    /// <summary>Gets or sets the maximum new catalog rows one per-user pull may import.</summary>
+    public int DiscoveryMaxImportsPerPull { get; set; } = 25;
+
+    /// <summary>Gets or sets the taste-pick lifetime in days (seeded picks live twice as long).</summary>
+    public int DiscoveryPickTtlDays { get; set; } = 7;
+
+    /// <summary>Gets or sets how many users get a taste pull per discovery cycle (rotation).</summary>
+    public int DiscoveryMaxUsersPerCycle { get; set; } = 10;
+
+    /// <summary>Gets or sets the share (0.05-0.15) of taste picks reserved for labeled exploration.</summary>
+    public double DiscoveryExplorationFraction { get; set; } = 0.10;
+
+    /// <summary>Gets or sets how much the viewer's taste flavors the trending row (0 = pure popularity).</summary>
+    public double DiscoveryTrendingTasteWeight { get; set; } = 0.30;
+
+    // --- Ranking weights (advanced; resolved via ScoringPolicy, defaults = blueprint constants) ---
+
+    /// <summary>Gets or sets the "For You" personalization weight (0-1). Default 0.60.</summary>
+    public double WeightRecPersonalization { get; set; } = 0.60;
+
+    /// <summary>Gets or sets the "For You" quality weight (0-1). Default 0.15.</summary>
+    public double WeightRecQuality { get; set; } = 0.15;
+
+    /// <summary>Gets or sets the "For You" recency weight (0-1). Default 0.05.</summary>
+    public double WeightRecRecency { get; set; } = 0.05;
+
+    /// <summary>Gets or sets the "For You" availability weight (0-1). Default 0.10.</summary>
+    public double WeightRecAvailability { get; set; } = 0.10;
+
+    /// <summary>Gets or sets the discovery taste weight (0-1). Default 0.55.</summary>
+    public double WeightDiscTaste { get; set; } = 0.55;
+
+    /// <summary>Gets or sets the discovery popularity weight (0-1). Default 0.20.</summary>
+    public double WeightDiscPopularity { get; set; } = 0.20;
+
+    /// <summary>Gets or sets the discovery freshness weight (0-1). Default 0.10.</summary>
+    public double WeightDiscFreshness { get; set; } = 0.10;
+
+    /// <summary>Gets or sets the discovery novelty weight (0-1). Default 0.10.</summary>
+    public double WeightDiscNovelty { get; set; } = 0.10;
+
+    /// <summary>Gets or sets the discovery source-confidence weight (0-1). Default 0.05.</summary>
+    public double WeightDiscSourceConfidence { get; set; } = 0.05;
 
     // --- Milestone 2 integrations ----------------------------------------------------------
 

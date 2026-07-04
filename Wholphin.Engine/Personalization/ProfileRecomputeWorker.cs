@@ -22,8 +22,10 @@ public class ProfileRecomputeWorker : IProfileRecomputeQueue, IHostedService
     private const int DebounceMs = 1500;
 
     private readonly IPersonalizationService _personalization;
+    private readonly ITasteProfileService _tasteProfiles;
     private readonly HomeService _home;
     private readonly ICache _cache;
+    private readonly Diagnostics.IEngineMetrics _metrics;
     private readonly ILogger<ProfileRecomputeWorker> _logger;
 
     private readonly Channel<Guid> _channel =
@@ -36,18 +38,24 @@ public class ProfileRecomputeWorker : IProfileRecomputeQueue, IHostedService
     /// Initializes a new instance of the <see cref="ProfileRecomputeWorker"/> class.
     /// </summary>
     /// <param name="personalization">The personalization service.</param>
+    /// <param name="tasteProfiles">The taste-profile file service.</param>
     /// <param name="home">The home generator (for cache precompute).</param>
     /// <param name="cache">The L1 cache.</param>
+    /// <param name="metrics">Operational metrics (recompute timing).</param>
     /// <param name="logger">The logger.</param>
     public ProfileRecomputeWorker(
         IPersonalizationService personalization,
+        ITasteProfileService tasteProfiles,
         HomeService home,
         ICache cache,
+        Diagnostics.IEngineMetrics metrics,
         ILogger<ProfileRecomputeWorker> logger)
     {
         _personalization = personalization;
+        _tasteProfiles = tasteProfiles;
         _home = home;
         _cache = cache;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -117,7 +125,22 @@ public class ProfileRecomputeWorker : IProfileRecomputeQueue, IHostedService
     {
         try
         {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             await _personalization.RecomputeAsync(userId, ct).ConfigureAwait(false);
+            stopwatch.Stop();
+            _metrics.Increment("personalization.recompute.count");
+            _metrics.Increment("personalization.recompute.total_ms", stopwatch.ElapsedMilliseconds);
+
+            // Keep the taste-profile file in lockstep with the affinity vector (fail-soft: a file
+            // problem must never block the home precompute below).
+            try
+            {
+                await _tasteProfiles.RebuildAsync(userId, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Orca Engine: taste-profile rebuild failed for {UserId}.", userId);
+            }
 
             // Invalidate the stale home read-model, then precompute the default bundle so the
             // user's next /Home or /Bootstrap is served straight from cache.

@@ -66,13 +66,26 @@ public class PersonalizationService : IPersonalizationService
         _logger = logger;
     }
 
+    /// <summary>
+    /// The oldest behavior timestamp still folded into a recompute — <c>UtcNow - BehaviorRetentionDays</c>,
+    /// or <see cref="DateTime.MinValue"/> when retention is disabled (keep everything). Bounds
+    /// recompute cost as history grows; the 90-day decay already makes pruned events near-weightless.
+    /// </summary>
+    /// <returns>The retention cutoff (UTC).</returns>
+    public static DateTime RetentionCutoff()
+    {
+        var days = Plugin.Instance?.Configuration?.BehaviorRetentionDays ?? 0;
+        return days > 0 ? DateTime.UtcNow.AddDays(-days) : DateTime.MinValue;
+    }
+
     /// <inheritdoc />
     public async Task<AffinityVector> RecomputeAsync(Guid userId, CancellationToken ct = default)
     {
         await using var db = _factory.Create();
 
+        var cutoff = RetentionCutoff();
         var events = await db.BehaviorEvents.AsNoTracking()
-            .Where(e => e.UserId == userId)
+            .Where(e => e.UserId == userId && e.Timestamp >= cutoff)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -122,6 +135,10 @@ public class PersonalizationService : IPersonalizationService
             var decade = new Dictionary<string, double>();
             var mediaType = new Dictionary<string, double>();
             var person = new Dictionary<string, double>();
+            var runtime = new Dictionary<string, double>();
+            var maturity = new Dictionary<string, double>();
+            var language = new Dictionary<string, double>();
+            var franchise = new Dictionary<string, double>();
 
             // Context-aware (Feature C): accumulate a parallel sub-vector per daypart.
             var dayparts = new Dictionary<string, DimensionAccumulator>();
@@ -171,6 +188,9 @@ public class PersonalizationService : IPersonalizationService
 
                 Accumulate(mediaType, item.MediaType.ToString(), effective);
 
+                CatalogFeatures.ForEachScalarFeature(item, (dim, value) =>
+                    Accumulate(ScalarTarget(dim, runtime, maturity, language, franchise), value, effective));
+
                 // Fold the same contribution into this event's daypart sub-vector (if its hour is known).
                 if (HourOf(e.ContextJson) is { } hour)
                 {
@@ -196,6 +216,10 @@ public class PersonalizationService : IPersonalizationService
             vector.Decade = Normalize(decade);
             vector.MediaType = Normalize(mediaType);
             vector.Person = Normalize(person);
+            vector.Runtime = Normalize(runtime);
+            vector.Maturity = Normalize(maturity);
+            vector.Language = Normalize(language);
+            vector.Franchise = Normalize(franchise);
 
             foreach (var (bucket, acc) in dayparts)
             {
@@ -247,7 +271,7 @@ public class PersonalizationService : IPersonalizationService
             return baseVector;
         }
 
-        var bucket = Daypart.Of(hourUtc ?? DateTime.UtcNow.Hour);
+        var bucket = Daypart.Of(hourUtc ?? HouseholdClock.Hour());
         if (!baseVector.Dayparts.TryGetValue(bucket, out var dp) || dp is null)
         {
             return baseVector;
@@ -269,6 +293,10 @@ public class PersonalizationService : IPersonalizationService
             Decade = Blend(baseVector.Decade, dp.Decade, weight),
             MediaType = Blend(baseVector.MediaType, dp.MediaType, weight),
             Person = Blend(baseVector.Person, dp.Person, weight),
+            Runtime = Blend(baseVector.Runtime, dp.Runtime, weight),
+            Maturity = Blend(baseVector.Maturity, dp.Maturity, weight),
+            Language = Blend(baseVector.Language, dp.Language, weight),
+            Franchise = Blend(baseVector.Franchise, dp.Franchise, weight),
             Confidence = baseVector.Confidence,
             EventCount = baseVector.EventCount,
             GeneratedAt = baseVector.GeneratedAt,
@@ -296,6 +324,10 @@ public class PersonalizationService : IPersonalizationService
             Decade = Blend(contextual.Decade, session.Decade, SessionBlendWeight),
             MediaType = Blend(contextual.MediaType, session.MediaType, SessionBlendWeight),
             Person = Blend(contextual.Person, session.Person, SessionBlendWeight),
+            Runtime = Blend(contextual.Runtime, session.Runtime, SessionBlendWeight),
+            Maturity = Blend(contextual.Maturity, session.Maturity, SessionBlendWeight),
+            Language = Blend(contextual.Language, session.Language, SessionBlendWeight),
+            Franchise = Blend(contextual.Franchise, session.Franchise, SessionBlendWeight),
             Confidence = contextual.Confidence,
             EventCount = contextual.EventCount,
             GeneratedAt = contextual.GeneratedAt,
@@ -515,6 +547,20 @@ public class PersonalizationService : IPersonalizationService
         return result;
     }
 
+    /// <summary>Routes a scalar dimension to its accumulation dictionary.</summary>
+    private static Dictionary<string, double> ScalarTarget(
+        ScalarDimension dim,
+        Dictionary<string, double> runtime,
+        Dictionary<string, double> maturity,
+        Dictionary<string, double> language,
+        Dictionary<string, double> franchise) => dim switch
+    {
+        ScalarDimension.Runtime => runtime,
+        ScalarDimension.Maturity => maturity,
+        ScalarDimension.Language => language,
+        _ => franchise,
+    };
+
     private static void Accumulate(Dictionary<string, double> dim, string key, double value)
     {
         if (string.IsNullOrWhiteSpace(key))
@@ -586,6 +632,10 @@ public class PersonalizationService : IPersonalizationService
         private readonly Dictionary<string, double> _decade = new();
         private readonly Dictionary<string, double> _mediaType = new();
         private readonly Dictionary<string, double> _person = new();
+        private readonly Dictionary<string, double> _runtime = new();
+        private readonly Dictionary<string, double> _maturity = new();
+        private readonly Dictionary<string, double> _language = new();
+        private readonly Dictionary<string, double> _franchise = new();
         private int _events;
 
         public void Add(CatalogItem item, double effective)
@@ -617,6 +667,9 @@ public class PersonalizationService : IPersonalizationService
             }
 
             Accumulate(_mediaType, item.MediaType.ToString(), effective);
+
+            CatalogFeatures.ForEachScalarFeature(item, (dim, value) =>
+                Accumulate(ScalarTarget(dim, _runtime, _maturity, _language, _franchise), value, effective));
         }
 
         public AffinityVector Build(DateTime now) => new()
@@ -627,6 +680,10 @@ public class PersonalizationService : IPersonalizationService
             Decade = Normalize(_decade),
             MediaType = Normalize(_mediaType),
             Person = Normalize(_person),
+            Runtime = Normalize(_runtime),
+            Maturity = Normalize(_maturity),
+            Language = Normalize(_language),
+            Franchise = Normalize(_franchise),
             EventCount = _events,
             Confidence = Math.Min(1.0, _events / (double)DaypartConfidenceFullAt),
             GeneratedAt = now,

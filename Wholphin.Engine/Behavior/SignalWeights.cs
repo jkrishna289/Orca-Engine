@@ -61,6 +61,7 @@ public static class SignalWeights
         BehaviorEventType.CardImpression => 0.0,
         BehaviorEventType.CardFocused => Math.Clamp(value / 20.0, 0.0, 0.4),
         BehaviorEventType.CardClicked => 0.3,
+        BehaviorEventType.TrailerPlayed => 0.5,
 
         _ => 0.0
     };

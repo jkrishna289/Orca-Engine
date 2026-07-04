@@ -18,4 +18,11 @@ public class EngineSettings
 
     /// <summary>Gets or sets the number of items shown in the rotating spotlight billboard.</summary>
     public int SpotlightCount { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the effective ISO-3166-1 country for the "What people are watching in …" row:
+    /// the user's roaming <c>pref.country</c> override, falling back to the admin
+    /// watch-provider region.
+    /// </summary>
+    public string CountryCode { get; set; } = "US";
 }

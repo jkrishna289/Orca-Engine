@@ -29,6 +29,18 @@ public class AffinityVector
     /// <summary>Gets or sets people affinities, keyed by role-prefixed name (e.g. "Director:Christopher Nolan" → 0.9).</summary>
     public Dictionary<string, double> Person { get; set; } = new();
 
+    /// <summary>Gets or sets runtime-bucket affinities (keys: short/medium/long/epic).</summary>
+    public Dictionary<string, double> Runtime { get; set; } = new();
+
+    /// <summary>Gets or sets maturity-rating affinities, keyed by official rating (e.g. "PG-13" → 0.6).</summary>
+    public Dictionary<string, double> Maturity { get; set; } = new();
+
+    /// <summary>Gets or sets language affinities, keyed by ISO-639-1 code (e.g. "hi" → 0.8).</summary>
+    public Dictionary<string, double> Language { get; set; } = new();
+
+    /// <summary>Gets or sets franchise/collection affinities, keyed by collection name.</summary>
+    public Dictionary<string, double> Franchise { get; set; } = new();
+
     /// <summary>
     /// Gets or sets the confidence score (0-1) scaling with how much behavior data backs this
     /// profile. Below ~0.40 the recommender should lean on global priors (cold-start).

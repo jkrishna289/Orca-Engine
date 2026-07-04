@@ -43,6 +43,38 @@ public static class ContentDocument
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Builds the text document for an external (not-yet-imported) discovery result, using the
+    /// exact field labels and order of the catalog overload so token distributions match when
+    /// seeds and candidates are embedded in the same batch. External results only carry
+    /// title/year/type/genres/overview — the missing sections are simply absent, exactly as they
+    /// would be for a catalog item with thin metadata.
+    /// </summary>
+    /// <param name="result">The discovery result.</param>
+    /// <returns>A single descriptive string (never null).</returns>
+    public static string Of(Integrations.Jellyseerr.DiscoverResult result)
+    {
+        var sb = new StringBuilder();
+
+        var title = string.IsNullOrWhiteSpace(result.Title) ? "Untitled" : result.Title.Trim();
+        sb.Append(title);
+        if (result.Year is { } year)
+        {
+            sb.Append(" (").Append(year.ToString(CultureInfo.InvariantCulture)).Append(')');
+        }
+
+        sb.Append(". ").Append(result.MediaType).Append('.');
+
+        AppendList(sb, "Genres", result.Genres, stripRolePrefix: false, max: 8);
+
+        if (!string.IsNullOrWhiteSpace(result.Overview))
+        {
+            sb.Append(" Overview: ").Append(result.Overview.Trim());
+        }
+
+        return sb.ToString();
+    }
+
     private static void AppendList(StringBuilder sb, string label, IReadOnlyList<string> values, bool stripRolePrefix, int max)
     {
         if (values.Count == 0)

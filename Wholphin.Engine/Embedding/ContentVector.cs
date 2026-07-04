@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Wholphin.Engine.Recommendation;
 
 namespace Wholphin.Engine.Embedding;
@@ -27,6 +28,12 @@ public sealed class ContentVector
     /// <summary>Gets a value indicating whether this vector carries no signal.</summary>
     public bool IsEmpty =>
         (_sparse is null || _sparse.Count == 0) && (_dense is null || _dense.Length == 0);
+
+    /// <summary>Gets the sparse term→weight map (L2-normalized), or null for dense/empty vectors.</summary>
+    public IReadOnlyDictionary<string, double>? SparseWeights => _sparse;
+
+    /// <summary>Gets the dense embedding values (L2-normalized), or null for sparse/empty vectors.</summary>
+    public IReadOnlyList<float>? DenseValues => _dense;
 
     /// <summary>Wraps an already-normalized sparse TF-IDF vector.</summary>
     /// <param name="weights">The term→weight map (assumed L2-normalized).</param>
@@ -63,6 +70,74 @@ public sealed class ContentVector
         }
 
         return new ContentVector(null, normalized);
+    }
+
+    /// <summary>
+    /// Combines same-kind vectors into their L2-normalized weighted mean — the way a user's taste
+    /// vector is derived from their seed items' content vectors. Empty vectors and non-positive
+    /// weights are skipped; vectors whose kind (or dense length) disagrees with the first usable
+    /// one are skipped too (they never co-occur within one snapshot).
+    /// </summary>
+    /// <param name="parts">The vectors with their weights.</param>
+    /// <returns>The weighted mean, or <see cref="Empty"/> when nothing usable was supplied.</returns>
+    public static ContentVector WeightedMean(IReadOnlyList<(ContentVector Vector, double Weight)> parts)
+    {
+        Dictionary<string, double>? sparseSum = null;
+        double[]? denseSum = null;
+
+        foreach (var (vector, weight) in parts)
+        {
+            if (weight <= 0 || vector.IsEmpty)
+            {
+                continue;
+            }
+
+            if (vector._sparse is { } sparse && denseSum is null)
+            {
+                sparseSum ??= new Dictionary<string, double>();
+                foreach (var (term, value) in sparse)
+                {
+                    sparseSum[term] = sparseSum.GetValueOrDefault(term) + (value * weight);
+                }
+            }
+            else if (vector._dense is { } dense && sparseSum is null)
+            {
+                denseSum ??= new double[dense.Length];
+                if (dense.Length != denseSum.Length)
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < dense.Length; i++)
+                {
+                    denseSum[i] += dense[i] * weight;
+                }
+            }
+        }
+
+        if (sparseSum is { Count: > 0 })
+        {
+            var norm = Math.Sqrt(sparseSum.Values.Sum(v => v * v));
+            if (norm <= 0)
+            {
+                return Empty;
+            }
+
+            return Sparse(sparseSum.ToDictionary(kv => kv.Key, kv => kv.Value / norm));
+        }
+
+        if (denseSum is { Length: > 0 })
+        {
+            var values = new float[denseSum.Length];
+            for (var i = 0; i < denseSum.Length; i++)
+            {
+                values[i] = (float)denseSum[i];
+            }
+
+            return Dense(values);
+        }
+
+        return Empty;
     }
 
     /// <summary>
