@@ -167,7 +167,7 @@ public class DiscoveryRowProvider : IRowProvider
 
         // You Might Like: taste matches plus the honestly-labeled exploration quota, one row.
         var tasteKinds = new[] { DiscoveryPickKind.TasteMatch, DiscoveryPickKind.Exploration };
-        var tastePicks = await (
+        var tastePicks = (await (
             from pick in db.UserDiscoveryPicks.AsNoTracking()
             join item in db.CatalogItems.AsNoTracking() on pick.CatalogItemId equals item.Id
             where pick.UserId == userId
@@ -175,10 +175,12 @@ public class DiscoveryRowProvider : IRowProvider
                 && (pick.ExpiresAt == null || pick.ExpiresAt > now)
                 && item.Availability == AvailabilityState.Request
             orderby pick.FinalScore descending
-            select new PickRow(pick, item))
+            select new { pick, item })
             .Take(rowSize * 2)
             .ToListAsync(ct)
-            .ConfigureAwait(false);
+            .ConfigureAwait(false))
+            .Select(x => new PickRow(x.pick, x.item))
+            .ToList();
         if (tastePicks.Count > 0)
         {
             rows.Add(new ProviderRow
@@ -194,7 +196,7 @@ public class DiscoveryRowProvider : IRowProvider
         }
 
         // Because You Watched {seed}: the two freshest seed groups, one row each.
-        var seedPicks = await (
+        var seedPicks = (await (
             from pick in db.UserDiscoveryPicks.AsNoTracking()
             join item in db.CatalogItems.AsNoTracking() on pick.CatalogItemId equals item.Id
             where pick.UserId == userId
@@ -202,9 +204,11 @@ public class DiscoveryRowProvider : IRowProvider
                 && pick.SeedTmdbId != null
                 && (pick.ExpiresAt == null || pick.ExpiresAt > now)
                 && item.Availability == AvailabilityState.Request
-            select new PickRow(pick, item))
+            select new { pick, item })
             .ToListAsync(ct)
-            .ConfigureAwait(false);
+            .ConfigureAwait(false))
+            .Select(x => new PickRow(x.pick, x.item))
+            .ToList();
         var seedGroups = seedPicks
             .GroupBy(p => p.Pick.SeedTmdbId!.Value)
             .OrderByDescending(g => g.Max(p => p.Pick.CreatedAt))
@@ -256,19 +260,19 @@ public class DiscoveryRowProvider : IRowProvider
         DateTime now,
         CancellationToken ct)
     {
-        var query =
+        // Filter fully on the mapped entities (including country) BEFORE projecting — EF can't
+        // translate a predicate applied after a projection into a non-entity type.
+        var rows = await (
             from pick in db.UserDiscoveryPicks.AsNoTracking()
             join item in db.CatalogItems.AsNoTracking() on pick.CatalogItemId equals item.Id
             where pick.UserId == userId
                 && pick.Kind == kind
                 && (pick.ExpiresAt == null || pick.ExpiresAt > now)
-            select new PickRow(pick, item);
-        if (country is not null)
-        {
-            query = query.Where(p => p.Pick.Country == country);
-        }
-
-        return await query.ToListAsync(ct).ConfigureAwait(false);
+                && (country == null || pick.Country == country)
+            select new { pick, item })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return rows.Select(x => new PickRow(x.pick, x.item)).ToList();
     }
 
     private static Dictionary<long, string> Reasons(IEnumerable<PickRow> picks)

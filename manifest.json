@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.5.1",
+        "changelog": "Fixes a home-screen error (no cards) that could occur when Taste-driven discovery was enabled: the 'What people are watching in your country' row built a database query that could not be translated to SQL. Home row providers now also fail safe, so one broken row can never blank the whole home. (1.0.5.0 added taste-driven discovery, per-user taste profiles, recommendation memory, self-explaining For You, richer taste signals, household time zone, retention, and /Admin/Diagnostics.)",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.0.5.1-alpha/orca-engine_1.0.5.1.zip",
+        "checksum": "c4c9dcabc31ebcfa3ec1abeb9b4e038f",
+        "timestamp": "2026-07-04T16:14:59Z"
+      },
+      {
         "version": "1.0.5.0",
         "changelog": "Taste-driven discovery (opt-in): the engine pulls TMDB titles matched to each viewer instead of importing blindly - every external title on the home screen now has a traceable reason. New rows: You Might Like, Because You Watched X, Trending with a pinch of your taste, and What people are watching in your country. Adds a per-user taste profile, recommendation memory (stops re-surfacing titles you keep ignoring, with a cooldown that heals over time), and controlled exploration. For You is self-explaining even without an LLM. Richer taste signals: runtime length, maturity, language and franchise. Time-of-day recommendations now honor a configurable household time zone. Operational: behavior-event retention with bounded recompute, a bounded cache, and a new /Admin/Diagnostics endpoint. Enable it in the plugin settings (Taste-driven discovery) with a TMDB key; off by default.",
         "targetAbi": "10.11.0.0",

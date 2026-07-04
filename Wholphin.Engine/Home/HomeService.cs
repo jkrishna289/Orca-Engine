@@ -257,7 +257,24 @@ public class HomeService
         };
         foreach (var provider in _rowProviders)
         {
-            foreach (var providerRow in await provider.BuildAsync(rowContext, ct).ConfigureAwait(false))
+            // A single misbehaving row provider must never take down the whole home — degrade to
+            // "that row is missing" instead of failing the page.
+            IReadOnlyList<ProviderRow> providerRows;
+            try
+            {
+                providerRows = await provider.BuildAsync(rowContext, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                _metrics.Increment("home.rowprovider.error");
+                continue;
+            }
+
+            foreach (var providerRow in providerRows)
             {
                 providerPriorities[providerRow.Id] = (providerRow.WarmPriority, providerRow.ColdPriority);
                 AddRow(bundle, providerRow.Id, providerRow.Title, providerRow.Purpose, providerRow.Items, capabilities, providerRow.RowStyle, providerRow.Reasons);
