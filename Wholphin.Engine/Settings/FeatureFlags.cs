@@ -31,6 +31,9 @@ public class FeatureFlags
     /// <summary>Gets or sets a value indicating whether the "Coming Soon" calendar row is emitted. (Milestone 8.)</summary>
     public bool ComingSoon { get; set; } = true;
 
+    /// <summary>Gets or sets a value indicating whether the "Continue the Story" row (skipped seasons + abandoned series) is emitted.</summary>
+    public bool ContinueTheStory { get; set; } = true;
+
     /// <summary>Gets or sets a value indicating whether mood-based collection rows are emitted. (Milestone 8.)</summary>
     public bool MoodCollections { get; set; } = true;
 

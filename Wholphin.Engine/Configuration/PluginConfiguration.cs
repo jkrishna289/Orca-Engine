@@ -66,6 +66,9 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets a value indicating whether the "Coming Soon" calendar row is emitted. (Milestone 8.)</summary>
     public bool FeatureComingSoon { get; set; } = true;
 
+    /// <summary>Gets or sets a value indicating whether the "Continue the Story" row (skipped seasons + abandoned series) is emitted.</summary>
+    public bool FeatureContinueTheStory { get; set; } = true;
+
     /// <summary>Gets or sets a value indicating whether mood-based collection rows are emitted. (Milestone 8.)</summary>
     public bool FeatureMoodCollections { get; set; } = true;
 

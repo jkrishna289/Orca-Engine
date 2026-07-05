@@ -205,11 +205,19 @@ public class HomeService
                 }
             }
 
-            // "New Since You Were Away": catalog items added/aired since the user's last visit.
+            // "New Since You Were Away": strict release/availability events (aired/downloaded/newly
+            // available) since the user's last visit — backlog is handled by "Continue the Story".
             if (flags.NewSinceAway)
             {
-                var newItems = await _newSince.GetAsync(userId!.Value, size, ct).ConfigureAwait(false);
-                AddRow(bundle, "newsince", "New Since You Were Away", "newsince", newItems, capabilities);
+                var newSince = await _newSince.GetAsync(userId!.Value, size, ct).ConfigureAwait(false);
+                AddRow(
+                    bundle,
+                    "newsince",
+                    "New Since You Were Away",
+                    "newsince",
+                    newSince.Items,
+                    capabilities,
+                    reasons: newSince.Reasons.Count > 0 ? newSince.Reasons : null);
             }
         }
 

@@ -90,7 +90,11 @@
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label><input is="emby-checkbox" type="checkbox" id="FeatureNewSinceAway" /><span>New Since You Were Away (Milestone 8)</span></label>
-                    <div class="fieldDescription">A row of titles added (or whose episodes aired) since the user's last visit.</div>
+                    <div class="fieldDescription">Strict release events since the user's last visit: a movie that became available, or a series whose episode aired or downloaded. No backlog.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureContinueTheStory" /><span>Continue the Story</span></label>
+                    <div class="fieldDescription">Series the user started but hasn't finished: skipped earlier seasons and abandoned shows (the correct home for backlog).</div>
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label><input is="emby-checkbox" type="checkbox" id="FeatureComingSoon" /><span>Coming Soon calendar (Milestone 8)</span></label>
@@ -338,6 +342,7 @@
                         document.querySelector('#DiscoveryExplorationFraction').value = config.DiscoveryExplorationFraction != null ? config.DiscoveryExplorationFraction : 0.10;
                         document.querySelector('#DiscoveryTrendingTasteWeight').value = config.DiscoveryTrendingTasteWeight != null ? config.DiscoveryTrendingTasteWeight : 0.30;
                         document.querySelector('#FeatureNewSinceAway').checked = config.FeatureNewSinceAway;
+                        document.querySelector('#FeatureContinueTheStory').checked = config.FeatureContinueTheStory;
                         document.querySelector('#FeatureComingSoon').checked = config.FeatureComingSoon;
                         document.querySelector('#FeatureMoodCollections').checked = config.FeatureMoodCollections;
                         document.querySelector('#FeatureTrailerPrebuffer').checked = config.FeatureTrailerPrebuffer;
@@ -396,6 +401,7 @@
                         config.DiscoveryTrendingTasteWeight = parseFloat(document.querySelector('#DiscoveryTrendingTasteWeight').value);
                         if (isNaN(config.DiscoveryTrendingTasteWeight)) { config.DiscoveryTrendingTasteWeight = 0.30; }
                         config.FeatureNewSinceAway = document.querySelector('#FeatureNewSinceAway').checked;
+                        config.FeatureContinueTheStory = document.querySelector('#FeatureContinueTheStory').checked;
                         config.FeatureComingSoon = document.querySelector('#FeatureComingSoon').checked;
                         config.FeatureMoodCollections = document.querySelector('#FeatureMoodCollections').checked;
                         config.FeatureTrailerPrebuffer = document.querySelector('#FeatureTrailerPrebuffer').checked;

@@ -24,4 +24,14 @@ public interface IArrClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The calendar entries (empty when unconfigured or on failure).</returns>
     Task<IReadOnlyList<ArrCalendarEntry>> GetCalendarAsync(DateTime startUtc, DateTime endUtc, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns merged Sonarr + Radarr "download completed" (import) events since
+    /// <paramref name="sinceUtc"/> — the availability side of "New Since You Were Away". Degrades to
+    /// an empty list when unconfigured or on failure.
+    /// </summary>
+    /// <param name="sinceUtc">Only events at/after this instant (UTC) are returned.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The import events (empty when unconfigured or on failure).</returns>
+    Task<IReadOnlyList<ArrHistoryEvent>> GetHistoryAsync(DateTime sinceUtc, CancellationToken ct = default);
 }

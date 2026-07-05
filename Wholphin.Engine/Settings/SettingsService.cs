@@ -100,6 +100,7 @@ public class SettingsService : ISettingsService
         f.Exploration = config.FeatureExploration;
         f.NewSinceAway = config.FeatureNewSinceAway;
         f.ComingSoon = config.FeatureComingSoon;
+        f.ContinueTheStory = config.FeatureContinueTheStory;
         f.MoodCollections = config.FeatureMoodCollections;
         f.TrailerPrebuffer = config.FeatureTrailerPrebuffer;
         f.Requests = config.FeatureRequests;

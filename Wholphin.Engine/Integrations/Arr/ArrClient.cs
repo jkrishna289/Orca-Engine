@@ -68,6 +68,138 @@ public class ArrClient : IArrClient
         return entries;
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ArrHistoryEvent>> GetHistoryAsync(DateTime sinceUtc, CancellationToken ct = default)
+    {
+        var events = new List<ArrHistoryEvent>();
+
+        if (SonarrConfigured)
+        {
+            events.AddRange(await GetSonarrHistoryAsync(sinceUtc, ct).ConfigureAwait(false));
+        }
+
+        if (RadarrConfigured)
+        {
+            events.AddRange(await GetRadarrHistoryAsync(sinceUtc, ct).ConfigureAwait(false));
+        }
+
+        return events;
+    }
+
+    private async Task<IReadOnlyList<ArrHistoryEvent>> GetSonarrHistoryAsync(DateTime sinceUtc, CancellationToken ct)
+    {
+        var config = Plugin.Instance?.Configuration;
+        var baseUrl = config?.SonarrUrl?.Trim().TrimEnd('/');
+        var apiKey = config?.SonarrApiKey?.Trim();
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+        {
+            return Array.Empty<ArrHistoryEvent>();
+        }
+
+        var url = $"{baseUrl}/api/v3/history/since?date={Iso(sinceUtc)}&includeSeries=true&includeEpisode=true";
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient();
+            using var request = Build(url, apiKey);
+            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _metrics.Increment("arr.sonarr.history.error");
+                return Array.Empty<ArrHistoryEvent>();
+            }
+
+            var items = await response.Content.ReadFromJsonAsync<List<SonarrHistoryItem>>(JsonOptions, ct).ConfigureAwait(false);
+            var result = new List<ArrHistoryEvent>();
+            foreach (var item in items ?? new List<SonarrHistoryItem>())
+            {
+                if (!IsImport(item.EventType) || !TryDate(item.Date, out var occurred))
+                {
+                    continue;
+                }
+
+                result.Add(new ArrHistoryEvent
+                {
+                    MediaType = MediaType.Series,
+                    TmdbId = item.Series?.TmdbId,
+                    TvdbId = item.Series?.TvdbId,
+                    ImdbId = item.Series?.ImdbId,
+                    Title = item.Series?.Title ?? string.Empty,
+                    SeasonNumber = item.Episode?.SeasonNumber,
+                    EpisodeNumber = item.Episode?.EpisodeNumber,
+                    OccurredUtc = occurred,
+                });
+            }
+
+            _metrics.Increment("arr.sonarr.history.ok");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment("arr.sonarr.history.error");
+            _logger.LogWarning(ex, "Orca Engine: Sonarr history fetch failed.");
+            return Array.Empty<ArrHistoryEvent>();
+        }
+    }
+
+    private async Task<IReadOnlyList<ArrHistoryEvent>> GetRadarrHistoryAsync(DateTime sinceUtc, CancellationToken ct)
+    {
+        var config = Plugin.Instance?.Configuration;
+        var baseUrl = config?.RadarrUrl?.Trim().TrimEnd('/');
+        var apiKey = config?.RadarrApiKey?.Trim();
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+        {
+            return Array.Empty<ArrHistoryEvent>();
+        }
+
+        var url = $"{baseUrl}/api/v3/history/since?date={Iso(sinceUtc)}&includeMovie=true";
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient();
+            using var request = Build(url, apiKey);
+            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _metrics.Increment("arr.radarr.history.error");
+                return Array.Empty<ArrHistoryEvent>();
+            }
+
+            var items = await response.Content.ReadFromJsonAsync<List<RadarrHistoryItem>>(JsonOptions, ct).ConfigureAwait(false);
+            var result = new List<ArrHistoryEvent>();
+            foreach (var item in items ?? new List<RadarrHistoryItem>())
+            {
+                if (!IsImport(item.EventType) || !TryDate(item.Date, out var occurred))
+                {
+                    continue;
+                }
+
+                result.Add(new ArrHistoryEvent
+                {
+                    MediaType = MediaType.Movie,
+                    TmdbId = item.Movie?.TmdbId,
+                    ImdbId = item.Movie?.ImdbId,
+                    Title = item.Movie?.Title ?? string.Empty,
+                    OccurredUtc = occurred,
+                });
+            }
+
+            _metrics.Increment("arr.radarr.history.ok");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment("arr.radarr.history.error");
+            _logger.LogWarning(ex, "Orca Engine: Radarr history fetch failed.");
+            return Array.Empty<ArrHistoryEvent>();
+        }
+    }
+
+    // A completed download ("...FolderImported"). Grabs/renames/deletions aren't availability events.
+    private static bool IsImport(string? eventType)
+        => !string.IsNullOrWhiteSpace(eventType)
+            && eventType.Contains("import", StringComparison.OrdinalIgnoreCase);
+
     private async Task<IReadOnlyList<ArrCalendarEntry>> GetSonarrAsync(DateTime startUtc, DateTime endUtc, CancellationToken ct)
     {
         var config = Plugin.Instance?.Configuration;
