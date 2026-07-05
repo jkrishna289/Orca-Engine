@@ -207,17 +207,29 @@ public class HomeService
 
             // "New Since You Were Away": strict release/availability events (aired/downloaded/newly
             // available) since the user's last visit — backlog is handled by "Continue the Story".
+            // Fail-soft: a throw here degrades to a missing row, never a 500 home (as row providers do).
             if (flags.NewSinceAway)
             {
-                var newSince = await _newSince.GetAsync(userId!.Value, size, ct).ConfigureAwait(false);
-                AddRow(
-                    bundle,
-                    "newsince",
-                    "New Since You Were Away",
-                    "newsince",
-                    newSince.Items,
-                    capabilities,
-                    reasons: newSince.Reasons.Count > 0 ? newSince.Reasons : null);
+                try
+                {
+                    var newSince = await _newSince.GetAsync(userId!.Value, size, ct).ConfigureAwait(false);
+                    AddRow(
+                        bundle,
+                        "newsince",
+                        "New Since You Were Away",
+                        "newsince",
+                        newSince.Items,
+                        capabilities,
+                        reasons: newSince.Reasons.Count > 0 ? newSince.Reasons : null);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    _metrics.Increment("home.newsince.error");
+                }
             }
         }
 
@@ -245,12 +257,23 @@ public class HomeService
         // taste-aligned high-quality upcoming. Per-item labels carry the sub-type.
         if (flags.ComingSoon)
         {
-            var upcoming = await _upcoming.GetUpcomingAsync(userId, size, ct).ConfigureAwait(false);
-            if (upcoming.Count > 0)
+            try
             {
-                var items = upcoming.Select(u => u.Item).ToList();
-                var labels = upcoming.ToDictionary(u => u.Item.Id, u => u.Label);
-                AddRow(bundle, "comingsoon", "Coming Soon", "upcoming", items, capabilities, reasons: labels);
+                var upcoming = await _upcoming.GetUpcomingAsync(userId, size, ct).ConfigureAwait(false);
+                if (upcoming.Count > 0)
+                {
+                    var items = upcoming.Select(u => u.Item).ToList();
+                    var labels = upcoming.ToDictionary(u => u.Item.Id, u => u.Label);
+                    AddRow(bundle, "comingsoon", "Coming Soon", "upcoming", items, capabilities, reasons: labels);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                _metrics.Increment("home.comingsoon.error");
             }
         }
 
