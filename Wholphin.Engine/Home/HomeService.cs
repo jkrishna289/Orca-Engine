@@ -240,10 +240,12 @@ public class HomeService
         // Continue Watching: the user's in-progress items, sourced from Jellyfin resume points.
         AddResumeRow(bundle, resumePoints, capabilities);
 
-        // Coming Soon: upcoming episodes/releases for catalog titles (*arr calendar → TMDB fallback).
+        // Coming Soon (For You): upcoming episodes/releases for catalog titles (*arr calendar → TMDB
+        // fallback), filtered by relevance — monitored series, new seasons of shows you watch, and
+        // taste-aligned high-quality upcoming. Per-item labels carry the sub-type.
         if (flags.ComingSoon)
         {
-            var upcoming = await _upcoming.GetUpcomingAsync(size, ct).ConfigureAwait(false);
+            var upcoming = await _upcoming.GetUpcomingAsync(userId, size, ct).ConfigureAwait(false);
             if (upcoming.Count > 0)
             {
                 var items = upcoming.Select(u => u.Item).ToList();

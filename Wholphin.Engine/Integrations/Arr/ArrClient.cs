@@ -200,6 +200,113 @@ public class ArrClient : IArrClient
         => !string.IsNullOrWhiteSpace(eventType)
             && eventType.Contains("import", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc />
+    public async Task<ArrMonitorState> GetMonitorStateAsync(CancellationToken ct = default)
+    {
+        var state = new ArrMonitorState();
+
+        if (SonarrConfigured)
+        {
+            await AddSonarrMonitoredAsync(state, ct).ConfigureAwait(false);
+        }
+
+        if (RadarrConfigured)
+        {
+            await AddRadarrMonitoredAsync(state, ct).ConfigureAwait(false);
+        }
+
+        return state;
+    }
+
+    private async Task AddSonarrMonitoredAsync(ArrMonitorState state, CancellationToken ct)
+    {
+        var config = Plugin.Instance?.Configuration;
+        var baseUrl = config?.SonarrUrl?.Trim().TrimEnd('/');
+        var apiKey = config?.SonarrApiKey?.Trim();
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+        {
+            return;
+        }
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient();
+            using var request = Build($"{baseUrl}/api/v3/series", apiKey);
+            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _metrics.Increment("arr.sonarr.monitor.error");
+                return;
+            }
+
+            var items = await response.Content.ReadFromJsonAsync<List<SonarrSeriesItem>>(JsonOptions, ct).ConfigureAwait(false);
+            foreach (var item in items ?? new List<SonarrSeriesItem>())
+            {
+                if (item.TmdbId is not { } tmdb || tmdb <= 0)
+                {
+                    continue;
+                }
+
+                var series = new ArrMonitoredSeries { Monitored = item.Monitored };
+                foreach (var season in item.Seasons ?? new List<SonarrSeasonItem>())
+                {
+                    if (season.Monitored)
+                    {
+                        series.MonitoredSeasons.Add(season.SeasonNumber);
+                    }
+                }
+
+                state.Series[tmdb] = series;
+            }
+
+            _metrics.Increment("arr.sonarr.monitor.ok");
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment("arr.sonarr.monitor.error");
+            _logger.LogWarning(ex, "Orca Engine: Sonarr series (monitored) fetch failed.");
+        }
+    }
+
+    private async Task AddRadarrMonitoredAsync(ArrMonitorState state, CancellationToken ct)
+    {
+        var config = Plugin.Instance?.Configuration;
+        var baseUrl = config?.RadarrUrl?.Trim().TrimEnd('/');
+        var apiKey = config?.RadarrApiKey?.Trim();
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+        {
+            return;
+        }
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient();
+            using var request = Build($"{baseUrl}/api/v3/movie", apiKey);
+            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _metrics.Increment("arr.radarr.monitor.error");
+                return;
+            }
+
+            var items = await response.Content.ReadFromJsonAsync<List<RadarrMovieItem>>(JsonOptions, ct).ConfigureAwait(false);
+            foreach (var item in items ?? new List<RadarrMovieItem>())
+            {
+                if (item.Monitored && item.TmdbId is { } tmdb && tmdb > 0)
+                {
+                    state.Movies.Add(tmdb);
+                }
+            }
+
+            _metrics.Increment("arr.radarr.monitor.ok");
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment("arr.radarr.monitor.error");
+            _logger.LogWarning(ex, "Orca Engine: Radarr movie (monitored) fetch failed.");
+        }
+    }
+
     private async Task<IReadOnlyList<ArrCalendarEntry>> GetSonarrAsync(DateTime startUtc, DateTime endUtc, CancellationToken ct)
     {
         var config = Plugin.Instance?.Configuration;

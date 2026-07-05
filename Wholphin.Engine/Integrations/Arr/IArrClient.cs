@@ -34,4 +34,13 @@ public interface IArrClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The import events (empty when unconfigured or on failure).</returns>
     Task<IReadOnlyList<ArrHistoryEvent>> GetHistoryAsync(DateTime sinceUtc, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns which series/seasons (Sonarr) and movies (Radarr) are monitored — the "is the user
+    /// tracking this?" signal for the "Coming Soon (For You)" sub-types. Degrades to an empty state
+    /// when unconfigured or on failure.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The monitored state (empty when unconfigured or on failure).</returns>
+    Task<ArrMonitorState> GetMonitorStateAsync(CancellationToken ct = default);
 }

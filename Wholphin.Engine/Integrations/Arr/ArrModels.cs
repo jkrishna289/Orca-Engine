@@ -150,6 +150,91 @@ public class ArrHistoryEvent
     public DateTime OccurredUtc { get; set; }
 }
 
+/// <summary>
+/// The monitored state of the *arr instance: which series/seasons (Sonarr) and movies (Radarr) the
+/// user is actively tracking. Drives the "Coming Soon (For You)" sub-types — a monitored series is
+/// explicit intent, so its next episode leads the row.
+/// </summary>
+public class ArrMonitorState
+{
+    /// <summary>Gets the monitored series, keyed by TMDB id.</summary>
+    public Dictionary<int, ArrMonitoredSeries> Series { get; } = new();
+
+    /// <summary>Gets the TMDB ids of monitored movies.</summary>
+    public HashSet<int> Movies { get; } = new();
+
+    /// <summary>Returns whether the given series (or the specific season) is monitored.</summary>
+    /// <param name="tmdbId">The series TMDB id.</param>
+    /// <param name="seasonNumber">The season number to check, if known.</param>
+    /// <returns>True when the series is monitored (season-specific when a number is supplied).</returns>
+    public bool IsSeriesMonitored(int? tmdbId, int? seasonNumber)
+    {
+        if (tmdbId is not { } id || !Series.TryGetValue(id, out var series) || !series.Monitored)
+        {
+            return false;
+        }
+
+        return seasonNumber is not { } season
+            || series.MonitoredSeasons.Count == 0
+            || series.MonitoredSeasons.Contains(season);
+    }
+
+    /// <summary>Returns whether the given movie is monitored.</summary>
+    /// <param name="tmdbId">The movie TMDB id.</param>
+    /// <returns>True when the movie is monitored.</returns>
+    public bool IsMovieMonitored(int? tmdbId) => tmdbId is { } id && Movies.Contains(id);
+}
+
+/// <summary>The monitored state of one Sonarr series.</summary>
+public class ArrMonitoredSeries
+{
+    /// <summary>Gets or sets a value indicating whether the series itself is monitored.</summary>
+    public bool Monitored { get; set; }
+
+    /// <summary>Gets the season numbers that are individually monitored.</summary>
+    public HashSet<int> MonitoredSeasons { get; } = new();
+}
+
+/// <summary>Wire model for a Sonarr v3 series (monitored view).</summary>
+public class SonarrSeriesItem
+{
+    /// <summary>Gets or sets the TMDB id.</summary>
+    [JsonPropertyName("tmdbId")]
+    public int? TmdbId { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the series is monitored.</summary>
+    [JsonPropertyName("monitored")]
+    public bool Monitored { get; set; }
+
+    /// <summary>Gets or sets the seasons.</summary>
+    [JsonPropertyName("seasons")]
+    public List<SonarrSeasonItem>? Seasons { get; set; }
+}
+
+/// <summary>Wire model for a Sonarr v3 season (monitored view).</summary>
+public class SonarrSeasonItem
+{
+    /// <summary>Gets or sets the season number.</summary>
+    [JsonPropertyName("seasonNumber")]
+    public int SeasonNumber { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the season is monitored.</summary>
+    [JsonPropertyName("monitored")]
+    public bool Monitored { get; set; }
+}
+
+/// <summary>Wire model for a Radarr v3 movie (monitored view).</summary>
+public class RadarrMovieItem
+{
+    /// <summary>Gets or sets the TMDB id.</summary>
+    [JsonPropertyName("tmdbId")]
+    public int? TmdbId { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the movie is monitored.</summary>
+    [JsonPropertyName("monitored")]
+    public bool Monitored { get; set; }
+}
+
 /// <summary>Wire model for a Sonarr v3 history record.</summary>
 public class SonarrHistoryItem
 {
