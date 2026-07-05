@@ -31,20 +31,20 @@ public sealed class ContinueTheStoryRowProvider : IRowProvider
     private const int MaxCandidates = 40;
 
     private readonly IWholphinDbContextFactory _factory;
-    private readonly ISeriesUserStateService _state;
+    private readonly ISeriesIntelligenceEngine _engine;
     private readonly ILogger<ContinueTheStoryRowProvider> _logger;
 
     /// <summary>Initializes a new instance of the <see cref="ContinueTheStoryRowProvider"/> class.</summary>
     /// <param name="factory">Database context factory (resolves catalog rows for started series).</param>
-    /// <param name="state">The per-series user-state service.</param>
+    /// <param name="engine">The series intelligence engine (user state + resuming set).</param>
     /// <param name="logger">The logger.</param>
     public ContinueTheStoryRowProvider(
         IWholphinDbContextFactory factory,
-        ISeriesUserStateService state,
+        ISeriesIntelligenceEngine engine,
         ILogger<ContinueTheStoryRowProvider> logger)
     {
         _factory = factory;
-        _state = state;
+        _engine = engine;
         _logger = logger;
     }
 
@@ -56,18 +56,27 @@ public sealed class ContinueTheStoryRowProvider : IRowProvider
             return Array.Empty<ProviderRow>();
         }
 
-        var started = _state.GetStartedSeries(userId, MaxCandidates, ct);
+        var started = _engine.GetStartedSeries(userId, MaxCandidates, ct);
         if (started.Count == 0)
         {
             return Array.Empty<ProviderRow>();
         }
+
+        // One series = one card: a show with an in-progress episode is already in "Continue
+        // Watching", so it never doubles up here.
+        var resuming = _engine.GetResumingSeriesIds(userId, ct);
 
         // Classify each started series; keep only the continuity states (skipped gaps + abandoned).
         var candidates = new List<Continuity>();
         foreach (var s in started)
         {
             ct.ThrowIfCancellationRequested();
-            var result = _state.GetState(userId, s.SeriesId);
+            if (resuming.Contains(s.SeriesId))
+            {
+                continue;
+            }
+
+            var result = _engine.GetSeriesState(userId, s.SeriesId);
             if (result is null)
             {
                 continue;

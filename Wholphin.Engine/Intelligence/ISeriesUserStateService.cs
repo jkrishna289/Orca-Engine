@@ -26,6 +26,16 @@ public interface ISeriesUserStateService
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The started series (empty when none / no user).</returns>
     IReadOnlyList<StartedSeries> GetStartedSeries(Guid userId, int max, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the Jellyfin ids of series that currently have an in-progress (resumable) episode —
+    /// i.e. those already represented in "Continue Watching". Used to keep one series to one home
+    /// card by keeping actively-resuming shows out of continuity rows.
+    /// </summary>
+    /// <param name="userId">The Jellyfin user id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The resuming series ids (empty when none / no user).</returns>
+    IReadOnlySet<Guid> GetResumingSeriesIds(Guid userId, CancellationToken ct = default);
 }
 
 /// <summary>A series the user has begun watching.</summary>

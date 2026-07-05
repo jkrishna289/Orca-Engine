@@ -136,6 +136,37 @@ public sealed class SeriesUserStateService : ISeriesUserStateService
             .ToList();
     }
 
+    /// <inheritdoc />
+    public IReadOnlySet<Guid> GetResumingSeriesIds(Guid userId, CancellationToken ct = default)
+    {
+        var user = _userManager.GetUserById(userId);
+        if (user is null)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var query = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Episode },
+            IsResumable = true,
+            IsVirtualItem = false,
+            Recursive = true,
+            DtoOptions = new DtoOptions(false),
+        };
+
+        var ids = new HashSet<Guid>();
+        foreach (var item in _libraryManager.GetItemList(query))
+        {
+            ct.ThrowIfCancellationRequested();
+            if (item is Episode episode && episode.SeriesId != Guid.Empty)
+            {
+                ids.Add(episode.SeriesId);
+            }
+        }
+
+        return ids;
+    }
+
     private static DateTime ToUtc(DateTime value)
         => value == DateTime.MinValue ? DateTime.MinValue : value.ToUniversalTime();
 }

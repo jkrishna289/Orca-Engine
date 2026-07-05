@@ -128,9 +128,11 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // Continue Watching: reads Jellyfin's per-user resume points (behind a port).
         serviceCollection.AddSingleton<IResumeProvider, JellyfinResumeProvider>();
 
-        // Series intelligence (M1): per-series user state (watching/abandoned/skipped-backlog/…)
-        // computed live from Jellyfin per-episode watch data. Feeds "Continue the Story".
+        // Series intelligence: per-series user state (watching/abandoned/skipped-backlog/…) computed
+        // live from Jellyfin per-episode watch data (M1), unified with intent (affinity) + release
+        // events (*arr) behind one facade (M3). Feeds "Continue the Story" + "Coming Soon (For You)".
         serviceCollection.AddSingleton<Intelligence.ISeriesUserStateService, Intelligence.SeriesUserStateService>();
+        serviceCollection.AddSingleton<Intelligence.ISeriesIntelligenceEngine, Intelligence.SeriesIntelligenceEngine>();
 
         // Milestone 8 home providers: "New Since You Were Away" (strict events) + "Coming Soon".
         serviceCollection.AddSingleton<INewSinceProvider, NewSinceProvider>();

@@ -15,6 +15,7 @@ using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Integrations.Arr;
+using Wholphin.Engine.Intelligence;
 using Wholphin.Engine.Settings;
 using MediaType = Wholphin.Engine.Data.Enums.MediaType;
 
@@ -44,7 +45,7 @@ public class NewSinceProvider : INewSinceProvider
 
     private readonly IWholphinDbContextFactory _factory;
     private readonly IUserSettingsStore _userSettings;
-    private readonly IArrClient _arr;
+    private readonly ISeriesIntelligenceEngine _engine;
     private readonly ILibraryManager _libraryManager;
     private readonly IUserManager _userManager;
     private readonly ILogger<NewSinceProvider> _logger;
@@ -55,14 +56,14 @@ public class NewSinceProvider : INewSinceProvider
     public NewSinceProvider(
         IWholphinDbContextFactory factory,
         IUserSettingsStore userSettings,
-        IArrClient arr,
+        ISeriesIntelligenceEngine engine,
         ILibraryManager libraryManager,
         IUserManager userManager,
         ILogger<NewSinceProvider> logger)
     {
         _factory = factory;
         _userSettings = userSettings;
-        _arr = arr;
+        _engine = engine;
         _libraryManager = libraryManager;
         _userManager = userManager;
         _logger = logger;
@@ -210,19 +211,19 @@ public class NewSinceProvider : INewSinceProvider
     private async Task<IReadOnlyList<(CatalogItem Item, DateTime Key, string Reason)>> GetDownloadedAsync(
         WholphinDbContext db, DateTime since, CancellationToken ct)
     {
-        if (!_arr.IsConfigured)
-        {
-            return Array.Empty<(CatalogItem, DateTime, string)>();
-        }
-
         IReadOnlyList<ArrHistoryEvent> history;
         try
         {
-            history = await _arr.GetHistoryAsync(since, ct).ConfigureAwait(false);
+            history = await _engine.GetReleaseEventsAsync(since, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Orca Engine: *arr history lookup failed for New Since Away.");
+            return Array.Empty<(CatalogItem, DateTime, string)>();
+        }
+
+        if (history.Count == 0)
+        {
             return Array.Empty<(CatalogItem, DateTime, string)>();
         }
 

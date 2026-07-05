@@ -12,7 +12,6 @@ using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Integrations.Arr;
 using Wholphin.Engine.Integrations.Tmdb;
 using Wholphin.Engine.Intelligence;
-using Wholphin.Engine.Personalization;
 
 namespace Wholphin.Engine.Catalog;
 
@@ -28,16 +27,12 @@ public class UpcomingProvider : IUpcomingProvider
     private const int MaxResults = 40;
     private const int MaxTmdbFallback = 25;
 
-    /// <summary>Franchise affinity above which the user is treated as "following" the franchise.</summary>
-    private const double FranchiseFollowThreshold = 0.1;
-
     private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(12);
 
     private readonly IArrClient _arr;
     private readonly ITmdbClient _tmdb;
     private readonly IWholphinDbContextFactory _factory;
-    private readonly IPersonalizationService _personalization;
-    private readonly ISeriesUserStateService _seriesState;
+    private readonly ISeriesIntelligenceEngine _engine;
     private readonly ICache _cache;
     private readonly ILogger<UpcomingProvider> _logger;
 
@@ -48,16 +43,14 @@ public class UpcomingProvider : IUpcomingProvider
         IArrClient arr,
         ITmdbClient tmdb,
         IWholphinDbContextFactory factory,
-        IPersonalizationService personalization,
-        ISeriesUserStateService seriesState,
+        ISeriesIntelligenceEngine engine,
         ICache cache,
         ILogger<UpcomingProvider> logger)
     {
         _arr = arr;
         _tmdb = tmdb;
         _factory = factory;
-        _personalization = personalization;
-        _seriesState = seriesState;
+        _engine = engine;
         _cache = cache;
         _logger = logger;
     }
@@ -154,9 +147,7 @@ public class UpcomingProvider : IUpcomingProvider
         var monitor = _arr.IsConfigured
             ? await _arr.GetMonitorStateAsync(ct).ConfigureAwait(false)
             : new ArrMonitorState();
-        var affinity = userId is { } uid && uid != Guid.Empty
-            ? await _personalization.GetAsync(uid, ct).ConfigureAwait(false)
-            : new AffinityVector();
+        var scorer = await _engine.GetIntentScorerAsync(userId, ct).ConfigureAwait(false);
 
         var result = new List<UpcomingItem>();
         foreach (var c in candidates.Values.OrderBy(c => c.AirUtc))
@@ -166,12 +157,11 @@ public class UpcomingProvider : IUpcomingProvider
                 ? monitor.IsSeriesMonitored(c.Item.TmdbId, c.Season)
                 : monitor.IsMovieMonitored(c.Item.TmdbId);
             var watchedPrior = isSeries && userId is { } u && u != Guid.Empty && UserWatchedPrior(u, c.Item);
-            var followsFranchise = !string.IsNullOrWhiteSpace(c.Item.CollectionName)
-                && affinity.Franchise.GetValueOrDefault(c.Item.CollectionName!) > FranchiseFollowThreshold;
-            var intent = CatalogFeatures.Dot(affinity, c.Item);
+            var followsFranchise = scorer.FollowsFranchise(c.Item);
+            var intent = scorer.Score(c.Item);
 
             var kind = ComingSoonClassifier.Classify(
-                isSeries, isMonitored, watchedPrior, followsFranchise, intent, affinity.Confidence, c.Item.CommunityRating);
+                isSeries, isMonitored, watchedPrior, followsFranchise, intent, scorer.Confidence, c.Item.CommunityRating);
             if (kind == ComingSoonKind.Excluded)
             {
                 continue;
@@ -190,7 +180,7 @@ public class UpcomingProvider : IUpcomingProvider
             return false;
         }
 
-        var state = _seriesState.GetState(userId, jf);
+        var state = _engine.GetSeriesState(userId, jf);
         return state is not null && state.State != SeriesUserState.NotTracked;
     }
 
