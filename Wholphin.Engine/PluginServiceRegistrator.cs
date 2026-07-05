@@ -171,10 +171,22 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // Periodic maintenance: reconcile availability + TMDB enrichment + refresh discovery imports (gated, fail-soft).
         serviceCollection.AddHostedService<JellyseerrMaintenanceWorker>();
 
-        // Milestone 8 Phase 3: server-side trailer pre-buffer/transcode (yt-dlp + ffmpeg; fail-soft,
-        // dormant until the binaries are installed) + a periodic warmer for prominent titles.
+        // Server-side trailer pre-buffer/transcode (yt-dlp + ffmpeg; fail-soft, dormant until the
+        // binaries are installed). Trailer redesign: an explicit state machine (TrailerStateStore) plus
+        // a single bounded priority queue (TrailerQueueWorker serves both the ITrailerQueue port and the
+        // hosted worker-pool lifecycle) so production is prioritised by user visibility and can never
+        // swamp the host with concurrent yt-dlp/ffmpeg processes. Producers (controller, pre-buffer
+        // worker, scheduled task) enqueue; the pool executes.
+        serviceCollection.AddSingleton<Trailer.ITrailerStateStore, Trailer.TrailerStateStore>();
         serviceCollection.AddSingleton<Trailer.ITrailerService, Trailer.TrailerService>();
+        serviceCollection.AddSingleton<Trailer.TrailerQueueWorker>();
+        serviceCollection.AddSingleton<Trailer.ITrailerQueue>(sp => sp.GetRequiredService<Trailer.TrailerQueueWorker>());
+        serviceCollection.AddHostedService(sp => sp.GetRequiredService<Trailer.TrailerQueueWorker>());
+        // Predictive warming (Phase 7): ranks what to warm from CW + engagement + interest + popularity.
+        serviceCollection.AddSingleton<Trailer.ITrailerPredictionService, Trailer.TrailerPredictionService>();
         serviceCollection.AddHostedService<Trailer.TrailerPrebufferWorker>();
+        // Cache lifecycle (Phase 8): bounds size/count, evicts by LFU×recency (pinning frequent views), TTL + integrity.
+        serviceCollection.AddHostedService<Trailer.TrailerCacheManager>();
 
         // LAN app-update channel: mirrors the newest Orca X GitHub release + disk-caches its APKs,
         // so every TV client updates from the server instead of re-downloading from GitHub.

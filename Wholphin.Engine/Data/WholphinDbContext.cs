@@ -44,6 +44,9 @@ public class WholphinDbContext : DbContext
     /// <summary>Gets the per-pull discovery funnel reports (schema v7).</summary>
     public DbSet<DiscoveryRun> DiscoveryRuns => Set<DiscoveryRun>();
 
+    /// <summary>Gets the per-title trailer state-machine records (schema v9).</summary>
+    public DbSet<TrailerAsset> TrailerAssets => Set<TrailerAsset>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -110,6 +113,13 @@ public class WholphinDbContext : DbContext
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.UserId, x.StartedAt });
             e.HasIndex(x => x.StartedAt);
+        });
+
+        modelBuilder.Entity<TrailerAsset>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.TmdbId, x.MediaType }).IsUnique();
+            e.HasIndex(x => x.State);
         });
     }
 }

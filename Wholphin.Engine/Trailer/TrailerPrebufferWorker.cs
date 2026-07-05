@@ -1,32 +1,31 @@
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Wholphin.Engine.Data;
-using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Settings;
 
 namespace Wholphin.Engine.Trailer;
 
 /// <summary>
-/// Periodically warms the trailer cache for the most prominent titles so card-focus previews hit the
-/// cache: the top-rated WatchNow titles AND the top-rated requestable ones — the discover rows render
-/// as the 16:9 trailer cards, so their titles need warm trailers the most. Gated on the
-/// <c>TrailerPrebuffer</c> flag and the presence of yt-dlp/ffmpeg — a complete no-op when either is
-/// off/absent.
+/// Periodically warms the trailer cache with the titles users are most likely to watch next, using
+/// the multi-signal <see cref="ITrailerPredictionService"/> (Continue Watching + recent engagement +
+/// interest + popularity) rather than raw community rating. Gated on the <c>TrailerPrebuffer</c> flag
+/// and the presence of yt-dlp/ffmpeg — a complete no-op when either is off/absent. Warmed titles are
+/// enqueued at background priority so they never compete with user-visible focus requests.
 /// </summary>
 public class TrailerPrebufferWorker : IHostedService
 {
     private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan Interval = TimeSpan.FromHours(2);
-    private const int PrebufferCount = 24;
+
+    /// <summary>How many predicted titles to warm per cycle.</summary>
+    private const int PrebufferCount = 48;
 
     private readonly ITrailerService _trailers;
+    private readonly ITrailerQueue _queue;
+    private readonly ITrailerPredictionService _prediction;
     private readonly ISettingsService _settings;
-    private readonly IWholphinDbContextFactory _factory;
     private readonly ILogger<TrailerPrebufferWorker> _logger;
 
     private readonly CancellationTokenSource _cts = new();
@@ -37,13 +36,15 @@ public class TrailerPrebufferWorker : IHostedService
     /// </summary>
     public TrailerPrebufferWorker(
         ITrailerService trailers,
+        ITrailerQueue queue,
+        ITrailerPredictionService prediction,
         ISettingsService settings,
-        IWholphinDbContextFactory factory,
         ILogger<TrailerPrebufferWorker> logger)
     {
         _trailers = trailers;
+        _queue = queue;
+        _prediction = prediction;
         _settings = settings;
-        _factory = factory;
         _logger = logger;
     }
 
@@ -99,35 +100,19 @@ public class TrailerPrebufferWorker : IHostedService
 
     private async Task PrebufferAsync(CancellationToken ct)
     {
-        await using var db = _factory.Create();
+        // Predicted most-likely-next titles (falls back to top-rated on a cold start / failure).
+        var items = await _prediction.GetWarmCandidatesAsync(PrebufferCount, ct).ConfigureAwait(false);
 
-        // Library titles (WatchNow) + requestable discover titles — the latter fill the 16:9
-        // BannerWide rows where inline trailers actually play, so they must be warmed too.
-        var watchNow = await db.CatalogItems
-            .Where(c => c.TmdbId != null && c.Availability == AvailabilityState.WatchNow)
-            .OrderByDescending(c => c.CommunityRating)
-            .Take(PrebufferCount)
-            .Select(c => new { TmdbId = c.TmdbId!.Value, c.MediaType })
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
-
-        var requestable = await db.CatalogItems
-            .Where(c => c.TmdbId != null && c.Availability == AvailabilityState.Request)
-            .OrderByDescending(c => c.CommunityRating)
-            .Take(PrebufferCount)
-            .Select(c => new { TmdbId = c.TmdbId!.Value, c.MediaType })
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
-
-        var items = watchNow.Concat(requestable)
-            .Select(i => (i.TmdbId, i.MediaType))
-            .Distinct()
-            .ToList();
-
-        var cached = await _trailers.PrebufferAsync(items, ct).ConfigureAwait(false);
-        if (cached > 0)
+        // Enqueue at background priority; the bounded queue coalesces already-cached/in-flight titles
+        // and drains highest-priority-first, so this never competes with user-visible focus requests.
+        foreach (var (tmdbId, mediaType) in items)
         {
-            _logger.LogInformation("Orca Engine: pre-buffered {Count} trailers.", cached);
+            _queue.Enqueue(tmdbId, mediaType, TrailerPriority.BackgroundWorker);
+        }
+
+        if (items.Count > 0)
+        {
+            _logger.LogDebug("Orca Engine: enqueued {Count} predicted trailers for background warming.", items.Count);
         }
     }
 }

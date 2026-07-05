@@ -1,42 +1,42 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Wholphin.Engine.Data;
-using Wholphin.Engine.Data.Enums;
 
 namespace Wholphin.Engine.Trailer;
 
 /// <summary>
-/// Jellyfin scheduled task that warms the Orca trailer cache: downloads + transcodes trailers for the
-/// most prominent library (WatchNow) and requestable (discover) titles so card-focus previews play
-/// instantly. Appears under Dashboard → Scheduled Tasks, runs every 60 hours by default, and — like
-/// any Jellyfin task — the trigger is fully user-editable there (or run it manually on demand). A
-/// cheap no-op when yt-dlp/ffmpeg are absent or everything is already cached.
+/// Jellyfin scheduled task that warms the Orca trailer cache with the titles users are most likely to
+/// watch — ranked by the multi-signal <see cref="ITrailerPredictionService"/> (Continue Watching +
+/// recent engagement + interest + popularity), not raw rating. Appears under Dashboard → Scheduled
+/// Tasks, runs every 60 hours by default (trigger fully user-editable there, or run on demand), and
+/// hands the batch to the bounded priority queue at scheduled-warming priority so it never competes
+/// with user-visible trailer requests. A cheap no-op when yt-dlp/ffmpeg are absent.
 /// </summary>
 public class WarmTrailersTask : IScheduledTask
 {
-    /// <summary>Titles warmed per pool (library + requestable) per run.</summary>
-    private const int PerPool = 60;
+    /// <summary>How many predicted titles to warm per run (a broad scheduled net).</summary>
+    private const int WarmCount = 120;
 
     /// <summary>Default interval between runs.</summary>
     private static readonly TimeSpan DefaultInterval = TimeSpan.FromHours(60);
 
     private readonly ITrailerService _trailers;
-    private readonly IWholphinDbContextFactory _factory;
+    private readonly ITrailerQueue _queue;
+    private readonly ITrailerPredictionService _prediction;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WarmTrailersTask"/> class.
     /// </summary>
     /// <param name="trailers">The trailer service.</param>
-    /// <param name="factory">The database context factory.</param>
-    public WarmTrailersTask(ITrailerService trailers, IWholphinDbContextFactory factory)
+    /// <param name="queue">The trailer priority queue.</param>
+    /// <param name="prediction">The predictive warm-candidate ranker.</param>
+    public WarmTrailersTask(ITrailerService trailers, ITrailerQueue queue, ITrailerPredictionService prediction)
     {
         _trailers = trailers;
-        _factory = factory;
+        _queue = queue;
+        _prediction = prediction;
     }
 
     /// <inheritdoc />
@@ -47,7 +47,7 @@ public class WarmTrailersTask : IScheduledTask
 
     /// <inheritdoc />
     public string Description =>
-        "Downloads and caches trailers for prominent library and requestable titles so Orca X card-focus previews play instantly.";
+        "Warms trailers for the titles users are most likely to watch (predictive) so Orca X card-focus previews play instantly.";
 
     /// <inheritdoc />
     public string Category => "Orca Engine";
@@ -61,36 +61,15 @@ public class WarmTrailersTask : IScheduledTask
             return;
         }
 
-        List<(int TmdbId, MediaType MediaType)> items;
-        await using (var db = _factory.Create())
-        {
-            var watchNow = await db.CatalogItems
-                .Where(c => c.TmdbId != null && c.Availability == AvailabilityState.WatchNow)
-                .OrderByDescending(c => c.CommunityRating)
-                .Take(PerPool)
-                .Select(c => new { TmdbId = c.TmdbId!.Value, c.MediaType })
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
+        var items = await _prediction.GetWarmCandidatesAsync(WarmCount, cancellationToken).ConfigureAwait(false);
 
-            var requestable = await db.CatalogItems
-                .Where(c => c.TmdbId != null && c.Availability == AvailabilityState.Request)
-                .OrderByDescending(c => c.CommunityRating)
-                .Take(PerPool)
-                .Select(c => new { TmdbId = c.TmdbId!.Value, c.MediaType })
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
-
-            items = watchNow.Concat(requestable)
-                .Select(i => (i.TmdbId, i.MediaType))
-                .Distinct()
-                .ToList();
-        }
-
+        // Hand the batch to the bounded priority queue; it dedupes and drains in the background. The
+        // task completes as soon as the batch is enqueued (production continues asynchronously).
         for (var i = 0; i < items.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var (tmdbId, mediaType) = items[i];
-            await _trailers.GetTrailerPathAsync(tmdbId, mediaType, allowDownload: true, cancellationToken).ConfigureAwait(false);
+            _queue.Enqueue(tmdbId, mediaType, TrailerPriority.ScheduledWarming);
             progress.Report((i + 1) * 100.0 / items.Count);
         }
 

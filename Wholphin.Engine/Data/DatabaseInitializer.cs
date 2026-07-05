@@ -20,7 +20,7 @@ namespace Wholphin.Engine.Data;
 public class DatabaseInitializer : IHostedService
 {
     /// <summary>The schema version this build expects.</summary>
-    public const int SchemaVersion = 8;
+    public const int SchemaVersion = 10;
 
     /// <summary>
     /// Idempotent migration steps keyed by the version they bring the schema TO. Each statement is
@@ -112,6 +112,26 @@ public class DatabaseInitializer : IHostedService
               AND "Id" NOT IN (SELECT "CatalogItemId" FROM "BehaviorEvents" WHERE "CatalogItemId" IS NOT NULL)
               AND "Id" NOT IN (SELECT "CatalogItemId" FROM "UserDiscoveryPicks");
             """),
+        // v9 — the trailer state-machine table (trailer redesign, milestone 2). One row per title,
+        // upserted as its trailer moves through the TrailerState lifecycle.
+        (9,
+            """
+            CREATE TABLE IF NOT EXISTS "TrailerAssets" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_TrailerAssets" PRIMARY KEY AUTOINCREMENT,
+                "TmdbId" INTEGER NOT NULL,
+                "MediaType" INTEGER NOT NULL,
+                "State" INTEGER NOT NULL,
+                "FilePath" TEXT NULL,
+                "FileBytes" INTEGER NULL,
+                "FailureReason" TEXT NULL,
+                "FailureCount" INTEGER NOT NULL,
+                "ReadyAt" TEXT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                "UpdatedAt" TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_TrailerAssets_TmdbId_MediaType" ON "TrailerAssets" ("TmdbId", "MediaType");
+            CREATE INDEX IF NOT EXISTS "IX_TrailerAssets_State" ON "TrailerAssets" ("State");
+            """),
     };
 
     /// <summary>
@@ -139,6 +159,12 @@ public class DatabaseInitializer : IHostedService
         // v8 — richer taste signals: original language + collection/franchise (affinity + diversity).
         ("CatalogItems", "OriginalLanguage", "TEXT"),
         ("CatalogItems", "CollectionName", "TEXT"),
+        // v10 — trailer cache management + metadata (nullable; the TrailerAssets table is created in v9).
+        ("TrailerAssets", "AccessCount", "INTEGER"),
+        ("TrailerAssets", "LastAccessedAt", "TEXT"),
+        ("TrailerAssets", "Pinned", "INTEGER"),
+        ("TrailerAssets", "DurationMs", "INTEGER"),
+        ("TrailerAssets", "PreviewStartMs", "INTEGER"),
     };
 
     private readonly IWholphinDbContextFactory _factory;
