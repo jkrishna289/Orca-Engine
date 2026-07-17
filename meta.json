@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "AI curation of every personalized surface (opt-in 'Enable AI curation of personalized rows'): the LLM now genuinely selects the For You row and Spotlight from a wide locally-ranked pool (instead of only re-ordering the top picks), curates the daily mood collections so each row only contains titles that truly carry the mood, picks the More Like This titles a fan of the source would actually reach for, and orders Coming Soon by how much each viewer will care (state logic still decides what appears - nothing airs unseen). List rows - trending, popular in your country, recently added - stay algorithmic by design. Every surface degrades to the built-in local ranking if the model is unavailable, and results are cached per surface to keep API usage small. Works with any OpenAI-compatible endpoint configured in the AI section.",
+  "changelog": "Fixes AI features silently falling back during the first minutes after a restart: the discovery cycle used to fire every viewer's LLM and embedding calls back-to-back, which could exceed a provider's rate limit and make every call fail with no retry. LLM (Groq, OpenAI, etc.) and embedding (Voyage, Jina, OpenAI) calls now recognize a rate-limit response and retry once after the wait the provider asks for, capped to 10 seconds - a brief burst now recovers instead of degrading the whole cycle to local-only ranking.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.0.9.0",
+  "version": "1.0.9.1",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

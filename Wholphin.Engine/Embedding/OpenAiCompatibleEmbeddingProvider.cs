@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -8,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wholphin.Engine.Diagnostics;
+using Wholphin.Engine.Http;
 
 namespace Wholphin.Engine.Embedding;
 
@@ -116,36 +118,58 @@ public abstract class OpenAiCompatibleEmbeddingProvider : IEmbeddingProvider
 
         using var client = _httpClientFactory.CreateClient();
         client.Timeout = CallTimeout;
-        using var request = new HttpRequestMessage(HttpMethod.Post, EndpointUrl);
-        request.Headers.Add("Authorization", $"Bearer {apiKey}");
-        request.Content = JsonContent.Create(body, options: JsonOptions);
 
-        using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response;
+        var attempt = 0;
+        while (true)
         {
-            _metrics.Increment($"embedding.{Name}.error");
-            _logger.LogWarning("Orca Engine: {Provider} embeddings returned {Status}.", Name, (int)response.StatusCode);
-            return null;
+            using var request = new HttpRequestMessage(HttpMethod.Post, EndpointUrl);
+            request.Headers.Add("Authorization", $"Bearer {apiKey}");
+            request.Content = JsonContent.Create(body, options: JsonOptions);
+
+            response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            attempt++;
+
+            if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= RateLimitRetry.MaxAttempts)
+            {
+                break;
+            }
+
+            var delay = RateLimitRetry.DelayFor(response);
+            _metrics.Increment($"embedding.{Name}.ratelimited");
+            _logger.LogWarning("Orca Engine: {Provider} embeddings rate-limited (429); retrying in {DelaySeconds:0}s.", Name, delay.TotalSeconds);
+            response.Dispose();
+            await Task.Delay(delay, ct).ConfigureAwait(false);
         }
 
-        var parsed = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(JsonOptions, ct).ConfigureAwait(false);
-        if (parsed?.Data is not { } data || data.Count != chunk.Count)
+        using (response)
         {
-            return null;
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                _metrics.Increment($"embedding.{Name}.error");
+                _logger.LogWarning("Orca Engine: {Provider} embeddings returned {Status}.", Name, (int)response.StatusCode);
+                return null;
+            }
 
-        var ordered = new ContentVector[chunk.Count];
-        foreach (var datum in data)
-        {
-            if (datum.Index < 0 || datum.Index >= ordered.Length || datum.Embedding is not { Length: > 0 })
+            var parsed = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(JsonOptions, ct).ConfigureAwait(false);
+            if (parsed?.Data is not { } data || data.Count != chunk.Count)
             {
                 return null;
             }
 
-            ordered[datum.Index] = ContentVector.Dense(datum.Embedding);
-        }
+            var ordered = new ContentVector[chunk.Count];
+            foreach (var datum in data)
+            {
+                if (datum.Index < 0 || datum.Index >= ordered.Length || datum.Embedding is not { Length: > 0 })
+                {
+                    return null;
+                }
 
-        return ordered;
+                ordered[datum.Index] = ContentVector.Dense(datum.Embedding);
+            }
+
+            return ordered;
+        }
     }
 
     private sealed class EmbeddingResponse

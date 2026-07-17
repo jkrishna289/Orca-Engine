@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -8,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wholphin.Engine.Diagnostics;
+using Wholphin.Engine.Http;
 
 namespace Wholphin.Engine.Llm;
 
@@ -96,34 +98,56 @@ public class OpenAiCompatibleLlmProvider : ILlmProvider
 
             using var client = _httpClientFactory.CreateClient();
             client.Timeout = CallTimeout;
-            using var request = new HttpRequestMessage(HttpMethod.Post, BuildEndpoint(baseUrl));
-            if (!string.IsNullOrWhiteSpace(apiKey))
+
+            HttpResponseMessage response;
+            var attempt = 0;
+            while (true)
             {
-                request.Headers.Add("Authorization", $"Bearer {apiKey}");
+                using var request = new HttpRequestMessage(HttpMethod.Post, BuildEndpoint(baseUrl));
+                if (!string.IsNullOrWhiteSpace(apiKey))
+                {
+                    request.Headers.Add("Authorization", $"Bearer {apiKey}");
+                }
+
+                request.Content = JsonContent.Create(body, options: JsonOptions);
+
+                response = await client.SendAsync(request, ct).ConfigureAwait(false);
+                attempt++;
+
+                if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= RateLimitRetry.MaxAttempts)
+                {
+                    break;
+                }
+
+                var delay = RateLimitRetry.DelayFor(response);
+                _metrics.Increment("llm.call.ratelimited");
+                _logger.LogWarning("Orca Engine: LLM chat rate-limited (429); retrying in {DelaySeconds:0}s.", delay.TotalSeconds);
+                response.Dispose();
+                await Task.Delay(delay, ct).ConfigureAwait(false);
             }
 
-            request.Content = JsonContent.Create(body, options: JsonOptions);
-
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            using (response)
             {
-                _metrics.Increment("llm.call.error");
-                _logger.LogWarning("Orca Engine: LLM chat returned {Status}.", (int)response.StatusCode);
-                return null;
-            }
+                if (!response.IsSuccessStatusCode)
+                {
+                    _metrics.Increment("llm.call.error");
+                    _logger.LogWarning("Orca Engine: LLM chat returned {Status}.", (int)response.StatusCode);
+                    return null;
+                }
 
-            var completion = await response.Content
-                .ReadFromJsonAsync<ChatResponse>(JsonOptions, ct)
-                .ConfigureAwait(false);
-            var content = completion?.Choices is { Count: > 0 } choices ? choices[0].Message?.Content : null;
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                _metrics.Increment("llm.call.error");
-                return null;
-            }
+                var completion = await response.Content
+                    .ReadFromJsonAsync<ChatResponse>(JsonOptions, ct)
+                    .ConfigureAwait(false);
+                var content = completion?.Choices is { Count: > 0 } choices ? choices[0].Message?.Content : null;
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    _metrics.Increment("llm.call.error");
+                    return null;
+                }
 
-            _metrics.Increment("llm.call.ok");
-            return content;
+                _metrics.Increment("llm.call.ok");
+                return content;
+            }
         }
         catch (Exception ex)
         {
