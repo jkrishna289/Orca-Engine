@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.8.0",
+        "changelog": "Optional AI recommendations: connect any OpenAI-compatible model - Groq, OpenAI, a local Ollama server, OpenRouter and others - and the engine asks it to suggest new titles from each viewer's own watch history. Those become the You Might Like and Because You Watched picks, each with a short reason. It weighs what you loved, finished and disliked along with your favourite genres and people, and only surfaces a pick after confirming the title exists on TMDB. If the model is unavailable or a viewer's taste isn't established yet, it falls back to the built-in TMDB discovery automatically, and it only fills home rows - it never requests or downloads anything by itself. The AI settings now accept any OpenAI-compatible base URL, key and model; existing Groq keys keep working unchanged. Trailers can now prefer a chosen audio language, falling back to the title's native trailer.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.0.8.0-alpha/orca-engine_1.0.8.0.zip",
+        "checksum": "77cc24fcdafd7e60ba44f86fc3918229",
+        "timestamp": "2026-07-17T14:35:00Z"
+      },
+      {
         "version": "1.0.7.0",
         "changelog": "Smarter home rows driven by what you actually watch, not the raw download schedule. 'New Since You Were Away' now shows only genuine events - a movie that became available, or a series whose episode aired or downloaded while you were gone - and never mislabels an old unwatched season as new. New 'Continue the Story' row surfaces shows you started but didn't finish: seasons you skipped and series you abandoned (kept separate from Continue Watching, so a show appears in just one card). Coming Soon is now personalized: your monitored series lead with their next episode, new seasons of shows you've watched are highlighted, and the rest is filtered to high-quality, taste-matched upcoming titles instead of the whole calendar. No new database tables; the home degrades gracefully if Sonarr/Radarr is unreachable.",
         "targetAbi": "10.11.0.0",
