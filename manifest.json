@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.9.1",
+        "changelog": "Fixes AI features silently falling back during the first minutes after a restart: the discovery cycle used to fire every viewer's LLM and embedding calls back-to-back, which could exceed a provider's rate limit and make every call fail with no retry. LLM (Groq, OpenAI, etc.) and embedding (Voyage, Jina, OpenAI) calls now recognize a rate-limit response and retry once after the wait the provider asks for, capped to 10 seconds - a brief burst now recovers instead of degrading the whole cycle to local-only ranking.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.0.9.1-alpha/orca-engine_1.0.9.1.zip",
+        "checksum": "2cb0eb5e07ea1fc641f812536508bcba",
+        "timestamp": "2026-07-17T15:55:00Z"
+      },
+      {
         "version": "1.0.9.0",
         "changelog": "AI curation of every personalized surface (opt-in 'Enable AI curation of personalized rows'): the LLM now genuinely selects the For You row and Spotlight from a wide locally-ranked pool (instead of only re-ordering the top picks), curates the daily mood collections so each row only contains titles that truly carry the mood, picks the More Like This titles a fan of the source would actually reach for, and orders Coming Soon by how much each viewer will care (state logic still decides what appears - nothing airs unseen). List rows - trending, popular in your country, recently added - stay algorithmic by design. Every surface degrades to the built-in local ranking if the model is unavailable, and results are cached per surface to keep API usage small. Works with any OpenAI-compatible endpoint configured in the AI section.",
         "targetAbi": "10.11.0.0",
