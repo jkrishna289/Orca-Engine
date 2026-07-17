@@ -47,6 +47,9 @@ public class SettingsService : ISettingsService
     /// <summary>Roaming-settings key for a user's LLM-discovery opt-out.</summary>
     public const string KeyLlmDiscovery = "feature.llmDiscovery";
 
+    /// <summary>Roaming-settings key for a user's LLM-curation opt-out.</summary>
+    public const string KeyLlmCuration = "feature.llmCuration";
+
     /// <summary>Roaming-settings key for a user's country override (ISO-3166-1, e.g. "IN").</summary>
     public const string KeyCountry = "pref.country";
 
@@ -109,6 +112,7 @@ public class SettingsService : ISettingsService
         f.Requests = config.FeatureRequests;
         f.TasteDiscovery = config.FeatureTasteDiscovery;
         f.LlmDiscovery = config.FeatureLlmDiscovery;
+        f.LlmCuration = config.FeatureLlmCuration;
 
         if (IsCountry(config.WatchProviderRegion))
         {
@@ -139,6 +143,7 @@ public class SettingsService : ISettingsService
         f.Exploration = Bool(overrides, KeyExploration, f.Exploration);
         f.TasteDiscovery = Bool(overrides, KeyTasteDiscovery, f.TasteDiscovery);
         f.LlmDiscovery = Bool(overrides, KeyLlmDiscovery, f.LlmDiscovery);
+        f.LlmCuration = Bool(overrides, KeyLlmCuration, f.LlmCuration);
         settings.DefaultRowSize = Clamp(Int(overrides, KeyRowSize, settings.DefaultRowSize), 1, 100, settings.DefaultRowSize);
 
         if (overrides.TryGetValue(KeyCountry, out var country))

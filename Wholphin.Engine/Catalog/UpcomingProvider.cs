@@ -12,6 +12,7 @@ using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Integrations.Arr;
 using Wholphin.Engine.Integrations.Tmdb;
 using Wholphin.Engine.Intelligence;
+using Wholphin.Engine.Llm;
 
 namespace Wholphin.Engine.Catalog;
 
@@ -34,6 +35,7 @@ public class UpcomingProvider : IUpcomingProvider
     private readonly IWholphinDbContextFactory _factory;
     private readonly ISeriesIntelligenceEngine _engine;
     private readonly ICache _cache;
+    private readonly ILlmReRanker _llm;
     private readonly ILogger<UpcomingProvider> _logger;
 
     /// <summary>
@@ -45,6 +47,7 @@ public class UpcomingProvider : IUpcomingProvider
         IWholphinDbContextFactory factory,
         ISeriesIntelligenceEngine engine,
         ICache cache,
+        ILlmReRanker llm,
         ILogger<UpcomingProvider> logger)
     {
         _arr = arr;
@@ -52,6 +55,7 @@ public class UpcomingProvider : IUpcomingProvider
         _factory = factory;
         _engine = engine;
         _cache = cache;
+        _llm = llm;
         _logger = logger;
     }
 
@@ -170,7 +174,35 @@ public class UpcomingProvider : IUpcomingProvider
             result.Add(new UpcomingItem(c.Item, c.AirUtc, LabelFor(kind, c.Type, c.Season, c.Episode, c.AirUtc)));
         }
 
-        return result.Take(MaxResults).ToList();
+        result = result.Take(MaxResults).ToList();
+
+        // LLM curation (reorder-only): state logic above decides what BELONGS in Coming Soon; the
+        // LLM decides what leads for THIS viewer's taste. Nothing is dropped — a monitored show
+        // the model underrates still appears, just later. Fail-soft to the air-date order.
+        if (userId is { } uid && uid != Guid.Empty && result.Count > 0)
+        {
+            var curated = await _llm.CurateAsync(
+                new LlmCurationRequest
+                {
+                    Purpose = "upcoming",
+                    Pool = result.Select(r => r.Item).ToList(),
+                    Count = result.Count,
+                    UserId = uid,
+                    Confidence = (await _engine.GetIntentScorerAsync(uid, ct).ConfigureAwait(false)).Confidence,
+                    Context = "the viewer's 'Coming Soon' calendar row — order upcoming titles by how much this viewer will care",
+                    Selection = false,
+                    CacheTtl = CacheTtl,
+                },
+                ct).ConfigureAwait(false);
+
+            var byItemId = result.ToDictionary(r => r.Item.Id);
+            result = curated.Items
+                .Where(i => byItemId.ContainsKey(i.Id))
+                .Select(i => byItemId[i.Id])
+                .ToList();
+        }
+
+        return result;
     }
 
     private bool UserWatchedPrior(Guid userId, CatalogItem item)

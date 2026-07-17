@@ -9,6 +9,7 @@ using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Embedding;
+using Wholphin.Engine.Llm;
 
 namespace Wholphin.Engine.Recommendation;
 
@@ -33,9 +34,12 @@ public class SimilarityService : ISimilarityService
     // the door to noise that the structured-overlap gate in SimilarityScorer guards against.
     private const double ContentOnlyFloor = 0.15;
 
+    private static readonly TimeSpan LlmSimilarCacheTtl = TimeSpan.FromDays(7);
+
     private readonly IWholphinDbContextFactory _factory;
     private readonly ICache _cache;
     private readonly IContentVectorIndex _vectorIndex;
+    private readonly ILlmReRanker _llm;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SimilarityService"/> class.
@@ -43,11 +47,13 @@ public class SimilarityService : ISimilarityService
     /// <param name="factory">The database context factory.</param>
     /// <param name="cache">The L1 cache.</param>
     /// <param name="vectorIndex">The TF-IDF content-vector index.</param>
-    public SimilarityService(IWholphinDbContextFactory factory, ICache cache, IContentVectorIndex vectorIndex)
+    /// <param name="llm">The LLM curator (More Like This selection under FeatureLlmCuration; fail-soft).</param>
+    public SimilarityService(IWholphinDbContextFactory factory, ICache cache, IContentVectorIndex vectorIndex, ILlmReRanker llm)
     {
         _factory = factory;
         _cache = cache;
         _vectorIndex = vectorIndex;
+        _llm = llm;
     }
 
     /// <inheritdoc />
@@ -75,7 +81,28 @@ public class SimilarityService : ISimilarityService
             .ConfigureAwait(false);
 
         var vectors = await _vectorIndex.GetAsync(ct).ConfigureAwait(false);
-        var results = Rank(source, candidates, take, vectors);
+
+        // Under LLM curation the embedding ranking only prefilters a wider pool; the LLM picks
+        // which of those a fan of the source would genuinely reach for (fail-soft to this order).
+        var local = Rank(source, candidates, take * 3, vectors);
+        var curated = await _llm.CurateAsync(
+            new LlmCurationRequest
+            {
+                Purpose = "similar",
+                Pool = local.Select(r => r.Item).ToList(),
+                Count = take,
+                Seed = source,
+                Context = "a 'More Like This' row on the title's detail page — same tone, themes, creators, or story appeal",
+                CacheTtl = LlmSimilarCacheTtl,
+            },
+            ct).ConfigureAwait(false);
+
+        var byId = local.ToDictionary(r => r.Item.Id);
+        var results = (IReadOnlyList<SimilarityResult>)curated.Items
+            .Where(i => byId.ContainsKey(i.Id))
+            .Take(take)
+            .Select(i => byId[i.Id])
+            .ToList();
         _cache.Set(cacheKey, results, CacheTtl);
         return results;
     }

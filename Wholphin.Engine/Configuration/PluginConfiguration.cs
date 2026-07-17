@@ -220,6 +220,14 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets how many watch-history titles are sent per LLM call (5-40).</summary>
     public int LlmDiscoveryHistoryCap { get; set; } = 20;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the LLM curates every personalized surface — For You +
+    /// Spotlight (full selection from a wide local pool, not just re-ranking), mood collections,
+    /// More Like This, and the Coming Soon taste filter. List rows (trending, country, recently
+    /// added) stay algorithmic. Fail-soft per surface to the local engine. Off by default.
+    /// </summary>
+    public bool FeatureLlmCuration { get; set; }
+
     // --- Embeddings (pluggable content vectors; default local TF-IDF) ----------------------
 
     /// <summary>

@@ -49,6 +49,19 @@ public class LlmReRanker : ILlmReRanker
         + "matches rather than padding the list. Give 'reasons' for at least the top few. Never invent "
         + "titles or facts. Output JSON only, no prose.";
 
+    // Curation (FeatureLlmCuration) sends a wider pool and lets the model genuinely drop weak fits.
+    private const int CurationMaxCandidates = 60;
+    private static readonly TimeSpan CurationCacheTtl = TimeSpan.FromHours(6);
+
+    private const string CurationSystemPrompt =
+        "You curate one row of a personal media server for its stated purpose. From the numbered "
+        + "candidate titles, pick the best matches, best first. Return ONLY a JSON object of this exact shape: "
+        + "{\"order\":[<candidate indices, best first>],\"title\":\"<short row title, only if asked, max 40 chars>\","
+        + "\"reasons\":{\"<index>\":\"<one short sentence why it fits, max 100 chars>\"}}. "
+        + "Rules: 'order' contains only indices from the candidates, no duplicates; DROP candidates "
+        + "that fit the purpose poorly rather than padding; give a reason for every pick; never "
+        + "invent titles or facts. Output JSON only, no prose.";
+
     private readonly ILlmProvider _provider;
     private readonly IPersonalizationService _personalization;
     private readonly ICache _cache;
@@ -73,6 +86,78 @@ public class LlmReRanker : ILlmReRanker
         _cache = cache;
         _metrics = metrics;
         _logger = logger;
+    }
+
+    /// <inheritdoc />
+    public async Task<LlmReRankResult> CurateAsync(LlmCurationRequest request, CancellationToken ct = default)
+    {
+        var pool = request.Pool;
+        if (pool.Count < MinCandidates
+            || request.Count <= 0
+            || Plugin.Instance?.Configuration?.FeatureLlmCuration != true
+            || !_provider.IsConfigured
+            || (request.UserId is { } && request.Confidence < MinConfidence))
+        {
+            return LlmReRankResult.PassThrough(pool);
+        }
+
+        if (pool.Count > CurationMaxCandidates)
+        {
+            pool = pool.Take(CurationMaxCandidates).ToList();
+        }
+
+        var scope = request.Seed is { } s ? $"seed{s.Id}" : request.UserId is { } u ? u.ToString("N") : "all";
+        var cacheKey = $"llm:curate:{request.Purpose}:{scope}:{string.Join('-', pool.Select(p => p.Id))}:{request.Count}";
+        if (_cache.TryGet<LlmReRankResult>(cacheKey, out var cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        try
+        {
+            var sb = new StringBuilder();
+            sb.Append("Purpose: ").AppendLine(request.Context ?? "the viewer's personalized recommendations row");
+            sb.Append("Pick the best ").Append(request.Count.ToString(CultureInfo.InvariantCulture))
+              .AppendLine(request.WantTitle
+                  ? " candidates. Also give a short row title describing their shared theme (NOT the name of any single title)."
+                  : " candidates. Do not include a title field.");
+            sb.AppendLine();
+
+            if (request.UserId is { } userId)
+            {
+                var affinity = await _personalization.GetAsync(userId, ct).ConfigureAwait(false);
+                AppendTasteSummary(sb, affinity);
+                sb.AppendLine();
+            }
+
+            if (request.Seed is { } seed)
+            {
+                AppendSeedBlock(sb, seed);
+                sb.AppendLine();
+            }
+
+            AppendCandidates(sb, pool);
+
+            var json = await _provider.CompleteAsync(CurationSystemPrompt, sb.ToString(), ct).ConfigureAwait(false);
+            var result = string.IsNullOrWhiteSpace(json)
+                ? null
+                : Parse(json!, pool, pool, selection: request.Selection, count: request.Count);
+            if (result is null)
+            {
+                _metrics.Increment($"llm.curate.{request.Purpose}.skip");
+                return LlmReRankResult.PassThrough(request.Pool);
+            }
+
+            _metrics.Increment($"llm.curate.{request.Purpose}.ok");
+            _cache.Set(cacheKey, result, request.CacheTtl ?? CurationCacheTtl);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment($"llm.curate.{request.Purpose}.error");
+            _logger.LogWarning(ex, "Orca Engine: LLM curation failed for {Purpose}.", request.Purpose);
+            return LlmReRankResult.PassThrough(request.Pool);
+        }
     }
 
     /// <inheritdoc />
@@ -187,6 +272,14 @@ public class LlmReRanker : ILlmReRanker
     private static string BuildSeedPrompt(CatalogItem seed, IReadOnlyList<CatalogItem> pool)
     {
         var sb = new StringBuilder();
+        AppendSeedBlock(sb, seed);
+        sb.AppendLine();
+        AppendCandidates(sb, pool);
+        return sb.ToString();
+    }
+
+    private static void AppendSeedBlock(StringBuilder sb, CatalogItem seed)
+    {
         var seedGenres = string.Join(", ", CatalogFeatures.Parse(seed.GenresJson).Take(5));
         var seedYear = seed.ProductionYear?.ToString(CultureInfo.InvariantCulture) ?? "n/a";
         sb.Append("Just watched: ").Append(string.IsNullOrWhiteSpace(seed.Title) ? "(untitled)" : seed.Title)
@@ -197,8 +290,10 @@ public class LlmReRanker : ILlmReRanker
             var overview = seed.Overview!;
             sb.Append("About: ").AppendLine(overview.Length > 300 ? overview[..300] : overview);
         }
+    }
 
-        sb.AppendLine();
+    private static void AppendCandidates(StringBuilder sb, IReadOnlyList<CatalogItem> pool)
+    {
         sb.AppendLine("Candidates:");
         for (var i = 0; i < pool.Count; i++)
         {
@@ -213,8 +308,6 @@ public class LlmReRanker : ILlmReRanker
               .Append(" | Rating: ").Append(rating)
               .AppendLine();
         }
-
-        return sb.ToString();
     }
 
     // Keyed by the exact candidate set+order so re-uses are exact and a changed slate re-queries.
@@ -224,28 +317,19 @@ public class LlmReRanker : ILlmReRanker
     private static string BuildUserPrompt(AffinityVector affinity, IReadOnlyList<CatalogItem> pool)
     {
         var sb = new StringBuilder();
+        AppendTasteSummary(sb, affinity);
+        sb.AppendLine();
+        AppendCandidates(sb, pool);
+        return sb.ToString();
+    }
+
+    private static void AppendTasteSummary(StringBuilder sb, AffinityVector affinity)
+    {
         sb.AppendLine("Viewer taste profile (anonymized):");
         AppendTopPositive(sb, "Likes genres", affinity.Genre, 6, stripRolePrefix: false);
         AppendTopNegative(sb, "Avoids genres", affinity.Genre, 4);
         AppendTopPositive(sb, "Likes people", affinity.Person, 4, stripRolePrefix: true);
         AppendTopPositive(sb, "Prefers type", affinity.MediaType, 2, stripRolePrefix: false);
-        sb.AppendLine();
-        sb.AppendLine("Candidates:");
-        for (var i = 0; i < pool.Count; i++)
-        {
-            var item = pool[i];
-            var genres = string.Join(", ", CatalogFeatures.Parse(item.GenresJson).Take(4));
-            var year = item.ProductionYear?.ToString(CultureInfo.InvariantCulture) ?? "n/a";
-            var rating = item.CommunityRating?.ToString("0.0", CultureInfo.InvariantCulture) ?? "n/a";
-            var title = string.IsNullOrWhiteSpace(item.Title) ? "(untitled)" : item.Title;
-            sb.Append(i.ToString(CultureInfo.InvariantCulture)).Append(") ").Append(title)
-              .Append(" (").Append(year).Append(") | Type: ").Append(item.MediaType)
-              .Append(" | Genres: ").Append(string.IsNullOrEmpty(genres) ? "n/a" : genres)
-              .Append(" | Rating: ").Append(rating)
-              .AppendLine();
-        }
-
-        return sb.ToString();
     }
 
     private static void AppendTopPositive(StringBuilder sb, string label, Dictionary<string, double> dim, int take, bool stripRolePrefix)
@@ -288,9 +372,21 @@ public class LlmReRanker : ILlmReRanker
         return (idx >= 0 && idx < key.Length - 1 ? key[(idx + 1)..] : key).Trim();
     }
 
-    private static LlmReRankResult? Parse(string json, IReadOnlyList<CatalogItem> pool, IReadOnlyList<CatalogItem> all)
+    internal static LlmReRankResult? Parse(
+        string json,
+        IReadOnlyList<CatalogItem> pool,
+        IReadOnlyList<CatalogItem> all,
+        bool selection = false,
+        int? count = null)
     {
-        using var doc = JsonDocument.Parse(json);
+        // The reply may arrive fenced/prose-wrapped from lenient endpoints; extract defensively.
+        var extracted = LlmJsonParser.ExtractJsonObject(json);
+        if (extracted is null)
+        {
+            return null;
+        }
+
+        using var doc = JsonDocument.Parse(extracted);
         var root = doc.RootElement;
         if (root.ValueKind != JsonValueKind.Object
             || !root.TryGetProperty("order", out var orderEl)
@@ -314,18 +410,30 @@ public class LlmReRanker : ILlmReRanker
             return null;
         }
 
-        // Re-append any pool items the model omitted (original order), then the tail beyond the pool.
-        for (var i = 0; i < pool.Count; i++)
+        if (selection)
         {
-            if (!used.Contains(i))
+            // Curation mode: the row IS the model's picks — dropped candidates stay dropped.
+            if (count is { } cap && ordered.Count > cap)
             {
-                ordered.Add(pool[i]);
+                ordered = ordered.Take(cap).ToList();
             }
         }
-
-        for (var i = pool.Count; i < all.Count; i++)
+        else
         {
-            ordered.Add(all[i]);
+            // Reorder mode: re-append any pool items the model omitted (original order), then the
+            // tail beyond the pool — nothing is lost, the model only decides prominence.
+            for (var i = 0; i < pool.Count; i++)
+            {
+                if (!used.Contains(i))
+                {
+                    ordered.Add(pool[i]);
+                }
+            }
+
+            for (var i = pool.Count; i < all.Count; i++)
+            {
+                ordered.Add(all[i]);
+            }
         }
 
         string? title = null;

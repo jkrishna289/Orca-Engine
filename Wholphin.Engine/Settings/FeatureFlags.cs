@@ -49,6 +49,9 @@ public class FeatureFlags
     /// <summary>Gets or sets a value indicating whether the LLM generates external discovery picks (rows only, never auto-requests).</summary>
     public bool LlmDiscovery { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the LLM curates every personalized surface (For You/Spotlight, moods, similar, Coming Soon); list rows stay algorithmic.</summary>
+    public bool LlmCuration { get; set; }
+
     /// <summary>Returns a shallow copy so a resolved layer can be mutated without affecting defaults.</summary>
     /// <returns>A clone of these flags.</returns>
     public FeatureFlags Clone() => (FeatureFlags)MemberwiseClone();

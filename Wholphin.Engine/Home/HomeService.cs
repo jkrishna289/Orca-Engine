@@ -151,26 +151,42 @@ public class HomeService
             var affinity = await _personalization.GetAsync(userId!.Value, ct).ConfigureAwait(false);
             confidence = affinity.Confidence;
 
-            var recs = await _recommender.RecommendAsync(userId!.Value, size, ct).ConfigureAwait(false);
+            // Under LLM curation the local recommender only prefilters a wide pool and the LLM
+            // genuinely selects the row; otherwise the local ranking IS the row (optionally
+            // LLM-reordered by the legacy re-ranker). Both LLM paths are fail-soft passthroughs.
+            var poolSize = flags.LlmCuration ? Math.Max(size * 3, 45) : size;
+            var recs = await _recommender.RecommendAsync(userId!.Value, poolSize, ct).ConfigureAwait(false);
             var recItems = recs.Select(r => r.Item).ToList();
 
-            // Spotlight billboard: the top picks as a rotating set of Hero cards, only when the
-            // feature is enabled and the client can render them.
-            if (recItems.Count > 0 && flags.Spotlight && capabilities.SupportedCardTypes.Contains(CardType.Hero))
-            {
-                AddRow(bundle, "spotlight", "Spotlight", "spotlight", recItems.Take(settings.SpotlightCount).ToList(), capabilities, RowStyle.Hero);
-            }
-
-            // Opt-in Stage-3: a hosted LLM (Groq) may reorder "For You" + supply a row title + "why"
-            // blurbs. Self-gating + fail-soft — returns the local order unchanged when off/unconfigured.
-            var reranked = await _llmReRanker.ReRankAsync(userId!.Value, recItems, confidence, ct).ConfigureAwait(false);
+            var reranked = flags.LlmCuration
+                ? await _llmReRanker.CurateAsync(
+                    new LlmCurationRequest
+                    {
+                        Purpose = "foryou",
+                        Pool = recItems,
+                        Count = size,
+                        UserId = userId!.Value,
+                        Confidence = confidence,
+                        Context = "the viewer's main personalized 'For You' row",
+                        WantTitle = true,
+                    },
+                    ct).ConfigureAwait(false)
+                : await _llmReRanker.ReRankAsync(userId!.Value, recItems, confidence, ct).ConfigureAwait(false);
+            var forYouItems = reranked.Items.Take(size).ToList();
             var forYouTitle = string.IsNullOrWhiteSpace(reranked.RowTitle) ? "For You" : reranked.RowTitle!;
+
+            // Spotlight billboard: the top For You picks (LLM-curated when active) as rotating Hero
+            // cards, only when the feature is enabled and the client can render them.
+            if (forYouItems.Count > 0 && flags.Spotlight && capabilities.SupportedCardTypes.Contains(CardType.Hero))
+            {
+                AddRow(bundle, "spotlight", "Spotlight", "spotlight", forYouItems.Take(settings.SpotlightCount).ToList(), capabilities, RowStyle.Hero);
+            }
 
             // Every card gets a deterministic reason from the explanation engine; the LLM's richer
             // "why" (when configured + applied) overrides per item. So For You is self-explaining
             // with Groq off, and better with it on.
             var reasons = new Dictionary<long, string>();
-            foreach (var item in reranked.Items)
+            foreach (var item in forYouItems)
             {
                 reasons[item.Id] = _explanation.ExplainRecommendation(item, affinity);
             }
@@ -180,7 +196,7 @@ public class HomeService
                 reasons[id] = why;
             }
 
-            AddRow(bundle, "foryou", forYouTitle, "recommended", reranked.Items, capabilities, reasons: reasons);
+            AddRow(bundle, "foryou", forYouTitle, "recommended", forYouItems, capabilities, reasons: reasons);
 
             // "Because You Watched X": seeded by the user's latest watch. The similarity engine
             // prefilters a wide candidate pool; when the LLM is configured it then GENUINELY picks
@@ -192,7 +208,19 @@ public class HomeService
                 if (byw.Seed is { } seed && byw.Items.Count > 0)
                 {
                     var candidates = byw.Items.Select(r => r.Item).ToList();
-                    var picked = await _llmReRanker.PickForSeedAsync(seed, candidates, ct).ConfigureAwait(false);
+                    var picked = flags.LlmCuration
+                        ? await _llmReRanker.CurateAsync(
+                            new LlmCurationRequest
+                            {
+                                Purpose = "byw",
+                                Pool = candidates,
+                                Count = size,
+                                Seed = seed,
+                                Context = "titles a fan of the just-watched seed would genuinely watch next",
+                                CacheTtl = TimeSpan.FromHours(24),
+                            },
+                            ct).ConfigureAwait(false)
+                        : await _llmReRanker.PickForSeedAsync(seed, candidates, ct).ConfigureAwait(false);
                     var title = string.IsNullOrWhiteSpace(seed.Title) ? "Because You Watched" : $"Because You Watched {seed.Title}";
                     AddRow(
                         bundle,

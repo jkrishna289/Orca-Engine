@@ -248,6 +248,11 @@
                     <div class="fieldDescription">The LLM proposes new titles from each viewer's watch history and becomes the primary source for "You Might Like" / "Because You Watched" (TMDB fills when it under-delivers). Rows only: never requests anything. Needs a TMDB key too.</div>
                 </div>
 
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureLlmCuration" /><span>Enable AI curation of personalized rows</span></label>
+                    <div class="fieldDescription">The LLM curates every personalized surface: For You + Spotlight (genuine selection from a wide local pool), mood collections, More Like This, and Coming Soon ordering. List rows (trending, country, recently added) stay algorithmic. Each surface falls back to the local engine on any failure.</div>
+                </div>
+
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="LlmDiscoveryMaxPerMediaType">AI picks per media type</label>
                     <input is="emby-input" type="number" id="LlmDiscoveryMaxPerMediaType" min="1" max="25" />
@@ -393,6 +398,7 @@
                         document.querySelector('#RadarrApiKey').value = config.RadarrApiKey || '';
                         document.querySelector('#FeatureLlmRerank').checked = config.FeatureLlmRerank;
                         document.querySelector('#FeatureLlmDiscovery').checked = config.FeatureLlmDiscovery;
+                        document.querySelector('#FeatureLlmCuration').checked = config.FeatureLlmCuration;
                         document.querySelector('#LlmBaseUrl').value = config.LlmBaseUrl || '';
                         document.querySelector('#LlmApiKey').value = config.LlmApiKey || '';
                         document.querySelector('#LlmModel').value = config.LlmModel || '';
@@ -458,6 +464,7 @@
                         config.RadarrApiKey = document.querySelector('#RadarrApiKey').value;
                         config.FeatureLlmRerank = document.querySelector('#FeatureLlmRerank').checked;
                         config.FeatureLlmDiscovery = document.querySelector('#FeatureLlmDiscovery').checked;
+                        config.FeatureLlmCuration = document.querySelector('#FeatureLlmCuration').checked;
                         config.LlmBaseUrl = document.querySelector('#LlmBaseUrl').value.trim();
                         config.LlmApiKey = document.querySelector('#LlmApiKey').value.trim();
                         config.LlmModel = document.querySelector('#LlmModel').value.trim();
