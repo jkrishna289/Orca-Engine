@@ -83,6 +83,10 @@ public class TmdbVideo
     /// <summary>Gets or sets a value indicating whether this is an official upload.</summary>
     [JsonPropertyName("official")]
     public bool Official { get; set; }
+
+    /// <summary>Gets or sets the audio language of the video (ISO 639-1, e.g. "en", "hi").</summary>
+    [JsonPropertyName("iso_639_1")]
+    public string? Iso6391 { get; set; }
 }
 
 /// <summary>The <c>videos</c> append-to-response block.</summary>

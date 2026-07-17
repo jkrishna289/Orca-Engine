@@ -23,8 +23,10 @@ namespace Wholphin.Engine.Trailer;
 /// </summary>
 public class TrailerService : ITrailerService
 {
-    private const int DownloadTimeoutMs = 240_000;
-    private const int TranscodeTimeoutMs = 240_000;
+    // 1080p sources are several times the old 480p ones: give the DASH merge and the full-length
+    // transcode room to finish on modest hardware instead of killing them mid-file.
+    private const int DownloadTimeoutMs = 480_000;
+    private const int TranscodeTimeoutMs = 600_000;
     private const int ProbeTimeoutMs = 15_000;
 
     /// <summary>Fallback preview start when no duration metadata is available (matches the client default).</summary>
@@ -71,13 +73,14 @@ public class TrailerService : ITrailerService
             return null;
         }
 
-        // ".full" distinguishes full-length trailers from the legacy 60s clips ("{id}.mp4").
-        var outPath = Path.Combine(CacheDir, $"{tmdbId}.full.mp4");
+        // ".hd" distinguishes the 1080p clips from the superseded 480p ".full" and legacy 60s
+        // "{id}.mp4" generations — bumping the suffix is what forces old blurry files to re-produce.
+        var outPath = Path.Combine(CacheDir, $"{tmdbId}.hd.mp4");
         return File.Exists(outPath) && new FileInfo(outPath).Length > 0 ? outPath : null;
     }
 
     /// <inheritdoc />
-    public async Task<TrailerState> ProcessAsync(int tmdbId, MediaType mediaType, CancellationToken ct = default)
+    public async Task<TrailerState> ProcessAsync(int tmdbId, MediaType mediaType, string? lang = null, CancellationToken ct = default)
     {
         if (tmdbId <= 0 || mediaType is not (MediaType.Movie or MediaType.Series))
         {
@@ -98,13 +101,18 @@ public class TrailerService : ITrailerService
         }
 
         Directory.CreateDirectory(CacheDir);
-        var outPath = Path.Combine(CacheDir, $"{tmdbId}.full.mp4");
+        var outPath = Path.Combine(CacheDir, $"{tmdbId}.hd.mp4");
         var tmp = Path.Combine(CacheDir, $"{tmdbId}.src");
+        // yt-dlp writes "{tmp}.mp4": with a DASH merge (bestvideo+bestaudio) the merger appends the
+        // container extension anyway, so the template pins it for both merged and progressive picks.
+        var tmpDl = tmp + ".mp4";
+        // ffmpeg's in-progress output; only moved onto outPath after a successful transcode.
+        var partPath = outPath + ".part.mp4";
 
         try
         {
             await _state.SetStateAsync(tmdbId, mediaType, TrailerState.Discovering, ct).ConfigureAwait(false);
-            var youtubeUrl = await ResolveTrailerUrlAsync(tmdbId, mediaType, ct).ConfigureAwait(false);
+            var youtubeUrl = await ResolveTrailerUrlAsync(tmdbId, mediaType, lang, ct).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(youtubeUrl))
             {
                 // No obtainable trailer for this title — permanent, so the client stops asking.
@@ -113,34 +121,44 @@ public class TrailerService : ITrailerService
                 return TrailerState.FailedPermanent;
             }
 
-            // 1. yt-dlp: best stream capped at 480p (full trailers are watched, so "worst" looked
-            // too rough), falling back down the format ladder when a capped mp4 isn't offered.
+            // 1. yt-dlp: best stream capped at 1080p (480p read blurry on living-room screens).
+            // YouTube only serves >720p as separate DASH video+audio, so prefer a merged pick and
+            // fall down the ladder to progressive formats when merging isn't possible.
             await _state.SetStateAsync(tmdbId, mediaType, TrailerState.Downloading, ct).ConfigureAwait(false);
             var dl = await RunAsync("yt-dlp",
-                $"-f \"best[height<=480][ext=mp4]/best[height<=480]/worst[ext=mp4]/worst\" --no-playlist --no-warnings --no-progress -o \"{tmp}\" \"{youtubeUrl}\"",
+                $"-f \"bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]/best\" " +
+                $"--merge-output-format mp4 --no-playlist --no-warnings --no-progress -o \"{tmp}.%(ext)s\" \"{youtubeUrl}\"",
                 DownloadTimeoutMs, ct).ConfigureAwait(false);
-            if (!dl || !File.Exists(tmp))
+            if (!dl || !File.Exists(tmpDl))
             {
                 _metrics.Increment("trailer.download.error");
                 await _state.SetStateAsync(tmdbId, mediaType, TrailerState.FailedTemporary, ct, "download failed").ConfigureAwait(false);
                 return TrailerState.FailedTemporary;
             }
 
-            // 2. ffmpeg: FULL length (no time cap — users watch the whole trailer), downscaled to
-            // 480p at a low bitrate for fast LAN streaming.
+            // 2. ffmpeg: FULL length (no time cap — users watch the whole trailer) at up to 1080p
+            // (never upscaled) and a bitrate that stays crisp on a TV; the LAN carries it easily.
+            // Written to a ".part" sidecar and moved into place only on success: GetCachedPath
+            // treats any existing outPath as servable, so a killed/timed-out transcode must never
+            // leave a truncated file AT the cache path (it would be served as "Ready" forever).
             await _state.SetStateAsync(tmdbId, mediaType, TrailerState.Transcoding, ct).ConfigureAwait(false);
+            TryDelete(partPath);
             var tx = await RunAsync("ffmpeg",
-                $"-y -i \"{tmp}\" -vf scale=-2:480 -b:v 700k -maxrate 900k -bufsize 1200k " +
-                $"-c:v libx264 -preset veryfast -c:a aac -b:a 96k -movflags +faststart \"{outPath}\"",
+                $"-y -i \"{tmpDl}\" -vf scale=-2:'min(1080,ih)' -b:v 4500k -maxrate 6000k -bufsize 9000k " +
+                $"-c:v libx264 -preset veryfast -c:a aac -b:a 160k -movflags +faststart \"{partPath}\"",
                 TranscodeTimeoutMs, ct).ConfigureAwait(false);
-            if (!tx || !File.Exists(outPath))
+            if (!tx || !File.Exists(partPath) || new FileInfo(partPath).Length == 0)
             {
+                TryDelete(partPath);
                 _metrics.Increment("trailer.transcode.error");
                 await _state.SetStateAsync(tmdbId, mediaType, TrailerState.FailedTemporary, ct, "transcode failed").ConfigureAwait(false);
                 return TrailerState.FailedTemporary;
             }
 
-            // Drop the superseded 60s clip so the cache doesn't hold both variants.
+            File.Move(partPath, outPath, overwrite: true);
+
+            // Drop the superseded generations (the 480p ".full" clip and the legacy 60s clip).
+            TryDelete(Path.Combine(CacheDir, $"{tmdbId}.full.mp4"));
             TryDelete(Path.Combine(CacheDir, $"{tmdbId}.mp4"));
 
             // Phase 14: probe duration (ffprobe; fail-soft) and derive a smart preview-start offset so
@@ -166,11 +184,25 @@ public class TrailerService : ITrailerService
         finally
         {
             TryDelete(tmp);
+            TryDelete(tmpDl);
+            TryDelete(partPath);
         }
     }
 
-    private async Task<string?> ResolveTrailerUrlAsync(int tmdbId, MediaType mediaType, CancellationToken ct)
+    private async Task<string?> ResolveTrailerUrlAsync(int tmdbId, MediaType mediaType, string? lang, CancellationToken ct)
     {
+        // Language-aware pick first (per-request lang > admin TrailerLanguage > "en"): the stored
+        // catalog URL predates language preference, so it only serves as the fallback when TMDB is
+        // unreachable/unconfigured or offers no videos.
+        if (_tmdb.IsConfigured)
+        {
+            var picked = await _tmdb.GetTrailerUrlAsync(tmdbId, mediaType, lang, ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(picked))
+            {
+                return picked;
+            }
+        }
+
         await using var db = _factory.Create();
         var stored = await db.CatalogItems
             .Where(c => c.TmdbId == tmdbId)
@@ -182,7 +214,7 @@ public class TrailerService : ITrailerService
             return stored;
         }
 
-        // Not stored — ask TMDB directly (only when configured).
+        // Not stored — the full enrichment is a last resort (also TMDB-backed, so usually moot).
         if (_tmdb.IsConfigured)
         {
             var enrichment = await _tmdb.EnrichAsync(tmdbId, mediaType, ct).ConfigureAwait(false);

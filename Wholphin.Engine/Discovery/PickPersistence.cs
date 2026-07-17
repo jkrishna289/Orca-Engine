@@ -285,6 +285,7 @@ public class PickPersistence
         // short safety TTL because each successful pull replaces them anyway.
         DiscoveryPickKind.BecauseYouWatched => TimeSpan.FromDays(tuning.PickTtlDays * 2),
         DiscoveryPickKind.Trending or DiscoveryPickKind.Country => GlobalPickTtl,
+        DiscoveryPickKind.LlmPick => TimeSpan.FromDays(tuning.PickTtlDays),
         _ => TimeSpan.FromDays(tuning.PickTtlDays),
     };
 

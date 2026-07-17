@@ -29,6 +29,12 @@ public class DiscoveryTuning
     /// <summary>Gets or sets how much the viewer's taste flavors the trending row (0 = pure popularity).</summary>
     public double TrendingTasteWeight { get; set; } = 0.30;
 
+    /// <summary>Gets or sets how many recommendations each per-media-type LLM discovery call asks for.</summary>
+    public int LlmMaxPerMediaType { get; set; } = 10;
+
+    /// <summary>Gets or sets how many watch-history titles are sent per LLM discovery call.</summary>
+    public int LlmHistoryCap { get; set; } = 20;
+
     /// <summary>Resolves the tuning from the live plugin configuration, clamping every knob to a sane range.</summary>
     /// <returns>The resolved tuning.</returns>
     public static DiscoveryTuning Resolve()
@@ -46,6 +52,8 @@ public class DiscoveryTuning
         tuning.MaxUsersPerCycle = (int)Clamp(config.DiscoveryMaxUsersPerCycle, 1, 100, tuning.MaxUsersPerCycle);
         tuning.ExplorationFraction = Clamp(config.DiscoveryExplorationFraction, 0.05, 0.15, tuning.ExplorationFraction);
         tuning.TrendingTasteWeight = Clamp(config.DiscoveryTrendingTasteWeight, 0.0, 1.0, tuning.TrendingTasteWeight);
+        tuning.LlmMaxPerMediaType = (int)Clamp(config.LlmDiscoveryMaxPerMediaType, 1, 25, tuning.LlmMaxPerMediaType);
+        tuning.LlmHistoryCap = (int)Clamp(config.LlmDiscoveryHistoryCap, 5, 40, tuning.LlmHistoryCap);
         return tuning;
     }
 

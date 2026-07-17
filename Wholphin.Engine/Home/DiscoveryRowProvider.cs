@@ -166,7 +166,7 @@ public class DiscoveryRowProvider : IRowProvider
         var rows = new List<ProviderRow>();
 
         // You Might Like: taste matches plus the honestly-labeled exploration quota, one row.
-        var tasteKinds = new[] { DiscoveryPickKind.TasteMatch, DiscoveryPickKind.Exploration };
+        var tasteKinds = new[] { DiscoveryPickKind.TasteMatch, DiscoveryPickKind.Exploration, DiscoveryPickKind.LlmPick };
         var tastePicks = (await (
             from pick in db.UserDiscoveryPicks.AsNoTracking()
             join item in db.CatalogItems.AsNoTracking() on pick.CatalogItemId equals item.Id

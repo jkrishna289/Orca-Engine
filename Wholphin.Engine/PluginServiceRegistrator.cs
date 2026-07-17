@@ -104,7 +104,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
 
         // Opt-in Stage-3 LLM re-ranker (Groq over OpenAI-compatible HTTP) — additive polish on the
         // "For You" row (reorder + generated title + "why"); self-gating + fail-soft, off until a key is set.
-        serviceCollection.AddSingleton<ILlmProvider, GroqLlmProvider>();
+        serviceCollection.AddSingleton<ILlmProvider, OpenAiCompatibleLlmProvider>();
         serviceCollection.AddSingleton<ILlmReRanker, LlmReRanker>();
 
         // Impression funnel analytics (shown→focused→clicked→played→completed; cached).
@@ -162,6 +162,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // Taste-driven discovery pipeline: pluggable candidate sources (same IEnumerable pattern as
         // the embedding providers) + the strict stage chain + the orchestrator port. Every external
         // title shown traces to a justification pick written here.
+        serviceCollection.AddSingleton<ILlmCandidateGenerator, LlmCandidateGenerator>();
+        serviceCollection.AddSingleton<Discovery.IDiscoverySource, Discovery.Sources.LlmCandidateSource>();
         serviceCollection.AddSingleton<Discovery.IDiscoverySource, Discovery.Sources.SeedRelatedSource>();
         serviceCollection.AddSingleton<Discovery.IDiscoverySource, Discovery.Sources.TasteDiscoverSource>();
         serviceCollection.AddSingleton<Discovery.IDiscoverySource, Discovery.Sources.TrendingSource>();

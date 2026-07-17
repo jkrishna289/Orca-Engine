@@ -23,6 +23,12 @@ public class DiscoveryCandidate
 
     /// <summary>Gets or sets the taste seed that produced this candidate, for seeded (Because You Watched) candidates.</summary>
     public TasteSeed? Seed { get; set; }
+
+    /// <summary>
+    /// Gets or sets the LLM's own one-line justification for proposing this title. When present it
+    /// replaces the deterministic template reason on the persisted pick.
+    /// </summary>
+    public string? LlmRationale { get; set; }
 }
 
 /// <summary>Per-source provenance for a candidate: who proposed it and with what confidence.</summary>

@@ -46,6 +46,12 @@ public class DiscoveryContext
     public IReadOnlyDictionary<MediaType, IReadOnlyDictionary<string, int>> GenreIdsByName { get; set; }
         = new Dictionary<MediaType, IReadOnlyDictionary<string, int>>();
 
+    /// <summary>
+    /// Gets or sets titles the user explicitly rejected (thumbs down / rating ≤ 3), newest first —
+    /// the LLM source's negative constraints. Loaded only when LLM discovery is active.
+    /// </summary>
+    public IReadOnlyList<Llm.HistoryLine> DislikedTitles { get; set; } = Array.Empty<Llm.HistoryLine>();
+
     /// <summary>Gets or sets the resolved admin tuning knobs for this run.</summary>
     public DiscoveryTuning Tuning { get; set; } = new();
 

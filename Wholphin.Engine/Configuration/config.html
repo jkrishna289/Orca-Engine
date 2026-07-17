@@ -142,6 +142,12 @@
                     <div class="fieldDescription">ISO country code (e.g. US, IN, GB) used to pick the streaming-provider brand (Netflix/Prime/Disney+/…) shown as the studio tag on cards, and as the default country for the "What people are watching in …" row (users can override it with the roaming <code>pref.country</code> setting). Needs a TMDB key.</div>
                 </div>
 
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="TrailerLanguage">Trailer language</label>
+                    <input is="emby-input" type="text" id="TrailerLanguage" placeholder="en" />
+                    <div class="fieldDescription">ISO 639-1 audio language (e.g. en, hi, ta) preferred when picking a title's trailer from TMDB. A matching-language trailer wins when one exists; otherwise the title's native trailer is used. Clients can override per request with the trailer endpoints' <code>lang</code> parameter.</div>
+                </div>
+
                 <div class="verticalSection">
                     <h3 class="sectionTitle">Discovery tuning</h3>
                     <p>Advanced knobs for taste-driven discovery. The defaults are the designed behavior; out-of-range values fall back to them.</p>
@@ -210,25 +216,54 @@
                 </div>
 
                 <div class="verticalSection">
-                    <h3 class="sectionTitle">AI re-ranker (Groq)</h3>
-                    <p>Optional. A hosted LLM polishes the "For You" row (reorders + writes the row title and per-item "why"). The engine works fully without it; recommendations are always computed locally first. Only an anonymized taste summary + public title metadata are sent to Groq — never account identity.</p>
+                    <h3 class="sectionTitle">AI (any OpenAI-compatible LLM)</h3>
+                    <p>Optional. A hosted (or local) LLM powers the "For You" re-ranker, AI discovery picks, trivia and content advisories. The engine works fully without it; recommendations are always computed locally first. Only anonymized taste summaries + public title metadata are sent, never account identity. Defaults to Groq; set a base URL to use OpenAI, Ollama, OpenRouter, LiteLLM, etc.</p>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="LlmBaseUrl">LLM base URL</label>
+                    <input is="emby-input" type="text" id="LlmBaseUrl" placeholder="https://api.groq.com/openai/v1" />
+                    <div class="fieldDescription">OpenAI-compatible API root (e.g. <code>https://api.openai.com/v1</code>, <code>http://localhost:11434/v1</code> for Ollama). Empty uses Groq.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="LlmApiKey">LLM API key</label>
+                    <input is="emby-input" type="text" id="LlmApiKey" />
+                    <div class="fieldDescription">Sent as the Bearer token. Keyless local endpoints (Ollama) need only the base URL. Empty falls back to the legacy Groq key below.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="LlmModel">LLM model</label>
+                    <input is="emby-input" type="text" id="LlmModel" placeholder="llama-3.3-70b-versatile" />
+                    <div class="fieldDescription">Chat model id for the configured endpoint (e.g. llama-3.3-70b-versatile, gpt-4o-mini, llama3.1). Empty falls back to the legacy Groq model below.</div>
                 </div>
 
                 <div class="checkboxContainer checkboxContainer-withDescription">
-                    <label><input is="emby-checkbox" type="checkbox" id="FeatureLlmRerank" /><span>Enable Groq re-ranker</span></label>
-                    <div class="fieldDescription">Off until a Groq API key is set below. Applies only to warm profiles; fails soft to the local ranking.</div>
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureLlmRerank" /><span>Enable LLM re-ranker</span></label>
+                    <div class="fieldDescription">The LLM reorders the "For You" row and writes the row title + per-item "why". Applies only to warm profiles; fails soft to the local ranking.</div>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label><input is="emby-checkbox" type="checkbox" id="FeatureLlmDiscovery" /><span>Enable AI discovery picks</span></label>
+                    <div class="fieldDescription">The LLM proposes new titles from each viewer's watch history and becomes the primary source for "You Might Like" / "Because You Watched" (TMDB fills when it under-delivers). Rows only: never requests anything. Needs a TMDB key too.</div>
                 </div>
 
                 <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="GroqApiKey">Groq API key</label>
+                    <label class="inputLabel inputLabelUnfocused" for="LlmDiscoveryMaxPerMediaType">AI picks per media type</label>
+                    <input is="emby-input" type="number" id="LlmDiscoveryMaxPerMediaType" min="1" max="25" />
+                    <div class="fieldDescription">Recommendations each per-user LLM call asks for (movies and series separately). Default 10.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="GroqApiKey">Groq API key (legacy)</label>
                     <input is="emby-input" type="text" id="GroqApiKey" />
-                    <div class="fieldDescription">Sent as the Bearer token to api.groq.com. Empty disables the re-ranker.</div>
+                    <div class="fieldDescription">Legacy field, still honored when the LLM API key above is empty.</div>
                 </div>
 
                 <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="GroqModel">Groq model</label>
+                    <label class="inputLabel inputLabelUnfocused" for="GroqModel">Groq model (legacy)</label>
                     <input is="emby-input" type="text" id="GroqModel" placeholder="llama-3.3-70b-versatile" />
-                    <div class="fieldDescription">OpenAI-compatible chat model id (e.g. llama-3.3-70b-versatile, openai/gpt-oss-120b, llama-3.1-8b-instant).</div>
+                    <div class="fieldDescription">Legacy field, still honored when the LLM model above is empty.</div>
                 </div>
 
                 <div class="verticalSection">
@@ -351,11 +386,17 @@
                         document.querySelector('#JellyseerrApiKey').value = config.JellyseerrApiKey || '';
                         document.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                         document.querySelector('#WatchProviderRegion').value = config.WatchProviderRegion || 'US';
+                        document.querySelector('#TrailerLanguage').value = config.TrailerLanguage || 'en';
                         document.querySelector('#SonarrUrl').value = config.SonarrUrl || '';
                         document.querySelector('#SonarrApiKey').value = config.SonarrApiKey || '';
                         document.querySelector('#RadarrUrl').value = config.RadarrUrl || '';
                         document.querySelector('#RadarrApiKey').value = config.RadarrApiKey || '';
                         document.querySelector('#FeatureLlmRerank').checked = config.FeatureLlmRerank;
+                        document.querySelector('#FeatureLlmDiscovery').checked = config.FeatureLlmDiscovery;
+                        document.querySelector('#LlmBaseUrl').value = config.LlmBaseUrl || '';
+                        document.querySelector('#LlmApiKey').value = config.LlmApiKey || '';
+                        document.querySelector('#LlmModel').value = config.LlmModel || '';
+                        document.querySelector('#LlmDiscoveryMaxPerMediaType').value = config.LlmDiscoveryMaxPerMediaType || 10;
                         document.querySelector('#GroqApiKey').value = config.GroqApiKey || '';
                         document.querySelector('#GroqModel').value = config.GroqModel || '';
                         document.querySelector('#EmbeddingProvider').value = config.EmbeddingProvider || 'tfidf';
@@ -410,11 +451,17 @@
                         config.JellyseerrApiKey = document.querySelector('#JellyseerrApiKey').value;
                         config.TmdbApiKey = document.querySelector('#TmdbApiKey').value;
                         config.WatchProviderRegion = document.querySelector('#WatchProviderRegion').value;
+                        config.TrailerLanguage = document.querySelector('#TrailerLanguage').value;
                         config.SonarrUrl = document.querySelector('#SonarrUrl').value;
                         config.SonarrApiKey = document.querySelector('#SonarrApiKey').value;
                         config.RadarrUrl = document.querySelector('#RadarrUrl').value;
                         config.RadarrApiKey = document.querySelector('#RadarrApiKey').value;
                         config.FeatureLlmRerank = document.querySelector('#FeatureLlmRerank').checked;
+                        config.FeatureLlmDiscovery = document.querySelector('#FeatureLlmDiscovery').checked;
+                        config.LlmBaseUrl = document.querySelector('#LlmBaseUrl').value.trim();
+                        config.LlmApiKey = document.querySelector('#LlmApiKey').value.trim();
+                        config.LlmModel = document.querySelector('#LlmModel').value.trim();
+                        config.LlmDiscoveryMaxPerMediaType = parseInt(document.querySelector('#LlmDiscoveryMaxPerMediaType').value, 10) || 10;
                         config.GroqApiKey = document.querySelector('#GroqApiKey').value;
                         config.GroqModel = document.querySelector('#GroqModel').value;
                         config.EmbeddingProvider = document.querySelector('#EmbeddingProvider').value;

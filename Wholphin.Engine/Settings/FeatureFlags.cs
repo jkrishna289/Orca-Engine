@@ -46,6 +46,9 @@ public class FeatureFlags
     /// <summary>Gets or sets a value indicating whether taste-driven discovery (justified per-user TMDB pulls + trending/country rows) is active.</summary>
     public bool TasteDiscovery { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the LLM generates external discovery picks (rows only, never auto-requests).</summary>
+    public bool LlmDiscovery { get; set; }
+
     /// <summary>Returns a shallow copy so a resolved layer can be mutated without affecting defaults.</summary>
     /// <returns>A clone of these flags.</returns>
     public FeatureFlags Clone() => (FeatureFlags)MemberwiseClone();

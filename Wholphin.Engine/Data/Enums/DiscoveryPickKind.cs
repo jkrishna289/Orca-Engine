@@ -20,5 +20,8 @@ public enum DiscoveryPickKind
     Country = 3,
 
     /// <summary>Controlled exploration — outside the user's usual taste, honestly labeled.</summary>
-    Exploration = 4
+    Exploration = 4,
+
+    /// <summary>Chosen by the configured LLM from the viewer's taste history (unseeded AI pick).</summary>
+    LlmPick = 5
 }

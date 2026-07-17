@@ -37,6 +37,18 @@ public interface ITmdbClient
     Task<TmdbEnrichment?> EnrichAsync(int tmdbId, MediaType mediaType, CancellationToken ct = default);
 
     /// <summary>
+    /// Resolves a title's YouTube trailer URL with an explicit audio-language preference (falling
+    /// back to the admin-configured trailer language, then to any-language picks). A lighter call
+    /// than <see cref="EnrichAsync"/> — it fetches only the videos list.
+    /// </summary>
+    /// <param name="tmdbId">The TMDB id.</param>
+    /// <param name="mediaType">Movie or Series.</param>
+    /// <param name="preferredLang">ISO 639-1 audio language to prefer, or null for the configured default.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The trailer watch URL, or null.</returns>
+    Task<string?> GetTrailerUrlAsync(int tmdbId, MediaType mediaType, string? preferredLang = null, CancellationToken ct = default);
+
+    /// <summary>
     /// Pulls a page of TMDB-direct discovery results (trending/popular/top-rated), already mapped to
     /// the engine's normalized <see cref="DiscoverResult"/> with genre names + artwork resolved.
     /// </summary>
@@ -76,6 +88,18 @@ public interface ITmdbClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The related titles (empty when unconfigured or on failure).</returns>
     Task<IReadOnlyList<DiscoverResult>> GetRelatedAsync(int tmdbId, MediaType mediaType, TmdbRelatedKind kind, CancellationToken ct = default);
+
+    /// <summary>
+    /// Resolves a title to TMDB via <c>/search/{movie|tv}</c>. Year-tolerant: an exact-year query
+    /// runs first, then a year-free retry preferring an exact title match, then a ±1-year match,
+    /// then the first result.
+    /// </summary>
+    /// <param name="query">The title to search for.</param>
+    /// <param name="year">The expected release year, when known.</param>
+    /// <param name="mediaType">Movie or Series.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The best-matching title, or null when unresolved/unconfigured/on failure.</returns>
+    Task<DiscoverResult?> SearchAsync(string query, int? year, MediaType mediaType, CancellationToken ct = default);
 
     /// <summary>Fetches a series' next episode to air (the "Coming Soon" signal). Series only.</summary>
     /// <param name="tmdbId">The series TMDB id.</param>

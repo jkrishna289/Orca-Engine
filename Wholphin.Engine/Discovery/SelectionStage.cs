@@ -20,6 +20,9 @@ public class SelectionStage
     /// <summary>"Because You Watched" picks selected per seed.</summary>
     public const int MaxPerSeed = 4;
 
+    /// <summary>Unseeded LLM picks kept per pull (~one You-Might-Like row's worth).</summary>
+    public const int LlmPickCap = 12;
+
     /// <summary>Global trending picks kept per pull.</summary>
     public const int TrendingCap = 20;
 
@@ -56,11 +59,28 @@ public class SelectionStage
                     picks.Add(new SelectedPick(
                         scored,
                         DiscoveryPickKind.BecauseYouWatched,
-                        $"Because you watched {seed.Title}",
+                        scored.Candidate.LlmRationale ?? $"Because you watched {seed.Title}",
                         seed.TmdbId,
                         seed.Title,
                         Country: null));
                 }
+            }
+        }
+
+        // LLM picks: individually curated by the model, so like BYW they skip the centroid taste
+        // floor — a small-batch cosine calibrated for 40-result discover pages would strangle
+        // exactly the picks whose quality comes from the model's open-world judgment.
+        if (byKind.TryGetValue(DiscoveryPickKind.LlmPick, out var llmPicks))
+        {
+            foreach (var scored in llmPicks.Where(s => s.Score.Final > 0).Take(LlmPickCap))
+            {
+                picks.Add(new SelectedPick(
+                    scored,
+                    DiscoveryPickKind.LlmPick,
+                    scored.Candidate.LlmRationale ?? "Picked for you by AI",
+                    SeedTmdbId: null,
+                    SeedTitle: null,
+                    Country: null));
             }
         }
 

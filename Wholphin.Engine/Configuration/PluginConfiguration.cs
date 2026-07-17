@@ -154,6 +154,14 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public string WatchProviderRegion { get; set; } = "US";
 
+    /// <summary>
+    /// Gets or sets the preferred trailer audio language (ISO 639-1, e.g. "en", "hi") used when
+    /// picking a title's trailer from TMDB's videos: a matching-language trailer wins whenever one
+    /// exists, falling back to the title's native trailer otherwise. Clients may override per
+    /// request via the trailer endpoints' <c>lang</c> parameter.
+    /// </summary>
+    public string TrailerLanguage { get; set; } = "en";
+
     /// <summary>Gets or sets the Sonarr base URL (e.g., http://localhost:8989). Empty disables the Sonarr calendar. (Milestone 8.)</summary>
     public string SonarrUrl { get; set; } = string.Empty;
 
@@ -180,6 +188,37 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Gets or sets the Groq chat model id used for re-ranking (OpenAI-compatible).</summary>
     public string GroqModel { get; set; } = "llama-3.3-70b-versatile";
+
+    // --- LLM provider (any OpenAI-compatible endpoint; supersedes the Groq-only fields, which
+    // remain as the legacy fallback so existing installs keep working) ----------------------
+
+    /// <summary>
+    /// Gets or sets the OpenAI-compatible base URL (e.g. https://api.openai.com/v1,
+    /// http://localhost:11434/v1 for Ollama). Empty uses Groq (https://api.groq.com/openai/v1).
+    /// </summary>
+    public string LlmBaseUrl { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the LLM API key (Bearer auth). Empty falls back to <see cref="GroqApiKey"/>; keyless local endpoints need only a base URL.</summary>
+    public string LlmApiKey { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the chat model id. Empty falls back to <see cref="GroqModel"/>.</summary>
+    public string LlmModel { get; set; } = string.Empty;
+
+    // --- LLM discovery (SuggestArr-style candidate generation; rows only, never auto-requests) ---
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the LLM generates external discovery picks from the
+    /// viewer's watch history (the primary source for You Might Like / Because You Watched when on;
+    /// TMDB sources fill when it under-delivers). Needs an LLM endpoint/key AND a TMDB key (title
+    /// resolution). Surfaces rows only — never requests content. Off by default.
+    /// </summary>
+    public bool FeatureLlmDiscovery { get; set; }
+
+    /// <summary>Gets or sets how many recommendations each per-media-type LLM call asks for (1-25).</summary>
+    public int LlmDiscoveryMaxPerMediaType { get; set; } = 10;
+
+    /// <summary>Gets or sets how many watch-history titles are sent per LLM call (5-40).</summary>
+    public int LlmDiscoveryHistoryCap { get; set; } = 20;
 
     // --- Embeddings (pluggable content vectors; default local TF-IDF) ----------------------
 

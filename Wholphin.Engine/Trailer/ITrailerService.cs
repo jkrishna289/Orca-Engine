@@ -33,7 +33,8 @@ public interface ITrailerService
     /// </summary>
     /// <param name="tmdbId">The TMDB id.</param>
     /// <param name="mediaType">Movie or Series.</param>
+    /// <param name="lang">Preferred trailer audio language (ISO 639-1), or null for the configured default.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The terminal <see cref="TrailerState"/> (Ready / FailedTemporary / FailedPermanent).</returns>
-    Task<TrailerState> ProcessAsync(int tmdbId, MediaType mediaType, CancellationToken ct = default);
+    Task<TrailerState> ProcessAsync(int tmdbId, MediaType mediaType, string? lang = null, CancellationToken ct = default);
 }

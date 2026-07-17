@@ -179,6 +179,37 @@ public class TmdbClient : ITmdbClient
     }
 
     /// <inheritdoc />
+    public async Task<string?> GetTrailerUrlAsync(int tmdbId, MediaType mediaType, string? preferredLang = null, CancellationToken ct = default)
+    {
+        var kind = MediaKind(mediaType);
+        if (kind is null || tmdbId <= 0 || !TryConfig(out var apiKey))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient();
+            using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}/videos"), apiKey);
+            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _metrics.Increment("tmdb.videos.error");
+                return null;
+            }
+
+            var videos = await response.Content.ReadFromJsonAsync<TmdbVideos>(JsonOptions, ct).ConfigureAwait(false);
+            return Trailer(videos, preferredLang);
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment("tmdb.videos.error");
+            _logger.LogWarning(ex, "Orca Engine: TMDB videos fetch failed for {Kind} {TmdbId}.", kind, tmdbId);
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<DiscoverResult>> DiscoverAsync(MediaType mediaType, TmdbDiscoverCategory category, int page, CancellationToken ct = default)
     {
         var kind = MediaKind(mediaType);
@@ -361,6 +392,74 @@ public class TmdbClient : ITmdbClient
             _logger.LogWarning(ex, "Orca Engine: TMDB {Leaf} fetch failed for {Kind} {TmdbId}.", leaf, mk, tmdbId);
             return Array.Empty<DiscoverResult>();
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<DiscoverResult?> SearchAsync(string query, int? year, MediaType mediaType, CancellationToken ct = default)
+    {
+        var mk = MediaKind(mediaType);
+        if (mk is null || string.IsNullOrWhiteSpace(query) || !TryConfig(out var apiKey))
+        {
+            return null;
+        }
+
+        try
+        {
+            var genreMap = await GetGenreMapAsync(mediaType, ct).ConfigureAwait(false);
+
+            // Exact-year search first; year-free retry when it misses (LLM years are often ±1 off).
+            var yearParam = mediaType == MediaType.Movie ? "year" : "first_air_date_year";
+            var attempts = year is { } y
+                ? new[] { new[] { "query=" + Uri.EscapeDataString(query.Trim()), $"{yearParam}={y}" }, new[] { "query=" + Uri.EscapeDataString(query.Trim()) } }
+                : new[] { new[] { "query=" + Uri.EscapeDataString(query.Trim()) } };
+
+            foreach (var queryParams in attempts)
+            {
+                using var client = _httpClientFactory.CreateClient();
+                using var request = Build(HttpMethod.Get, Url(apiKey, $"/search/{mk}", queryParams), apiKey);
+                using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _metrics.Increment("tmdb.search.error");
+                    return null;
+                }
+
+                var pageResult = await response.Content.ReadFromJsonAsync<TmdbDiscoverPage>(JsonOptions, ct).ConfigureAwait(false);
+                if (pageResult?.Results is not { Count: > 0 } items)
+                {
+                    continue;
+                }
+
+                var mapped = MapPage(items, mediaType, genreMap);
+                if (mapped.Count == 0)
+                {
+                    continue;
+                }
+
+                _metrics.Increment("tmdb.search.ok");
+                return PickSearchMatch(mapped, query, year);
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _metrics.Increment("tmdb.search.error");
+            _logger.LogWarning(ex, "Orca Engine: TMDB search failed for {Kind} '{Query}'.", mk, query);
+            return null;
+        }
+    }
+
+    /// <summary>The best match within one search page: exact title → ±1-year → first result.</summary>
+    internal static DiscoverResult PickSearchMatch(IReadOnlyList<DiscoverResult> results, string query, int? year)
+    {
+        var trimmed = query.Trim();
+        return results.FirstOrDefault(r => string.Equals(r.Title, trimmed, StringComparison.OrdinalIgnoreCase)
+                && (year is not { } y || (r.Year is { } ry && Math.Abs(ry - y) <= 1)))
+            ?? results.FirstOrDefault(r => string.Equals(r.Title, trimmed, StringComparison.OrdinalIgnoreCase))
+            ?? (year is { } wanted
+                ? results.FirstOrDefault(r => r.Year is { } ry && Math.Abs(ry - wanted) <= 1) ?? results[0]
+                : results[0]);
     }
 
     /// <inheritdoc />
@@ -589,14 +688,25 @@ public class TmdbClient : ITmdbClient
     private static string? Image(string size, string? path)
         => string.IsNullOrWhiteSpace(path) ? null : ImageBase + size + path;
 
-    private static string? Trailer(TmdbVideos? videos)
+    /// <summary>
+    /// Picks the best trailer video, preferring the wanted audio language ("use English audio
+    /// whenever it's available"): official trailer in the language → any trailer in the language →
+    /// teaser in the language → then the same ladder over all languages, so a title with no
+    /// preferred-language video still gets its native trailer.
+    /// </summary>
+    private static string? Trailer(TmdbVideos? videos, string? preferredLang = null)
     {
         if (videos?.Results is not { Count: > 0 } list)
         {
             return null;
         }
 
-        var pick = list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer") && v.Official)
+        var lang = string.IsNullOrWhiteSpace(preferredLang) ? PreferredTrailerLanguage() : preferredLang;
+
+        var pick = list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer") && v.Official && IsLang(v, lang))
+                   ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer") && IsLang(v, lang))
+                   ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Teaser") && IsLang(v, lang))
+                   ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer") && v.Official)
                    ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer"))
                    ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Teaser"))
                    ?? list.FirstOrDefault(IsYouTube);
@@ -608,6 +718,16 @@ public class TmdbClient : ITmdbClient
 
         static bool IsType(TmdbVideo v, string type)
             => string.Equals(v.Type, type, StringComparison.OrdinalIgnoreCase);
+
+        static bool IsLang(TmdbVideo v, string lang)
+            => string.Equals(v.Iso6391, lang, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The admin-configured preferred trailer audio language (default "en").</summary>
+    private static string PreferredTrailerLanguage()
+    {
+        var configured = Plugin.Instance?.Configuration?.TrailerLanguage;
+        return string.IsNullOrWhiteSpace(configured) ? "en" : configured.Trim();
     }
 
     private static string? MediaKind(MediaType mediaType) => mediaType switch

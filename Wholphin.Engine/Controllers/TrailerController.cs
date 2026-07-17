@@ -51,10 +51,11 @@ public class TrailerController : ControllerBase
     /// <summary>Streams a cached trailer for a title (404 + queued production on a miss).</summary>
     /// <param name="tmdbId">The TMDB id.</param>
     /// <param name="type">"movie" or "tv" (default movie).</param>
+    /// <param name="lang">Preferred trailer audio language (ISO 639-1); used when producing a miss.</param>
     /// <returns>The trailer stream, or 404.</returns>
     [HttpGet("{tmdbId:int}")]
     [AllowAnonymous]
-    public IActionResult GetTrailer(int tmdbId, [FromQuery] string? type)
+    public IActionResult GetTrailer(int tmdbId, [FromQuery] string? type, [FromQuery] string? lang)
     {
         var mediaType = ParseType(type);
         var path = _trailers.GetCachedPath(tmdbId, mediaType);
@@ -66,7 +67,7 @@ public class TrailerController : ControllerBase
         }
 
         // Not cached yet — the focused card is the highest-priority producer.
-        _queue.Enqueue(tmdbId, mediaType, TrailerPriority.FocusedCard);
+        _queue.Enqueue(tmdbId, mediaType, TrailerPriority.FocusedCard, NormalizeLang(lang));
         return NotFound();
     }
 
@@ -137,7 +138,7 @@ public class TrailerController : ControllerBase
     /// <returns>How many titles were accepted.</returns>
     [HttpPost("Prefetch")]
     [AllowAnonymous]
-    public ActionResult Prefetch([FromBody] PrefetchItem[]? items, [FromQuery] string? priority)
+    public ActionResult Prefetch([FromBody] PrefetchItem[]? items, [FromQuery] string? priority, [FromQuery] string? lang)
     {
         if (!_trailers.IsAvailable || items is not { Length: > 0 })
         {
@@ -145,12 +146,13 @@ public class TrailerController : ControllerBase
         }
 
         var prio = ParsePrefetchPriority(priority);
+        var langHint = NormalizeLang(lang);
         var enqueued = 0;
         foreach (var item in items)
         {
             if (item.TmdbId > 0)
             {
-                _queue.Enqueue(item.TmdbId, ParseType(item.Type), prio);
+                _queue.Enqueue(item.TmdbId, ParseType(item.Type), prio, langHint);
                 enqueued++;
             }
         }
@@ -219,6 +221,13 @@ public class TrailerController : ControllerBase
             },
             Metrics = trailerMetrics,
         });
+    }
+
+    /// <summary>Trims a client-supplied ISO 639-1 language hint; null/blank/overlong values become null.</summary>
+    private static string? NormalizeLang(string? lang)
+    {
+        var trimmed = lang?.Trim();
+        return string.IsNullOrEmpty(trimmed) || trimmed.Length > 8 ? null : trimmed;
     }
 
     private static MediaType ParseType(string? type) => type?.Trim().ToLowerInvariant() switch

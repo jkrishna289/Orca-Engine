@@ -19,7 +19,8 @@ public interface ITrailerQueue
     /// <param name="tmdbId">The TMDB id.</param>
     /// <param name="mediaType">Movie or Series (other types are ignored).</param>
     /// <param name="priority">How urgently to produce it.</param>
-    void Enqueue(int tmdbId, MediaType mediaType, TrailerPriority priority);
+    /// <param name="lang">Preferred trailer audio language (ISO 639-1), or null for the configured default.</param>
+    void Enqueue(int tmdbId, MediaType mediaType, TrailerPriority priority, string? lang = null);
 
     /// <summary>Gets a value indicating whether a title is currently waiting in the queue (not yet in-flight).</summary>
     /// <param name="tmdbId">The TMDB id.</param>

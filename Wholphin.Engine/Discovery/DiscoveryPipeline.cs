@@ -125,7 +125,15 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
             }
 
             var context = await BuildContextAsync(userId, profile, settings, countryCode: null, tuning, ct).ConfigureAwait(false);
-            var result = await RunAsync(context, _sources.Where(s => s.Scope == DiscoverySourceScope.PerUser), ct).ConfigureAwait(false);
+
+            // LLM-primary orchestration: when AI discovery is on, the LLM source generates the
+            // pool and the TMDB sources only fill if it under-delivers; otherwise (feature off, or
+            // no LLM source registered) every per-user source runs exactly as before.
+            var perUser = _sources.Where(s => s.Scope == DiscoverySourceScope.PerUser).ToList();
+            var llmActive = settings.Features.LlmDiscovery && perUser.Any(s => s.Kind == DiscoveryPickKind.LlmPick);
+            var primary = llmActive ? perUser.Where(s => s.Kind == DiscoveryPickKind.LlmPick).ToList() : perUser;
+            var fill = llmActive ? perUser.Where(s => s.Kind != DiscoveryPickKind.LlmPick).ToList() : new List<IDiscoverySource>();
+            var result = await RunAsync(context, primary, fill, ct).ConfigureAwait(false);
 
             _metrics.Increment("discovery.pull.ok");
             _metrics.Increment("discovery.imported", result.Imported);
@@ -159,15 +167,15 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
 
             // Trending: one world-wide list shared by everyone.
             var trendingContext = await BuildContextAsync(Guid.Empty, null, settings, countryCode: null, tuning, ct).ConfigureAwait(false);
-            var trendingSources = _sources.Where(s => s.Scope == DiscoverySourceScope.Global && s.Kind == DiscoveryPickKind.Trending);
-            var trending = await RunAsync(trendingContext, trendingSources, ct).ConfigureAwait(false);
+            var trendingSources = _sources.Where(s => s.Scope == DiscoverySourceScope.Global && s.Kind == DiscoveryPickKind.Trending).ToList();
+            var trending = await RunAsync(trendingContext, trendingSources, Array.Empty<IDiscoverySource>(), ct).ConfigureAwait(false);
 
             // Country lists: one pull per distinct configured country.
             var countrySources = _sources.Where(s => s.Scope == DiscoverySourceScope.Global && s.Kind == DiscoveryPickKind.Country).ToList();
             foreach (var cc in await ActiveCountriesAsync(settings, ct).ConfigureAwait(false))
             {
                 var countryContext = await BuildContextAsync(Guid.Empty, null, settings, cc, tuning, ct).ConfigureAwait(false);
-                var result = await RunAsync(countryContext, countrySources, ct).ConfigureAwait(false);
+                var result = await RunAsync(countryContext, countrySources, Array.Empty<IDiscoverySource>(), ct).ConfigureAwait(false);
                 countryPicks[cc] = result.PicksWritten;
             }
 
@@ -295,22 +303,55 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
         }
     }
 
-    /// <summary>Runs the strict stage chain over one context and one set of sources.</summary>
+    /// <summary>Picks the primary phase must yield (post-eligibility) before the fill phase is skipped — roughly one row.</summary>
+    public const int LlmFillThreshold = 12;
+
+    /// <summary>
+    /// Runs the strict stage chain over one context. Sources run in two phases: <paramref name="primary"/>
+    /// always gathers; <paramref name="fill"/> (empty on global runs) gathers only when the primary batch
+    /// under-fills after eligibility, so a healthy LLM run isn't diluted while a failed one degrades to
+    /// exactly the old TMDB behavior. The chain itself runs once over the union.
+    /// </summary>
     private async Task<PickPersistence.PersistenceResult> RunAsync(
         DiscoveryContext context,
-        IEnumerable<IDiscoverySource> sources,
+        IReadOnlyList<IDiscoverySource> primary,
+        IReadOnlyList<IDiscoverySource> fill,
         CancellationToken ct)
     {
         var report = new DiscoveryRunReport { UserId = context.UserId, StartedAt = context.Now };
 
         // Stage 1: candidate generation (each source tags its own attributions).
         var generated = new List<DiscoveryCandidate>();
-        foreach (var source in sources)
+        foreach (var source in primary)
         {
             var batch = await source.GatherAsync(context, ct).ConfigureAwait(false);
             generated.AddRange(batch);
             report.GeneratedBySource[source.Name] = report.GeneratedBySource.GetValueOrDefault(source.Name) + batch.Count;
             _metrics.Increment($"discovery.source.{source.Name}.generated", batch.Count);
+        }
+
+        if (fill.Count > 0)
+        {
+            // Pre-count with the pure eligibility filter: an LLM batch full of in-library or
+            // blacklisted titles counts as under-filled and triggers the fill phase. Dedupe
+            // non-mutatingly here — the real Aggregate below merges attributions in place and
+            // must see them un-merged.
+            var deduped = generated
+                .GroupBy(c => (c.Result.TmdbId, c.Result.MediaType))
+                .Select(g => g.First())
+                .ToList();
+            var eligible = _filter.Apply(context, deduped).Kept.Count;
+            if (eligible < LlmFillThreshold)
+            {
+                _metrics.Increment("discovery.llm.fill");
+                foreach (var source in fill)
+                {
+                    var batch = await source.GatherAsync(context, ct).ConfigureAwait(false);
+                    generated.AddRange(batch);
+                    report.GeneratedBySource[source.Name] = report.GeneratedBySource.GetValueOrDefault(source.Name) + batch.Count;
+                    _metrics.Increment($"discovery.source.{source.Name}.generated", batch.Count);
+                }
+            }
         }
 
         report.Generated = generated.Count;
@@ -358,6 +399,8 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
                 existing.Seed = candidate.Seed;
                 existing.Kind = candidate.Kind;
             }
+
+            existing.LlmRationale ??= candidate.LlmRationale;
         }
 
         return byKey.Values.ToList();
@@ -413,6 +456,13 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
                     .ConfigureAwait(false);
             }
 
+            // Explicit dislikes feed the LLM source's negative constraints; skip the query when
+            // the feature is off so plain runs stay exactly as cheap as before.
+            if (settings.Features.LlmDiscovery)
+            {
+                context.DislikedTitles = await LoadDislikedTitlesAsync(db, userId, ct).ConfigureAwait(false);
+            }
+
             // Genre name → id inversions for the filtered-discover source.
             var genreIds = new Dictionary<MediaType, IReadOnlyDictionary<string, int>>();
             foreach (var mediaType in new[] { MediaType.Movie, MediaType.Series })
@@ -431,6 +481,45 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
         }
 
         return context;
+    }
+
+    /// <summary>
+    /// The user's explicit rejections (thumbs down, or a rating of 3 or less), joined to catalog
+    /// titles, newest first, capped at 10 — the LLM prompt's "do not recommend anything similar"
+    /// constraints.
+    /// </summary>
+    private static async Task<IReadOnlyList<Llm.HistoryLine>> LoadDislikedTitlesAsync(
+        WholphinDbContext db,
+        Guid userId,
+        CancellationToken ct)
+    {
+        var disliked = await db.BehaviorEvents.AsNoTracking()
+            .Where(e => e.UserId == userId && e.CatalogItemId != null)
+            .Where(e => e.EventType == BehaviorEventType.ThumbsDown
+                || (e.EventType == BehaviorEventType.Rated && e.Value <= 3))
+            .OrderByDescending(e => e.Id)
+            .Select(e => e.CatalogItemId!.Value)
+            .Take(50)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        if (disliked.Count == 0)
+        {
+            return Array.Empty<Llm.HistoryLine>();
+        }
+
+        var itemIds = disliked.Distinct().Take(10).ToList();
+        var items = await db.CatalogItems.AsNoTracking()
+            .Where(c => itemIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.Title, c.ProductionYear })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        var byId = items.ToDictionary(i => i.Id);
+
+        return itemIds
+            .Where(byId.ContainsKey)
+            .Select(id => new Llm.HistoryLine(byId[id].Title, byId[id].ProductionYear))
+            .Where(line => !string.IsNullOrWhiteSpace(line.Title))
+            .ToList();
     }
 
     /// <summary>The distinct countries to pull for: every user's <c>pref.country</c> plus the admin region.</summary>

@@ -82,7 +82,7 @@ public class TrailerQueueWorker : ITrailerQueue, IHostedService
     }
 
     /// <inheritdoc />
-    public void Enqueue(int tmdbId, MediaType mediaType, TrailerPriority priority)
+    public void Enqueue(int tmdbId, MediaType mediaType, TrailerPriority priority, string? lang = null)
     {
         if (tmdbId <= 0 || mediaType is not (MediaType.Movie or MediaType.Series) || !_trailers.IsAvailable)
         {
@@ -101,10 +101,15 @@ public class TrailerQueueWorker : ITrailerQueue, IHostedService
 
             if (_pending.TryGetValue(key, out var existing))
             {
-                // Coalesce: keep the most urgent priority, preserve the original wait start (for aging).
-                if (priority < existing.Priority)
+                // Coalesce: keep the most urgent priority, preserve the original wait start (for
+                // aging), and keep the first explicit language hint any requester supplied.
+                if (priority < existing.Priority || (existing.Lang is null && lang is not null))
                 {
-                    _pending[key] = existing with { Priority = priority };
+                    _pending[key] = existing with
+                    {
+                        Priority = priority < existing.Priority ? priority : existing.Priority,
+                        Lang = existing.Lang ?? lang,
+                    };
                 }
 
                 return;
@@ -117,7 +122,7 @@ public class TrailerQueueWorker : ITrailerQueue, IHostedService
                 return;
             }
 
-            _pending[key] = new PendingJob(priority, DateTime.UtcNow.Ticks);
+            _pending[key] = new PendingJob(priority, DateTime.UtcNow.Ticks, lang);
             enqueue = true;
         }
 
@@ -155,7 +160,7 @@ public class TrailerQueueWorker : ITrailerQueue, IHostedService
             {
                 await _signal.WaitAsync(ct).ConfigureAwait(false);
 
-                if (!TryTakeBest(out var key))
+                if (!TryTakeBest(out var key, out var lang))
                 {
                     // Defensive: a permit without a takeable item shouldn't happen, but never spin.
                     continue;
@@ -163,7 +168,7 @@ public class TrailerQueueWorker : ITrailerQueue, IHostedService
 
                 try
                 {
-                    await _trailers.ProcessAsync(key.TmdbId, key.MediaType, ct).ConfigureAwait(false);
+                    await _trailers.ProcessAsync(key.TmdbId, key.MediaType, lang, ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -189,11 +194,12 @@ public class TrailerQueueWorker : ITrailerQueue, IHostedService
     }
 
     /// <summary>Picks the highest effective-priority waiting job (with aging) and marks it in-flight.</summary>
-    private bool TryTakeBest(out TrailerKey key)
+    private bool TryTakeBest(out TrailerKey key, out string? lang)
     {
         lock (_gate)
         {
             key = default;
+            lang = null;
             if (_pending.Count == 0)
             {
                 return false;
@@ -211,6 +217,7 @@ public class TrailerQueueWorker : ITrailerQueue, IHostedService
                     bestEffective = effective;
                     bestTicks = job.EnqueuedTicks;
                     key = k;
+                    lang = job.Lang;
                     found = true;
                 }
             }
@@ -262,5 +269,5 @@ public class TrailerQueueWorker : ITrailerQueue, IHostedService
 
     private readonly record struct TrailerKey(int TmdbId, MediaType MediaType);
 
-    private readonly record struct PendingJob(TrailerPriority Priority, long EnqueuedTicks);
+    private readonly record struct PendingJob(TrailerPriority Priority, long EnqueuedTicks, string? Lang = null);
 }
