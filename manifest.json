@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.9.0",
+        "changelog": "AI curation of every personalized surface (opt-in 'Enable AI curation of personalized rows'): the LLM now genuinely selects the For You row and Spotlight from a wide locally-ranked pool (instead of only re-ordering the top picks), curates the daily mood collections so each row only contains titles that truly carry the mood, picks the More Like This titles a fan of the source would actually reach for, and orders Coming Soon by how much each viewer will care (state logic still decides what appears - nothing airs unseen). List rows - trending, popular in your country, recently added - stay algorithmic by design. Every surface degrades to the built-in local ranking if the model is unavailable, and results are cached per surface to keep API usage small. Works with any OpenAI-compatible endpoint configured in the AI section.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.0.9.0-alpha/orca-engine_1.0.9.0.zip",
+        "checksum": "2effe2dae6473f29378924ed124f4c67",
+        "timestamp": "2026-07-17T16:05:00Z"
+      },
+      {
         "version": "1.0.8.0",
         "changelog": "Optional AI recommendations: connect any OpenAI-compatible model - Groq, OpenAI, a local Ollama server, OpenRouter and others - and the engine asks it to suggest new titles from each viewer's own watch history. Those become the You Might Like and Because You Watched picks, each with a short reason. It weighs what you loved, finished and disliked along with your favourite genres and people, and only surfaces a pick after confirming the title exists on TMDB. If the model is unavailable or a viewer's taste isn't established yet, it falls back to the built-in TMDB discovery automatically, and it only fills home rows - it never requests or downloads anything by itself. The AI settings now accept any OpenAI-compatible base URL, key and model; existing Groq keys keep working unchanged. Trailers can now prefer a chosen audio language, falling back to the title's native trailer.",
         "targetAbi": "10.11.0.0",
