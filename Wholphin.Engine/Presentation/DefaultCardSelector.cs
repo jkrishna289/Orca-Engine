@@ -95,6 +95,39 @@ public class DefaultCardSelector : ICardSelector
             }
         }
 
+        if (type == CardType.Spotlight)
+        {
+            // Cinematic showcase: the client renders one metadata line (cert · score · year ·
+            // runtime · genres) from structured badges. Every value is read straight off the
+            // catalog item — omitted when absent, never invented.
+            descriptor.WantsTrailer = context.Capabilities.SupportsInlineVideo;
+
+            if (!string.IsNullOrWhiteSpace(item.OfficialRating))
+            {
+                descriptor.Badges.Add(new CardBadge { Kind = "CERT", Text = item.OfficialRating });
+            }
+
+            if (item.CommunityRating is { } score)
+            {
+                descriptor.Badges.Add(new CardBadge { Kind = "RATING", Text = score.ToString("0.0", CultureInfo.InvariantCulture) });
+            }
+
+            if (item.ProductionYear is { } premiered)
+            {
+                descriptor.Badges.Add(new CardBadge { Kind = "YEAR", Text = premiered.ToString(CultureInfo.InvariantCulture) });
+            }
+
+            if (item.RuntimeMinutes is int minutes && minutes > 0)
+            {
+                descriptor.Badges.Add(new CardBadge { Kind = "RUNTIME", Text = FormatRuntime(minutes) });
+            }
+
+            foreach (var genre in CatalogFeatures.Parse(item.GenresJson).Take(3))
+            {
+                descriptor.Badges.Add(new CardBadge { Kind = "GENRE", Text = genre });
+            }
+        }
+
         // Requestable/discover items have no Jellyfin id for the client to resolve art from, so surface
         // the stored (TMDB) artwork directly. Library items keep these null → the client builds the
         // authenticated Jellyfin image URL from the media id (higher quality, no external dependency).
@@ -102,7 +135,7 @@ public class DefaultCardSelector : ICardSelector
         {
             var poster = string.IsNullOrEmpty(item.PosterImageUrl) ? null : item.PosterImageUrl;
             var backdrop = string.IsNullOrEmpty(item.BackdropImageUrl) ? null : item.BackdropImageUrl;
-            var wide = type is CardType.Hero or CardType.BannerWide or CardType.Episode or CardType.NowPlaying;
+            var wide = type is CardType.Hero or CardType.BannerWide or CardType.Episode or CardType.NowPlaying or CardType.Spotlight;
 
             descriptor.BackdropImageUrl = backdrop;
             // Wide cards lead with 16:9 art (backdrop), tall cards with the poster — falling back to
@@ -211,15 +244,24 @@ public class DefaultCardSelector : ICardSelector
     private static CardImageType ImageFor(CardType type) => type switch
     {
         CardType.BannerWide or CardType.Episode or CardType.Hero or CardType.NowPlaying => CardImageType.Thumb,
+        CardType.Spotlight => CardImageType.Backdrop,
         CardType.Logo => CardImageType.Logo,
         _ => CardImageType.Primary,
     };
 
     private static CardAspectRatio AspectFor(CardType type) => type switch
     {
-        CardType.BannerWide or CardType.Episode or CardType.Hero or CardType.NowPlaying => CardAspectRatio.Wide,
+        CardType.BannerWide or CardType.Episode or CardType.Hero or CardType.NowPlaying or CardType.Spotlight => CardAspectRatio.Wide,
         CardType.PersonCircle => CardAspectRatio.Square,
         _ => CardAspectRatio.Tall,
+    };
+
+    /// <summary>Human-readable runtime ("2 h 41 min", "47 min") from the item's stored minutes.</summary>
+    private static string FormatRuntime(int minutes) => minutes switch
+    {
+        < 60 => string.Create(CultureInfo.InvariantCulture, $"{minutes} min"),
+        _ when minutes % 60 == 0 => string.Create(CultureInfo.InvariantCulture, $"{minutes / 60} h"),
+        _ => string.Create(CultureInfo.InvariantCulture, $"{minutes / 60} h {minutes % 60} min"),
     };
 
     private static List<CardAction> ActionsFor(CatalogItem item, CardSelectionContext ctx)
