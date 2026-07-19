@@ -54,7 +54,10 @@ public enum CardType
     Logo = 102,
 
     /// <summary>Reserved: now-playing card.</summary>
-    NowPlaying = 103
+    NowPlaying = 103,
+
+    /// <summary>The single item of a <see cref="RowStyle.Spotlight"/> showcase row (→ SpotlightCard).</summary>
+    Spotlight = 104
 }
 
 /// <summary>Which image the card should load.</summary>
@@ -133,5 +136,13 @@ public enum RowStyle
     Top10,
 
     /// <summary>Circular (person) row.</summary>
-    Circle
+    Circle,
+
+    /// <summary>
+    /// A cinematic showcase: exactly one item rendered nearly full-screen by the client, playing its
+    /// trailer inline on focus. Distinct from <see cref="Hero"/>, which feeds the top billboard.
+    /// Several showcase rows may appear per home, placed deep in the feed — never as the first
+    /// content rows, since the billboard already occupies the top of the screen.
+    /// </summary>
+    Spotlight
 }

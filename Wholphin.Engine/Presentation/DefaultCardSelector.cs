@@ -162,6 +162,12 @@ public class DefaultCardSelector : ICardSelector
             return CardType.Hero;
         }
 
+        if (ctx.RowStyle == RowStyle.Spotlight)
+        {
+            // The showcase row's single item, rendered nearly full-screen by the client.
+            return CardType.Spotlight;
+        }
+
         // Milestone 8: trailer-capable + requestable rows render as 16:9 landscape cards (so an inline
         // trailer fits the frame and the home mixes shapes). Applies to both available + requestable items.
         if (IsWidePurpose(ctx.RowPurpose))

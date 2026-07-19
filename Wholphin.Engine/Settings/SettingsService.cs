@@ -96,10 +96,12 @@ public class SettingsService : ISettingsService
         settings.Enabled = config.Enabled;
         settings.DefaultRowSize = Clamp(config.DefaultRowSize, 1, 100, settings.DefaultRowSize);
         settings.SpotlightCount = Clamp(config.SpotlightCount, 1, 20, settings.SpotlightCount);
+        settings.SpotlightShowcaseCount = Clamp(config.SpotlightShowcaseCount, 0, 5, settings.SpotlightShowcaseCount);
 
         var f = settings.Features;
         f.Personalization = config.FeaturePersonalization;
         f.Spotlight = config.FeatureSpotlight;
+        f.SpotlightShowcase = config.FeatureSpotlightShowcase;
         f.ContinueWatching = config.FeatureContinueWatching;
         f.Trending = config.FeatureTrending;
         f.SimilarityRows = config.FeatureSimilarityRows;

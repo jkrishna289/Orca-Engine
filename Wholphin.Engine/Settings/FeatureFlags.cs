@@ -13,6 +13,14 @@ public class FeatureFlags
     /// <summary>Gets or sets a value indicating whether the rotating spotlight (Hero billboard) row is emitted.</summary>
     public bool Spotlight { get; set; } = true;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the cinematic Spotlight showcase rows are emitted.
+    /// Deliberately separate from <see cref="Spotlight"/>: that flag (and <c>SpotlightCount</c>)
+    /// owns the top billboard, whereas these are single-item near-full-screen rows placed deep in
+    /// the feed. Reusing one flag would make the two surfaces impossible to configure independently.
+    /// </summary>
+    public bool SpotlightShowcase { get; set; } = true;
+
     /// <summary>Gets or sets a value indicating whether the "Continue Watching" row is emitted.</summary>
     public bool ContinueWatching { get; set; } = true;
 

@@ -20,6 +20,13 @@ public class EngineSettings
     public int SpotlightCount { get; set; } = 5;
 
     /// <summary>
+    /// Gets or sets how many cinematic Spotlight showcase rows a home may contain (one item each,
+    /// placed deep in the feed). Separate from <see cref="SpotlightCount"/>, which sizes the
+    /// billboard at the top.
+    /// </summary>
+    public int SpotlightShowcaseCount { get; set; } = 2;
+
+    /// <summary>
     /// Gets or sets the effective ISO-3166-1 country for the "What people are watching in …" row:
     /// the user's roaming <c>pref.country</c> override, falling back to the admin
     /// watch-provider region.

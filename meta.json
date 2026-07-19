@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Fixes AI features silently falling back during the first minutes after a restart: the discovery cycle used to fire every viewer's LLM and embedding calls back-to-back, which could exceed a provider's rate limit and make every call fail with no retry. LLM (Groq, OpenAI, etc.) and embedding (Voyage, Jina, OpenAI) calls now recognize a rate-limit response and retry once after the wait the provider asks for, capped to 10 seconds - a brief burst now recovers instead of degrading the whole cycle to local-only ranking.",
+  "changelog": "Adds the cinematic Spotlight showcase: single-title rows rendered nearly full-screen in the Orca X home, which play that title's trailer inline once focused. These are separate from the rotating billboard at the top of the home - several appear per home, placed deep in the feed among the library and discovery rows rather than stacked under the billboard, and only titles with backdrop artwork are chosen. Controlled by a new 'Spotlight showcase' feature toggle and count (default 2), independent of the existing billboard spotlight settings. Requires an Orca X client build that advertises the Spotlight card type; older clients simply do not receive the rows.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.0.9.1",
+  "version": "1.0.10.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

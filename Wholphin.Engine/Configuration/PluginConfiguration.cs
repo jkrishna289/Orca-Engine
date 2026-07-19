@@ -27,6 +27,13 @@ public class PluginConfiguration : BasePluginConfiguration
     public int SpotlightCount { get; set; } = 5;
 
     /// <summary>
+    /// Gets or sets how many cinematic Spotlight showcase rows a home may contain. Each holds a
+    /// single item and is placed deep in the feed. Distinct from <see cref="SpotlightCount"/>,
+    /// which sizes the top billboard. 0 disables them.
+    /// </summary>
+    public int SpotlightShowcaseCount { get; set; } = 2;
+
+    /// <summary>
     /// Gets or sets how many days of raw behavior events to retain (older ones are pruned; the
     /// affinity vector already decays them to near-zero). Bounds recompute cost as history grows.
     /// 0 = keep everything (no pruning).
@@ -47,6 +54,9 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Gets or sets a value indicating whether the spotlight (Hero billboard) row is emitted.</summary>
     public bool FeatureSpotlight { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the cinematic Spotlight showcase rows are emitted.</summary>
+    public bool FeatureSpotlightShowcase { get; set; } = true;
 
     /// <summary>Gets or sets a value indicating whether the "Continue Watching" row is emitted.</summary>
     public bool FeatureContinueWatching { get; set; } = true;

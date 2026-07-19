@@ -50,6 +50,18 @@ public class HomeService
     /// <summary>Affinity confidence at/above which the home leads with personalized rows.</summary>
     private const double ConfidenceLayoutThreshold = 0.40;
 
+    /// <summary>
+    /// Row ids for the cinematic Spotlight showcases. Fixed and unique: the client renders rows
+    /// keyed by id, so two showcases sharing one would break the home. The array length also caps
+    /// how many a single bundle can carry.
+    /// </summary>
+    private static readonly string[] SpotlightShowcaseIds =
+    {
+        "spotlight_feature_1",
+        "spotlight_feature_2",
+        "spotlight_feature_3",
+    };
+
     private readonly IWholphinDbContextFactory _factory;
     private readonly ICardSelector _cardSelector;
     private readonly IRecommender _recommender;
@@ -146,6 +158,10 @@ public class HomeService
         // Personalized recommendations drive both the spotlight billboard and the "For You" row.
         IReadOnlyList<ResumePoint> resumePoints = Array.Empty<ResumePoint>();
         var confidence = 0.0;
+
+        // Candidates for the cinematic Spotlight showcases, gathered here and emitted near the end
+        // so they land deep in the feed (see EmitSpotlightShowcases).
+        var showcaseCandidates = new List<CatalogItem>();
         if (personalized && flags.Personalization)
         {
             var affinity = await _personalization.GetAsync(userId!.Value, ct).ConfigureAwait(false);
@@ -181,6 +197,11 @@ public class HomeService
             {
                 AddRow(bundle, "spotlight", "Spotlight", "spotlight", forYouItems.Take(settings.SpotlightCount).ToList(), capabilities, RowStyle.Hero);
             }
+
+            // Showcase candidates come from BELOW the billboard's slice, so the two surfaces never
+            // feature the same title — seeing the identical item as both the top banner and a
+            // full-screen showcase reads as a bug, not a recommendation.
+            showcaseCandidates.AddRange(forYouItems.Skip(settings.SpotlightCount));
 
             // Every card gets a deterministic reason from the explanation engine; the LLM's richer
             // "why" (when configured + applied) overrides per item. So For You is self-explaining
@@ -342,6 +363,16 @@ public class HomeService
             }
         }
 
+        // Cinematic Spotlight showcases. Emitted here (not with the billboard) and given deep layout
+        // priorities so they punctuate the feed rather than stacking a second near-full-screen
+        // surface directly under the billboard.
+        if (showcaseCandidates.Count == 0)
+        {
+            showcaseCandidates.AddRange(recentlyAdded);
+        }
+
+        EmitSpotlightShowcases(bundle, showcaseCandidates, settings, flags, capabilities);
+
         // Mood-based collections (Milestone 8): themed rows (Mind Bending, Dark Thrillers, …).
         if (flags.MoodCollections)
         {
@@ -389,6 +420,63 @@ public class HomeService
         return bundle;
     }
 
+    /// <summary>
+    /// Emits the cinematic Spotlight showcase rows: each holds exactly ONE item and is rendered
+    /// nearly full-screen by the client, playing its trailer inline on focus.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from the Hero billboard, which is a single rotating surface pinned to the top. These
+    /// are several single-item rows spread through the feed, and each gets a unique id because the
+    /// client renders rows keyed by id. A title is only worth a full screen if it has backdrop art
+    /// to fill it, so candidates without one are skipped rather than showing a bare gradient.
+    /// </remarks>
+    private void EmitSpotlightShowcases(
+        RenderBundle bundle,
+        IReadOnlyList<CatalogItem> candidates,
+        EngineSettings settings,
+        FeatureFlags flags,
+        ClientCapabilities capabilities)
+    {
+        var wanted = Math.Min(settings.SpotlightShowcaseCount, SpotlightShowcaseIds.Length);
+        if (wanted <= 0
+            || !flags.SpotlightShowcase
+            || !capabilities.SupportedCardTypes.Contains(CardType.Spotlight))
+        {
+            return;
+        }
+
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        var slot = 0;
+        foreach (var item in candidates)
+        {
+            if (slot >= wanted)
+            {
+                break;
+            }
+
+            if (string.IsNullOrWhiteSpace(item.BackdropImageUrl))
+            {
+                continue;
+            }
+
+            // Never showcase the same title twice across the showcases themselves.
+            if (!used.Add($"{item.Id}"))
+            {
+                continue;
+            }
+
+            AddRow(
+                bundle,
+                SpotlightShowcaseIds[slot],
+                "In the Spotlight",
+                "spotlight_showcase",
+                new[] { item },
+                capabilities,
+                RowStyle.Spotlight);
+            slot++;
+        }
+    }
+
     private static void ReorderByConfidence(
         RenderBundle bundle,
         double confidence,
@@ -411,6 +499,16 @@ public class HomeService
         foreach (var row in bundle.Rows)
         {
             if (row.Id == "spotlight")
+            {
+                continue;
+            }
+
+            // Showcases are their own presentation surface, like the billboard. They hold a single
+            // item, so de-duplicating one against an earlier row would empty it and the row would
+            // then be dropped entirely — the showcase would silently vanish whenever its title also
+            // appeared in For You. They also deliberately do NOT reserve their title, so the normal
+            // rows below still carry it.
+            if (row.RowStyle == RowStyle.Spotlight)
             {
                 continue;
             }
@@ -474,6 +572,14 @@ public class HomeService
             case "spotlight": return 0;
             case "continue": return 1;
             case "newsince": return 2; // new content is always worth surfacing early
+
+            // Cinematic showcases sit DEEP and spread apart, never near the top: the billboard
+            // already owns the screen up there, and a second near-full-screen surface beneath it
+            // would make the viewer scroll past two giant panels before reaching anything
+            // browsable. Interleaved with the library/discovery rows rather than adjacent.
+            case "spotlight_feature_1": return 7;
+            case "spotlight_feature_2": return 10;
+            case "spotlight_feature_3": return 13;
         }
 
         // Provider-supplied rows carry their own warm/cold priorities.
