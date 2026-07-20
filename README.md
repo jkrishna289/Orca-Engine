@@ -130,6 +130,10 @@ Early development — **Milestone 1: foundation plus personalization core.** Cur
 
 Orca Engine organizes, ranks, and reasons about a library that already exists on your server. It is not a content source and never acquires media on its own; its request features are a thin, opt-in proxy to the request tooling you already run. What is in your library, and your right to play it, is yours to manage. The engine's only job is to make the good stuff easier to find.
 
+## Acknowledgements
+
+Orca Engine is a plugin for **[Jellyfin](https://jellyfin.org)**, and it exists to serve the [OrcaX](https://github.com/) client — which is itself built on **[Wholphin](https://github.com/damontecres/Wholphin)** by [damontecres](https://github.com/damontecres). Thank you to the Jellyfin project for the plugin platform and the SDK this runs on, and to the Wholphin author and its many contributors and translators, whose client this engine was designed around. The card contract, the home surfaces, and the availability model here all take their cues from that work.
+
 <p align="center">
   <sub>The engine decides. <a href="https://github.com/">OrcaX</a> draws. Your server holds the library.</sub>
 </p>
