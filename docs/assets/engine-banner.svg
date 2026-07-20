@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 380" width="1280" height="380" role="img" aria-label="Orca Engine — a server-side intelligence plugin for Jellyfin that composes the OrcaX home screen">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A1113"/>
+      <stop offset="0.55" stop-color="#080D0F"/>
+      <stop offset="1" stop-color="#05090A"/>
+    </linearGradient>
+    <linearGradient id="rail" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4FC8BC"/>
+      <stop offset="1" stop-color="#A99CFF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="380" fill="url(#bg)"/>
+  <rect width="7" height="380" fill="url(#rail)"/>
+
+  <!-- concentric "signal" rings -->
+  <g fill="none" stroke="#4FC8BC" stroke-opacity="0.10">
+    <circle cx="1195" cy="190" r="110"/>
+    <circle cx="1195" cy="190" r="176"/>
+    <circle cx="1195" cy="190" r="248"/>
+    <circle cx="1195" cy="190" r="326"/>
+  </g>
+  <circle cx="1195" cy="190" r="10" fill="#4FC8BC" fill-opacity="0.6"/>
+
+  <g font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <text x="82" y="92" fill="#6E8A86" font-size="13" letter-spacing="4.5" font-weight="600">JELLYFIN PLUGIN &#183; .NET 9 &#183; THE BRAIN BEHIND ORCAX</text>
+
+    <text x="78" y="196" fill="#ECF3F1" font-size="88" font-weight="700" letter-spacing="1">ORCA ENGINE</text>
+
+    <line x1="82" y1="228" x2="720" y2="228" stroke="#1E2C2A" stroke-width="1"/>
+
+    <text x="82" y="268" fill="#93A7A3" font-size="23">Turns &#8220;give me all the movies&#8221; into &#8220;given this household, what should play now?&#8221;</text>
+
+    <g font-size="13" fill="#7E9490" letter-spacing="0.6">
+      <rect x="82" y="296" width="176" height="32" rx="16" fill="none" stroke="#25352F"/>
+      <text x="102" y="317">Personalization core</text>
+      <rect x="270" y="296" width="150" height="32" rx="16" fill="none" stroke="#25352F"/>
+      <text x="290" y="317">Discovery pipeline</text>
+      <rect x="432" y="296" width="156" height="32" rx="16" fill="none" stroke="#25352F"/>
+      <text x="452" y="317">SQLite &#43; in&#8209;memory</text>
+      <rect x="600" y="296" width="120" height="32" rx="16" fill="none" stroke="#25352F"/>
+      <text x="620" y="317">Jellyfin 10.11&#43;</text>
+    </g>
+  </g>
+</svg>
