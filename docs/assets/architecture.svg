@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 660" width="1280" height="660" role="img" aria-label="System architecture: the OrcaX television client, the Orca Engine plugin inside your Jellyfin server, and optional outside services">
+  <defs>
+    <linearGradient id="abg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B0E14"/>
+      <stop offset="1" stop-color="#07090E"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="660" fill="url(#abg)"/>
+
+  <g font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+
+    <!-- column headings -->
+    <text x="48" y="46" fill="#79839A" font-size="12" letter-spacing="3.5" font-weight="600">YOUR LIVING ROOM</text>
+    <text x="500" y="46" fill="#79839A" font-size="12" letter-spacing="3.5" font-weight="600">YOUR SERVER</text>
+    <text x="1000" y="46" fill="#79839A" font-size="12" letter-spacing="3.5" font-weight="600">OUTSIDE, OPT&#8209;IN</text>
+
+    <!-- ============ client ============ -->
+    <rect x="48" y="70" width="300" height="330" rx="14" fill="#11141B" stroke="#2A3141"/>
+    <rect x="48" y="70" width="300" height="4" rx="2" fill="#A99CFF"/>
+    <text x="72" y="116" fill="#ECEFF5" font-size="24" font-weight="700">OrcaX</text>
+    <text x="72" y="140" fill="#79839A" font-size="13">Android TV &#183; Google TV &#183; Fire TV</text>
+    <line x1="72" y1="160" x2="324" y2="160" stroke="#232937"/>
+
+    <g font-size="13.5" fill="#B9C1D0">
+      <text x="72" y="192">Compose for TV, D&#8209;pad first</text>
+      <text x="72" y="222">Media3 / ExoPlayer &#43; libmpv</text>
+      <text x="72" y="252">Room &#43; DataStore, offline state</text>
+      <text x="72" y="282">Card renderer &#8212; contract v1</text>
+      <text x="72" y="312">Voice search, screensaver, music</text>
+    </g>
+    <text x="72" y="356" fill="#6E7789" font-size="12">Renders what it is handed. Decides nothing</text>
+    <text x="72" y="374" fill="#6E7789" font-size="12">about ranking on its own.</text>
+
+    <!-- ============ server ============ -->
+    <rect x="500" y="70" width="400" height="470" rx="14" fill="#0F1219" stroke="#2A3141"/>
+    <rect x="500" y="70" width="400" height="4" rx="2" fill="#4FC8BC"/>
+    <text x="524" y="116" fill="#ECEFF5" font-size="24" font-weight="700">Jellyfin 10.11&#43;</text>
+    <text x="524" y="140" fill="#79839A" font-size="13">your library, your accounts, your hardware</text>
+
+    <rect x="522" y="164" width="356" height="352" rx="12" fill="#151A23" stroke="#333B4C"/>
+    <text x="544" y="196" fill="#8FE6DB" font-size="17" font-weight="700">Orca Engine</text>
+    <text x="544" y="216" fill="#79839A" font-size="12">in&#8209;process plugin &#183; SQLite &#43; in&#8209;memory cache</text>
+
+    <g font-size="12.5" fill="#C3CAD8">
+      <rect x="544" y="236" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="560" y="258">Home composition</text>
+      <rect x="708" y="236" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="724" y="258">Ranking &#43; calibration</text>
+
+      <rect x="544" y="280" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="560" y="302">Taste profiles</text>
+      <rect x="708" y="280" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="724" y="302">Behaviour signals</text>
+
+      <rect x="544" y="324" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="560" y="346">Discovery pipeline</text>
+      <rect x="708" y="324" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="724" y="346">Catalog reconciler</text>
+
+      <rect x="544" y="368" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="560" y="390">Trailer queue</text>
+      <rect x="708" y="368" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="724" y="390">Image cache</text>
+
+      <rect x="544" y="412" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="560" y="434">Analytics &#43; funnels</text>
+      <rect x="708" y="412" width="152" height="34" rx="8" fill="#1B212C" stroke="#2E3648"/>
+      <text x="724" y="434">Admin &#43; settings</text>
+    </g>
+    <text x="544" y="482" fill="#6E7789" font-size="12">Every heavy decision happens here, once,</text>
+    <text x="544" y="500" fill="#6E7789" font-size="12">for every screen in the house.</text>
+
+    <!-- ============ outside ============ -->
+    <g font-size="13.5">
+      <rect x="1000" y="70" width="232" height="68" rx="10" fill="#11141B" stroke="#2A3141"/>
+      <text x="1020" y="102" fill="#ECEFF5" font-weight="600">TMDB</text>
+      <text x="1020" y="122" fill="#79839A" font-size="12">artwork, genres, upcoming</text>
+
+      <rect x="1000" y="154" width="232" height="68" rx="10" fill="#11141B" stroke="#2A3141"/>
+      <text x="1020" y="186" fill="#ECEFF5" font-weight="600">Jellyseerr</text>
+      <text x="1020" y="206" fill="#79839A" font-size="12">your own request queue</text>
+
+      <rect x="1000" y="238" width="232" height="68" rx="10" fill="#11141B" stroke="#2A3141"/>
+      <text x="1020" y="270" fill="#ECEFF5" font-weight="600">Sonarr / Radarr</text>
+      <text x="1020" y="290" fill="#79839A" font-size="12">your own automation</text>
+
+      <rect x="1000" y="322" width="232" height="68" rx="10" fill="#11141B" stroke="#2A3141"/>
+      <text x="1020" y="354" fill="#ECEFF5" font-weight="600">LLM &#43; embeddings</text>
+      <text x="1020" y="374" fill="#79839A" font-size="12">off unless you add a key</text>
+    </g>
+
+    <!-- ============ arrows client <-> server ============ -->
+    <g stroke="#4A5468" stroke-width="1.4" fill="none">
+      <line x1="352" y1="212" x2="486" y2="212"/>
+      <line x1="496" y1="268" x2="362" y2="268"/>
+      <line x1="352" y1="340" x2="486" y2="340"/>
+      <line x1="904" y1="230" x2="982" y2="230"/>
+    </g>
+    <g fill="#4A5468">
+      <polygon points="496,212 484,207 484,217"/>
+      <polygon points="352,268 364,263 364,273"/>
+      <polygon points="496,340 484,335 484,345"/>
+      <polygon points="992,230 980,225 980,235"/>
+    </g>
+    <g font-size="11" fill="#8B94A5" text-anchor="middle">
+      <text x="424" y="202">capabilities &#43; user</text>
+      <text x="424" y="258">RenderBundle</text>
+      <text x="424" y="330">Jellyfin API &#183; playback</text>
+      <text x="943" y="208">enrichment,</text>
+      <text x="943" y="222">requests</text>
+    </g>
+
+    <!-- ============ footer ============ -->
+    <line x1="48" y1="576" x2="1232" y2="576" stroke="#1E2431"/>
+    <text x="48" y="608" fill="#9AA4B6" font-size="14">No content source ships with either half. OrcaX talks to exactly one server &#8212; the one you type in during setup &#8212; and the</text>
+    <text x="48" y="630" fill="#9AA4B6" font-size="14">engine only reaches outside when you hand it a key of your own.</text>
+  </g>
+</svg>
