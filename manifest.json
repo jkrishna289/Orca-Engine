@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.11.0",
+        "changelog": "The home is now built row by row, concurrently, instead of one row after another. Every row - Continue Watching, Recently Added, For You, Because You Watched, Coming Soon, and the trending and discovery rows - is produced independently under its own time budget, so the page costs the slowest single row rather than the sum of all of them. A row that is slow or fails is simply absent from that build instead of stalling or failing the whole home, and the LLM curation step carries its own tighter budget, so a slow Groq call costs a row its curation but never the row itself. Cached homes are now served instantly and refreshed in the background (stale-while-revalidate: 5 minutes soft, 30 minutes hard) rather than expiring outright, so a viewer rarely waits for a rebuild at all. Together these stop a cold personalized home from taking so long that the Orca X client times out and falls back to its legacy home.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.0.11.0-alpha/orca-engine_1.0.11.0.zip",
+        "checksum": "7553f6cc5e83d6536dc5ebc4a2a3a927",
+        "timestamp": "2026-08-04T05:58:00Z"
+      },
+      {
         "version": "1.0.10.1",
         "changelog": "Spotlight showcase cards now carry their title's genuine metadata as structured badges - certificate, community score, premiere year, runtime, and up to three genres - read straight from the catalog record and omitted when a value does not exist. Showcase cards also correctly declare backdrop-led wide artwork (previously they defaulted to poster/tall), so discover titles lead with the right image, and they request inline trailers whenever the client supports them. Pairs with the Orca X client's redesigned Spotlight, which renders these values as a single metadata line.",
         "targetAbi": "10.11.0.0",
