@@ -116,7 +116,7 @@ public abstract class OpenAiCompatibleEmbeddingProvider : IEmbeddingProvider
         };
         Augment(body);
 
-        using var client = _httpClientFactory.CreateClient();
+        using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
         client.Timeout = CallTimeout;
 
         HttpResponseMessage response;

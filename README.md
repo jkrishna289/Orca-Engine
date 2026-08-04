@@ -61,6 +61,16 @@ dotnet build -c Release
 
 The plugin assembly (`Wholphin.Engine.dll`) is produced under `Wholphin.Engine/bin/Release/net9.0/`.
 
+Node is **not** required. The Observatory dashboard's built page is committed at
+`Wholphin.Engine/Configuration/observatory.html`, so a plain `dotnet build` works on a machine
+without npm. If npm *is* on the path, the build rebuilds that page from `Wholphin.Engine/Observatory/`
+first — so editing the dashboard's source does require Node, and the regenerated page should be
+committed along with the change.
+
+```sh
+cd Wholphin.Engine/Observatory && npm install && npm run build   # dashboard only
+```
+
 ## Install (local dev)
 
 Copy `Wholphin.Engine.dll` and its dependencies into a `Wholphin.Engine` folder under your Jellyfin server's `plugins/` directory, then restart Jellyfin. The plugin appears under **Dashboard → Plugins**, and a health check confirms it is live:
@@ -93,6 +103,52 @@ Everything is namespaced under `/OrcaEngine`. A tour of the controllers:
 | `/OrcaEngine/Health`, `/Update` | Liveness and update checks |
 
 The card/render contract is versioned. The client advertises which card types it can actually draw; the engine promises to emit only those and falls back gracefully for the rest. That is what keeps the two halves shippable independently.
+
+### Authentication
+
+Administrative endpoints require an authenticated Jellyfin **administrator**
+(`[Authorize(Policy = "RequiresElevation")]`) — a non-admin gets `403`. That covers all of
+`/OrcaEngine/Admin/*` and `/OrcaEngine/Observatory/*`, the maintenance operations
+(`Catalog/Resync`, `Catalog/Reconcile`, `Catalog/PurgeUnjustified`, `Catalog/EnrichTmdb`,
+`Catalog/EnrichProviders`, `Discovery/PullGlobal`, `Discovery/Sweep`, `Metadata/EnrichWarnings`,
+`Analytics/CommunityRating/Recompute`), and the operator diagnostics (`Trailer/Diagnostics`,
+`Discovery/Runs`, `Discovery/SourceStats`).
+
+Client-facing routes stay open so the TV app is unaffected. Endpoints the app plausibly calls —
+`Discovery/Picks`, `Behavior/*`, `Settings/User`, `Personalization/Recompute`, `Trailer/Prefetch`
+and the rest — have deliberately **not** been locked; tightening those needs the client's actual
+call list first.
+
+---
+
+## Orca Observatory
+
+An observability dashboard for the engine, served inside Jellyfin's own admin UI at
+**Dashboard → Orca Observatory** (`/web/#/configurationpage?name=OrcaObservatory`). No extra port,
+no second service, no second login — it authenticates with the Jellyfin session you already have.
+
+| Page | Answers |
+| --- | --- |
+| Overview | Is the engine healthy? What is it costing? |
+| Engine Health | Which integration is slow or failing? Is a queue backing up? |
+| Performance | Which home row is the bottleneck? |
+| Metadata | Which provider supplied a field, and is enrichment keeping up? |
+| Trailer Resolver | Why is this trailer missing? |
+| Recommendation Engine | Why was this title recommended? |
+| Cache | What is hitting, what is thrashing? |
+| Live Logs | What is happening right now — with full stack traces |
+| Timeline | What has the engine been doing, on a time axis |
+| Users | Profiles, behavior signals, recompute backlog |
+
+Rates and charts come from diffing the monotonic counters client-side, so the engine retains no
+time series. Live Logs and Timeline stream from `/OrcaEngine/Observatory/Stream` over Server-Sent
+Events.
+
+Two honest limits worth stating: **CPU and memory are reported for the whole Jellyfin process**,
+because .NET has no per-plugin accounting — the per-engine numbers next to them (database size,
+cache occupancy, queue depths) are the ones actually attributable. And **metadata provenance is
+coarse** — TMDB is currently the only external metadata provider, so per-field attribution has
+nothing to distinguish yet.
 
 ---
 

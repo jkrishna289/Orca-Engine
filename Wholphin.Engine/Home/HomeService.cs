@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -173,14 +174,21 @@ public class HomeService
     {
         var personalized = userId is { } u && u != Guid.Empty;
 
+        // Timed from the very top: the cache-hit path is the one the performance budget actually
+        // targets, and it is NOT free — the settings resolve below is a SQLite read that every hit
+        // pays before the cache is even consulted.
+        var startedAt = Stopwatch.GetTimestamp();
+
         // Layered settings (admin + per-user roaming overrides) gate which rows we emit.
         var settings = await _settings.ResolveAsync(userId, ct).ConfigureAwait(false);
         var size = rowSize is >= 1 and <= 100 ? rowSize : settings.DefaultRowSize;
+        _metrics.Record("home.settings", RowBudget.ElapsedMs(startedAt));
 
         string? cacheKey = personalized ? CacheKey(userId!.Value, size, capabilities) : null;
         if (cacheKey is not null && _cache.TryGet<CachedHome>(cacheKey, out var cached) && cached is not null)
         {
             _metrics.Increment("home.cache_hit");
+            _metrics.Record("home.serve_cached", RowBudget.ElapsedMs(startedAt));
 
             // Stale-while-revalidate: past the soft TTL the entry is still served instantly and a
             // single background rebuild refreshes it for the next viewer. Only a hard miss (evicted,
@@ -200,6 +208,7 @@ public class HomeService
         }
 
         _metrics.Increment("home.built");
+        _metrics.Record("home.serve_fresh", RowBudget.ElapsedMs(startedAt));
         return built;
     }
 
@@ -247,13 +256,18 @@ public class HomeService
         CancellationToken ct)
     {
         var flags = settings.Features;
+        var buildStartedAt = Stopwatch.GetTimestamp();
 
         // The affinity read is the one genuinely sequential step: the confidence it yields decides
         // the layout AND is handed to every row provider, so it has to resolve before the fan-out.
         // It's a stored-profile lookup, not an LLM or network call.
+        // Timed separately BECAUSE it's sequential: it is pure added latency on every cold build,
+        // so it's the one step where a regression can't hide behind the concurrent fan-out.
+        var affinityStartedAt = Stopwatch.GetTimestamp();
         var affinity = personalized && flags.Personalization
             ? await _personalization.GetAsync(userId!.Value, ct).ConfigureAwait(false)
             : null;
+        _metrics.Record("home.affinity", RowBudget.ElapsedMs(affinityStartedAt));
         var confidence = affinity?.Confidence ?? 0.0;
 
         var rowContext = new RowContext
@@ -401,6 +415,10 @@ public class HomeService
         // for non-personalized bundles too (there insertion order already is the display order).
         DeduplicateRows(bundle, size);
 
+        // Covers the background refresh too, not just the request path — a rebuild that has gone
+        // slow is worth seeing even when nobody waited on it.
+        _metrics.Record("home.build", RowBudget.ElapsedMs(buildStartedAt), data: $"{bundle.Rows.Count} rows");
+        _metrics.Increment("home.build.rows", bundle.Rows.Count);
         return bundle;
     }
 

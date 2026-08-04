@@ -84,7 +84,7 @@ public class AnalyticsController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of items updated.</returns>
     [HttpPost("CommunityRating/Recompute")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult> RecomputeCommunityRatings(CancellationToken cancellationToken = default)
     {
         var updated = await _communityRatings.RecomputeAllAsync(cancellationToken).ConfigureAwait(false);

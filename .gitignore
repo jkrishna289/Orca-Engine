@@ -16,3 +16,8 @@ out/
 
 # Plugin package artifacts
 *.zip
+
+# Observatory dashboard build. node_modules and the intermediate bundle are ignored; the final
+# Configuration/observatory.html IS committed so `dotnet build` works without Node installed.
+node_modules/
+Wholphin.Engine/Observatory/dist/

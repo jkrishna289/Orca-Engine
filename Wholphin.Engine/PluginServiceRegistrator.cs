@@ -29,12 +29,20 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     /// <inheritdoc />
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
-        // Bound the shared cache so it can't grow without limit. Every InMemoryCache entry is size 1,
-        // so this caps the entry count; entries are evicted under pressure (all have TTLs anyway).
-        serviceCollection.AddMemoryCache(o => o.SizeLimit = 4096);
+        // NOTE: do NOT call AddMemoryCache(o => o.SizeLimit = ...) here. Jellyfin registers the
+        // shared IMemoryCache before plugins load, so the limit would apply server-wide and make
+        // MemoryCache throw on every core entry that omits a Size. InMemoryCache owns a private
+        // cache and bounds itself — see Caching/InMemoryCache.cs.
 
-        // Operational metrics (in-process counters surfaced via /Admin/Metrics).
+        // Observability: bounded structured event log + the counters layered on top of it.
+        serviceCollection.AddSingleton<IEngineEvents, EngineEvents>();
         serviceCollection.AddSingleton<IEngineMetrics, EngineMetrics>();
+
+        // Every outbound call the engine makes goes through this named client so it gets timed.
+        // Deliberately NOT ConfigureAll — that would instrument the whole server's HTTP.
+        serviceCollection.AddTransient<OrcaMetricsHandler>();
+        serviceCollection.AddHttpClient(OrcaMetricsHandler.ClientName)
+            .AddHttpMessageHandler<OrcaMetricsHandler>();
 
         // Data layer
         serviceCollection.AddSingleton<IWholphinDbContextFactory, WholphinDbContextFactory>();

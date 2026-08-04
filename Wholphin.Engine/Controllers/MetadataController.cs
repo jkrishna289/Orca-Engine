@@ -119,7 +119,7 @@ public class MetadataController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of titles processed.</returns>
     [HttpPost("EnrichWarnings")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult> EnrichWarnings([FromQuery] int maxItems = 25, CancellationToken cancellationToken = default)
     {
         var processed = await _warningEnricher.EnrichAsync(maxItems, cancellationToken).ConfigureAwait(false);

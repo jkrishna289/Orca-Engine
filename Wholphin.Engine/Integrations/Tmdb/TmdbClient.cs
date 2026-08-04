@@ -84,7 +84,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, Url(apiKey, $"/genre/{kind}/list"), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -125,7 +125,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             // One request fetches the detail plus videos/credits/keywords (cheaper than 3 round-trips).
             using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}", "append_to_response=videos,credits,keywords"), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
@@ -189,7 +189,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}/videos"), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -229,7 +229,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, Url(apiKey, path, $"page={safePage}"), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -297,7 +297,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, Url(apiKey, $"/discover/{kind}", query.ToArray()), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -335,7 +335,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}/keywords"), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -367,7 +367,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, Url(apiKey, $"/{mk}/{tmdbId}/{leaf}"), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -415,7 +415,7 @@ public class TmdbClient : ITmdbClient
 
             foreach (var queryParams in attempts)
             {
-                using var client = _httpClientFactory.CreateClient();
+                using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
                 using var request = Build(HttpMethod.Get, Url(apiKey, $"/search/{mk}", queryParams), apiKey);
                 using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
@@ -472,7 +472,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, Url(apiKey, $"/tv/{tmdbId}"), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -519,7 +519,7 @@ public class TmdbClient : ITmdbClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}/watch/providers"), apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)

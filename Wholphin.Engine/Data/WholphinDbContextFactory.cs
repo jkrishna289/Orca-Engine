@@ -23,6 +23,9 @@ public class WholphinDbContextFactory : IWholphinDbContextFactory
     }
 
     /// <inheritdoc />
+    public string DatabasePath => _dbPath;
+
+    /// <inheritdoc />
     public WholphinDbContext Create()
     {
         var options = new DbContextOptionsBuilder<WholphinDbContext>()

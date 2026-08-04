@@ -187,7 +187,7 @@ public class TrailerController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A diagnostics snapshot.</returns>
     [HttpGet("Diagnostics")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult> Diagnostics(CancellationToken cancellationToken)
     {
         await using var db = _factory.Create();
@@ -201,6 +201,26 @@ public class TrailerController : ControllerBase
         var ready = await db.TrailerAssets
             .Where(t => t.State == Data.Enums.TrailerState.Ready)
             .Select(t => new { t.FileBytes, t.Pinned, t.AccessCount })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        // The columns behind this already existed on TrailerAsset — they were just never projected,
+        // so "why is this trailer missing" meant reading the server log. FailedPermanent means TMDB
+        // named no trailer at all; FailedTemporary means the download or transcode fell over.
+        var failures = await db.TrailerAssets
+            .Where(t => t.State == Data.Enums.TrailerState.FailedPermanent
+                || t.State == Data.Enums.TrailerState.FailedTemporary)
+            .OrderByDescending(t => t.UpdatedAt)
+            .Take(100)
+            .Select(t => new
+            {
+                t.TmdbId,
+                t.MediaType,
+                State = t.State.ToString(),
+                t.FailureReason,
+                t.FailureCount,
+                t.UpdatedAt,
+            })
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -219,6 +239,7 @@ public class TrailerController : ControllerBase
                 TotalBytes = ready.Sum(r => r.FileBytes ?? 0),
                 PinnedCount = ready.Count(r => r.Pinned == true || (r.AccessCount ?? 0) >= 3),
             },
+            Failures = failures,
             Metrics = trailerMetrics,
         });
     }
