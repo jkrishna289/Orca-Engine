@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -36,8 +37,36 @@ public class HomeService
     private const int OverFetchFactor = 3;
 
 
-    /// <summary>Time a precomputed home read-model stays valid before a rebuild.</summary>
-    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(15);
+    /// <summary>
+    /// Age past which a cached home is still SERVED but refreshed in the background, so a viewer
+    /// never pays for a rebuild they could have been shown a few-minutes-old page instead.
+    /// </summary>
+    private static readonly TimeSpan SoftCacheTtl = TimeSpan.FromMinutes(5);
+
+    /// <summary>How long a cached home survives at all. Past this, a request builds inline.</summary>
+    private static readonly TimeSpan HardCacheTtl = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Per-row time budgets. Rows are built concurrently, so the home costs the SLOWEST row rather
+    /// than the sum of all of them; a row that blows its budget is dropped from this build (and
+    /// counted in <c>home.row.*.timeout</c>) instead of stalling or failing the page. Tune from
+    /// those counters — a row that times out often is either mis-bucketed or genuinely broken.
+    /// </summary>
+    private static readonly TimeSpan FastRowBudget = TimeSpan.FromSeconds(3);
+
+    /// <summary>Budget for rows that hit an external service or a provider pipeline.</summary>
+    private static readonly TimeSpan MediumRowBudget = TimeSpan.FromSeconds(6);
+
+    /// <summary>Budget for the recommender-backed personalized rows (For You, Because You Watched).</summary>
+    private static readonly TimeSpan ExpensiveRowBudget = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Budget for the LLM step INSIDE an expensive row. Curation is pure polish on a row we can
+    /// already ship — <see cref="ILlmReRanker"/> is a fail-soft passthrough — so a slow Groq call
+    /// costs the row its curation, never the row itself. Kept well under
+    /// <see cref="ExpensiveRowBudget"/> so the local ordering still has time to be rendered.
+    /// </summary>
+    private static readonly TimeSpan LlmStepBudget = TimeSpan.FromSeconds(5);
 
     // Card types the Wholphin app advertises today; used to precompute a cache entry that the
     // app's own requests will hit. Mismatched capability sets simply rebuild live (still correct).
@@ -77,6 +106,9 @@ public class HomeService
     private readonly ILlmReRanker _llmReRanker;
     private readonly Explanation.IExplanationService _explanation;
     private readonly IReadOnlyList<IRowProvider> _rowProviders;
+
+    /// <summary>Cache keys with a background refresh in flight — the single-flight guard.</summary>
+    private readonly ConcurrentDictionary<string, byte> _refreshing = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeService"/> class.
@@ -143,193 +175,87 @@ public class HomeService
 
         // Layered settings (admin + per-user roaming overrides) gate which rows we emit.
         var settings = await _settings.ResolveAsync(userId, ct).ConfigureAwait(false);
-        var flags = settings.Features;
         var size = rowSize is >= 1 and <= 100 ? rowSize : settings.DefaultRowSize;
 
         string? cacheKey = personalized ? CacheKey(userId!.Value, size, capabilities) : null;
-        if (cacheKey is not null && _cache.TryGet<RenderBundle>(cacheKey, out var cached) && cached is not null)
+        if (cacheKey is not null && _cache.TryGet<CachedHome>(cacheKey, out var cached) && cached is not null)
         {
             _metrics.Increment("home.cache_hit");
-            return cached;
+
+            // Stale-while-revalidate: past the soft TTL the entry is still served instantly and a
+            // single background rebuild refreshes it for the next viewer. Only a hard miss (evicted,
+            // or past HardCacheTtl) ever makes someone wait through a full build.
+            if (DateTime.UtcNow - cached.BuiltUtc > SoftCacheTtl)
+            {
+                RefreshInBackground(cacheKey, capabilities, size, userId);
+            }
+
+            return cached.Bundle;
         }
 
-        var bundle = new RenderBundle { ContractVersion = 1 };
-
-        // Personalized recommendations drive both the spotlight billboard and the "For You" row.
-        IReadOnlyList<ResumePoint> resumePoints = Array.Empty<ResumePoint>();
-        var confidence = 0.0;
-
-        // Candidates for the cinematic Spotlight showcases, gathered here and emitted near the end
-        // so they land deep in the feed (see EmitSpotlightShowcases).
-        var showcaseCandidates = new List<CatalogItem>();
-        if (personalized && flags.Personalization)
+        var built = await BuildFreshAsync(capabilities, size, userId, personalized, settings, ct).ConfigureAwait(false);
+        if (cacheKey is not null)
         {
-            var affinity = await _personalization.GetAsync(userId!.Value, ct).ConfigureAwait(false);
-            confidence = affinity.Confidence;
-
-            // Under LLM curation the local recommender only prefilters a wide pool and the LLM
-            // genuinely selects the row; otherwise the local ranking IS the row (optionally
-            // LLM-reordered by the legacy re-ranker). Both LLM paths are fail-soft passthroughs.
-            var poolSize = flags.LlmCuration ? Math.Max(size * 3, 45) : size;
-            var recs = await _recommender.RecommendAsync(userId!.Value, poolSize, ct).ConfigureAwait(false);
-            var recItems = recs.Select(r => r.Item).ToList();
-
-            var reranked = flags.LlmCuration
-                ? await _llmReRanker.CurateAsync(
-                    new LlmCurationRequest
-                    {
-                        Purpose = "foryou",
-                        Pool = recItems,
-                        Count = size,
-                        UserId = userId!.Value,
-                        Confidence = confidence,
-                        Context = "the viewer's main personalized 'For You' row",
-                        WantTitle = true,
-                    },
-                    ct).ConfigureAwait(false)
-                : await _llmReRanker.ReRankAsync(userId!.Value, recItems, confidence, ct).ConfigureAwait(false);
-            var forYouItems = reranked.Items.Take(size).ToList();
-            var forYouTitle = string.IsNullOrWhiteSpace(reranked.RowTitle) ? "For You" : reranked.RowTitle!;
-
-            // Spotlight billboard: the top For You picks (LLM-curated when active) as rotating Hero
-            // cards, only when the feature is enabled and the client can render them.
-            if (forYouItems.Count > 0 && flags.Spotlight && capabilities.SupportedCardTypes.Contains(CardType.Hero))
-            {
-                AddRow(bundle, "spotlight", "Spotlight", "spotlight", forYouItems.Take(settings.SpotlightCount).ToList(), capabilities, RowStyle.Hero);
-            }
-
-            // Showcase candidates come from BELOW the billboard's slice, so the two surfaces never
-            // feature the same title — seeing the identical item as both the top banner and a
-            // full-screen showcase reads as a bug, not a recommendation.
-            showcaseCandidates.AddRange(forYouItems.Skip(settings.SpotlightCount));
-
-            // Every card gets a deterministic reason from the explanation engine; the LLM's richer
-            // "why" (when configured + applied) overrides per item. So For You is self-explaining
-            // with Groq off, and better with it on.
-            var reasons = new Dictionary<long, string>();
-            foreach (var item in forYouItems)
-            {
-                reasons[item.Id] = _explanation.ExplainRecommendation(item, affinity);
-            }
-
-            foreach (var (id, why) in reranked.Reasons)
-            {
-                reasons[id] = why;
-            }
-
-            AddRow(bundle, "foryou", forYouTitle, "recommended", forYouItems, capabilities, reasons: reasons);
-
-            // "Because You Watched X": seeded by the user's latest watch. The similarity engine
-            // prefilters a wide candidate pool; when the LLM is configured it then GENUINELY picks
-            // which of those a fan of the seed would watch next (with per-item "why" blurbs shown as
-            // card subtitles). Fail-soft: without an LLM the similarity order stands unchanged.
-            if (flags.SimilarityRows)
-            {
-                var byw = await _similarity.BecauseYouWatchedAsync(userId!.Value, size * 2, ct).ConfigureAwait(false);
-                if (byw.Seed is { } seed && byw.Items.Count > 0)
-                {
-                    var candidates = byw.Items.Select(r => r.Item).ToList();
-                    var picked = flags.LlmCuration
-                        ? await _llmReRanker.CurateAsync(
-                            new LlmCurationRequest
-                            {
-                                Purpose = "byw",
-                                Pool = candidates,
-                                Count = size,
-                                Seed = seed,
-                                Context = "titles a fan of the just-watched seed would genuinely watch next",
-                                CacheTtl = TimeSpan.FromHours(24),
-                            },
-                            ct).ConfigureAwait(false)
-                        : await _llmReRanker.PickForSeedAsync(seed, candidates, ct).ConfigureAwait(false);
-                    var title = string.IsNullOrWhiteSpace(seed.Title) ? "Because You Watched" : $"Because You Watched {seed.Title}";
-                    AddRow(
-                        bundle,
-                        "becauseyouwatched",
-                        title,
-                        "similar",
-                        picked.Items.Take(size).ToList(),
-                        capabilities,
-                        reasons: picked.Applied ? picked.Reasons : null);
-                }
-            }
-
-            // "New Since You Were Away": strict release/availability events (aired/downloaded/newly
-            // available) since the user's last visit — backlog is handled by "Continue the Story".
-            // Fail-soft: a throw here degrades to a missing row, never a 500 home (as row providers do).
-            if (flags.NewSinceAway)
-            {
-                try
-                {
-                    var newSince = await _newSince.GetAsync(userId!.Value, size, ct).ConfigureAwait(false);
-                    AddRow(
-                        bundle,
-                        "newsince",
-                        "New Since You Were Away",
-                        "newsince",
-                        newSince.Items,
-                        capabilities,
-                        reasons: newSince.Reasons.Count > 0 ? newSince.Reasons : null);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception)
-                {
-                    _metrics.Increment("home.newsince.error");
-                }
-            }
+            _cache.Set(cacheKey, new CachedHome(built, DateTime.UtcNow), HardCacheTtl);
         }
 
-        // Continue Watching points are fetched here but the row is added after Recently Added,
-        // matching the home layout order (For You → Recently Added → Continue Watching).
-        if (personalized && flags.ContinueWatching)
+        _metrics.Increment("home.built");
+        return built;
+    }
+
+    /// <summary>
+    /// Rebuilds a stale cache entry off the request path so nobody waits for it. One rebuild per
+    /// key however many viewers hit the stale entry at once, and a failure is invisible — the stale
+    /// entry simply keeps being served until it expires.
+    /// </summary>
+    private void RefreshInBackground(string cacheKey, ClientCapabilities capabilities, int size, Guid? userId)
+    {
+        if (!_refreshing.TryAdd(cacheKey, 0))
         {
-            resumePoints = await _resume.GetResumeAsync(userId!.Value, size, ct).ConfigureAwait(false);
+            return;
         }
 
-        await using var db = _factory.Create();
-
-        var recentlyAdded = await db.CatalogItems
-            .OrderByDescending(c => c.DateAdded)
-            .Take(size * OverFetchFactor)
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
-        AddRow(bundle, "recent", "Recently Added", "recent", recentlyAdded, capabilities);
-
-        // Continue Watching: the user's in-progress items, sourced from Jellyfin resume points.
-        AddResumeRow(bundle, resumePoints, capabilities);
-
-        // Coming Soon (For You): upcoming episodes/releases for catalog titles (*arr calendar → TMDB
-        // fallback), filtered by relevance — monitored series, new seasons of shows you watch, and
-        // taste-aligned high-quality upcoming. Per-item labels carry the sub-type.
-        if (flags.ComingSoon)
+        _ = Task.Run(async () =>
         {
             try
             {
-                var upcoming = await _upcoming.GetUpcomingAsync(userId, size, ct).ConfigureAwait(false);
-                if (upcoming.Count > 0)
-                {
-                    var items = upcoming.Select(u => u.Item).ToList();
-                    var labels = upcoming.ToDictionary(u => u.Item.Id, u => u.Label);
-                    AddRow(bundle, "comingsoon", "Coming Soon", "upcoming", items, capabilities, reasons: labels);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
+                // Deliberately NOT the request's token: the refresh has to outlive the response that
+                // triggered it. The per-row budgets bound it instead.
+                var settings = await _settings.ResolveAsync(userId, CancellationToken.None).ConfigureAwait(false);
+                var bundle = await BuildFreshAsync(capabilities, size, userId, personalized: true, settings, CancellationToken.None).ConfigureAwait(false);
+                _cache.Set(cacheKey, new CachedHome(bundle, DateTime.UtcNow), HardCacheTtl);
+                _metrics.Increment("home.refreshed");
             }
             catch (Exception)
             {
-                _metrics.Increment("home.comingsoon.error");
+                _metrics.Increment("home.refresh.error");
             }
-        }
+            finally
+            {
+                _refreshing.TryRemove(cacheKey, out _);
+            }
+        });
+    }
 
-        // Pluggable row providers: the justified discovery rows (trending with a pinch of taste,
-        // You Might Like, pulled Because You Watched, the country row) — and any future row —
-        // come from IRowProvider registrations, so new rows never require a HomeService change.
-        var providerPriorities = new Dictionary<string, (int Warm, int Cold)>(StringComparer.Ordinal);
+    /// <summary>Builds the bundle from scratch, bypassing the cache entirely.</summary>
+    private async Task<RenderBundle> BuildFreshAsync(
+        ClientCapabilities capabilities,
+        int size,
+        Guid? userId,
+        bool personalized,
+        EngineSettings settings,
+        CancellationToken ct)
+    {
+        var flags = settings.Features;
+
+        // The affinity read is the one genuinely sequential step: the confidence it yields decides
+        // the layout AND is handed to every row provider, so it has to resolve before the fan-out.
+        // It's a stored-profile lookup, not an LLM or network call.
+        var affinity = personalized && flags.Personalization
+            ? await _personalization.GetAsync(userId!.Value, ct).ConfigureAwait(false)
+            : null;
+        var confidence = affinity?.Confidence ?? 0.0;
+
         var rowContext = new RowContext
         {
             UserId = personalized ? userId : null,
@@ -337,25 +263,107 @@ public class HomeService
             Confidence = confidence,
             RowSize = size,
         };
-        foreach (var provider in _rowProviders)
-        {
-            // A single misbehaving row provider must never take down the whole home — degrade to
-            // "that row is missing" instead of failing the page.
-            IReadOnlyList<ProviderRow> providerRows;
-            try
-            {
-                providerRows = await provider.BuildAsync(rowContext, ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-                _metrics.Increment("home.rowprovider.error");
-                continue;
-            }
 
+        // ── Fan-out ─────────────────────────────────────────────────────────────
+        // Every row is produced by an INDEPENDENT task under its own time budget, so the page costs
+        // the slowest single row instead of the sum of all of them, and one slow or broken
+        // dependency degrades to "that row is missing" rather than a timed-out home. Producers
+        // return data only — card selection and bundle assembly run single-threaded below, so
+        // neither the bundle nor _cardSelector is ever touched concurrently.
+        Task<PersonalResult?> personalTask = affinity is not null
+            ? RowOrDefaultAsync<PersonalResult>(
+                "foryou",
+                ExpensiveRowBudget,
+                c => BuildPersonalAsync(userId!.Value, size, settings, flags, capabilities, affinity, confidence, c),
+                ct)
+            : Task.FromResult<PersonalResult?>(null);
+
+        Task<PendingRow?> bywTask = personalized && flags.Personalization && flags.SimilarityRows
+            ? RowOrDefaultAsync<PendingRow>(
+                "becauseyouwatched",
+                ExpensiveRowBudget,
+                c => BuildBecauseYouWatchedAsync(userId!.Value, size, flags, c),
+                ct)
+            : Task.FromResult<PendingRow?>(null);
+
+        Task<PendingRow?> newSinceTask = personalized && flags.Personalization && flags.NewSinceAway
+            ? RowOrDefaultAsync<PendingRow>("newsince", FastRowBudget, c => BuildNewSinceAsync(userId!.Value, size, c), ct)
+            : Task.FromResult<PendingRow?>(null);
+
+        Task<IReadOnlyList<ResumePoint>?> resumeTask = personalized && flags.ContinueWatching
+            ? RowOrDefaultAsync<IReadOnlyList<ResumePoint>>(
+                "continue",
+                FastRowBudget,
+                async c => await _resume.GetResumeAsync(userId!.Value, size, c).ConfigureAwait(false),
+                ct)
+            : Task.FromResult<IReadOnlyList<ResumePoint>?>(null);
+
+        Task<LibraryRows?> libraryTask = RowOrDefaultAsync<LibraryRows>(
+            "library",
+            FastRowBudget,
+            async c => await BuildLibraryRowsAsync(size, c).ConfigureAwait(false),
+            ct);
+
+        Task<PendingRow?> comingSoonTask = flags.ComingSoon
+            ? RowOrDefaultAsync<PendingRow>("comingsoon", MediumRowBudget, c => BuildComingSoonAsync(userId, size, c), ct)
+            : Task.FromResult<PendingRow?>(null);
+
+        Task<IReadOnlyList<MoodRow>?> moodTask = flags.MoodCollections
+            ? RowOrDefaultAsync<IReadOnlyList<MoodRow>>(
+                "mood",
+                MediumRowBudget,
+                async c => await _mood.BuildAsync(size, c).ConfigureAwait(false),
+                ct)
+            : Task.FromResult<IReadOnlyList<MoodRow>?>(null);
+
+        // Pluggable row providers: the justified discovery rows (trending with a pinch of taste,
+        // You Might Like, pulled Because You Watched, the country row) — and any future row —
+        // come from IRowProvider registrations, so new rows never require a HomeService change.
+        // Each already opens its own DbContext, so they fan out like any other producer.
+        var providerTasks = _rowProviders
+            .Select(provider => RowOrDefaultAsync<IReadOnlyList<ProviderRow>>(
+                $"provider.{provider.GetType().Name}",
+                MediumRowBudget,
+                async c => await provider.BuildAsync(rowContext, c).ConfigureAwait(false),
+                ct))
+            .ToList();
+
+        // One wait for the whole page: the slowest row sets the pace, and none of these tasks can
+        // fault (RowOrDefaultAsync absorbs everything except the caller giving up).
+        var pending = new List<Task>
+        {
+            personalTask, bywTask, newSinceTask, resumeTask, libraryTask, comingSoonTask, moodTask,
+        };
+        pending.AddRange(providerTasks);
+        await Task.WhenAll(pending).ConfigureAwait(false);
+
+        // ── Assembly ────────────────────────────────────────────────────────────
+        // Single-threaded, in the SAME order rows were emitted before the fan-out. That order is
+        // the display order for anonymous bundles (which get no ReorderByConfidence pass), so it
+        // must stay deterministic and independent of which task happened to finish first.
+        var bundle = new RenderBundle { ContractVersion = 1 };
+
+        var personal = await personalTask.ConfigureAwait(false);
+        AddRow(bundle, personal?.Spotlight, capabilities);
+        AddRow(bundle, personal?.ForYou, capabilities);
+        AddRow(bundle, await bywTask.ConfigureAwait(false), capabilities);
+        AddRow(bundle, await newSinceTask.ConfigureAwait(false), capabilities);
+
+        var library = await libraryTask.ConfigureAwait(false);
+        var recentlyAdded = library?.RecentlyAdded ?? Array.Empty<CatalogItem>();
+        AddRow(bundle, "recent", "Recently Added", "recent", recentlyAdded, capabilities);
+
+        // Continue Watching: the user's in-progress items, sourced from Jellyfin resume points.
+        // Added after Recently Added, matching the home layout order.
+        var resumePoints = await resumeTask.ConfigureAwait(false) ?? Array.Empty<ResumePoint>();
+        AddResumeRow(bundle, resumePoints, capabilities);
+
+        AddRow(bundle, await comingSoonTask.ConfigureAwait(false), capabilities);
+
+        var providerPriorities = new Dictionary<string, (int Warm, int Cold)>(StringComparer.Ordinal);
+        foreach (var task in providerTasks)
+        {
+            var providerRows = await task.ConfigureAwait(false) ?? Array.Empty<ProviderRow>();
             foreach (var providerRow in providerRows)
             {
                 providerPriorities[providerRow.Id] = (providerRow.WarmPriority, providerRow.ColdPriority);
@@ -365,42 +373,24 @@ public class HomeService
 
         // Cinematic Spotlight showcases. Emitted here (not with the billboard) and given deep layout
         // priorities so they punctuate the feed rather than stacking a second near-full-screen
-        // surface directly under the billboard.
-        if (showcaseCandidates.Count == 0)
-        {
-            showcaseCandidates.AddRange(recentlyAdded);
-        }
-
+        // surface directly under the billboard. Candidates come from BELOW the billboard's slice;
+        // with no personalized picks at all, the freshest arrivals stand in.
+        var showcaseCandidates = personal?.ShowcaseCandidates is { Count: > 0 } fromForYou ? fromForYou : recentlyAdded;
         EmitSpotlightShowcases(bundle, showcaseCandidates, settings, flags, capabilities);
 
         // Mood-based collections (Milestone 8): themed rows (Mind Bending, Dark Thrillers, …).
-        if (flags.MoodCollections)
+        var moods = await moodTask.ConfigureAwait(false) ?? Array.Empty<MoodRow>();
+        foreach (var mood in moods)
         {
-            var moods = await _mood.BuildAsync(size, ct).ConfigureAwait(false);
-            foreach (var mood in moods)
-            {
-                AddRow(bundle, $"mood:{mood.Id}", mood.Title, "mood", mood.Items, capabilities);
-            }
+            AddRow(bundle, $"mood:{mood.Id}", mood.Title, "mood", mood.Items, capabilities);
         }
 
-        var movies = await db.CatalogItems
-            .Where(c => c.MediaType == MediaType.Movie)
-            .OrderByDescending(c => c.DateAdded)
-            .Take(size * OverFetchFactor)
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
-        AddRow(bundle, "movies", "Movies", "library", movies, capabilities);
-
-        var series = await db.CatalogItems
-            .Where(c => c.MediaType == MediaType.Series)
-            .OrderByDescending(c => c.DateAdded)
-            .Take(size * OverFetchFactor)
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
-        AddRow(bundle, "series", "Series", "library", series, capabilities);
+        AddRow(bundle, "movies", "Movies", "library", library?.Movies ?? Array.Empty<CatalogItem>(), capabilities);
+        AddRow(bundle, "series", "Series", "library", library?.Series ?? Array.Empty<CatalogItem>(), capabilities);
 
         // Confidence-driven layout: cold profiles lead with global/discovery rows, warm profiles
         // lead with personalized rows (spotlight + Continue Watching always stay pinned to the top).
+        // LayoutPriority is a pure function of row id, so completion order can never affect this.
         if (personalized && flags.Personalization)
         {
             ReorderByConfidence(bundle, confidence, providerPriorities);
@@ -411,14 +401,241 @@ public class HomeService
         // for non-personalized bundles too (there insertion order already is the display order).
         DeduplicateRows(bundle, size);
 
-        if (cacheKey is not null)
-        {
-            _cache.Set(cacheKey, bundle, CacheTtl);
-        }
-
-        _metrics.Increment("home.built");
         return bundle;
     }
+
+    /// <summary>
+    /// The personalized core: the recommender's candidate pool, LLM curation over it, and the two
+    /// surfaces that share the result — the rotating Spotlight billboard and the "For You" row.
+    /// Kept as ONE producer because all three read the same pool; splitting it would recommend twice.
+    /// </summary>
+    private async Task<PersonalResult?> BuildPersonalAsync(
+        Guid userId,
+        int size,
+        EngineSettings settings,
+        FeatureFlags flags,
+        ClientCapabilities capabilities,
+        AffinityVector affinity,
+        double confidence,
+        CancellationToken ct)
+    {
+        // Under LLM curation the local recommender only prefilters a wide pool and the LLM
+        // genuinely selects the row; otherwise the local ranking IS the row (optionally
+        // LLM-reordered by the legacy re-ranker). Both LLM paths are fail-soft passthroughs.
+        var poolSize = flags.LlmCuration ? Math.Max(size * 3, 45) : size;
+        var recs = await _recommender.RecommendAsync(userId, poolSize, ct).ConfigureAwait(false);
+        var recItems = recs.Select(r => r.Item).ToList();
+        if (recItems.Count == 0)
+        {
+            return null;
+        }
+
+        var reranked = await LlmOrPassThroughAsync(
+            recItems,
+            c => flags.LlmCuration
+                ? _llmReRanker.CurateAsync(
+                    new LlmCurationRequest
+                    {
+                        Purpose = "foryou",
+                        Pool = recItems,
+                        Count = size,
+                        UserId = userId,
+                        Confidence = confidence,
+                        Context = "the viewer's main personalized 'For You' row",
+                        WantTitle = true,
+                    },
+                    c)
+                : _llmReRanker.ReRankAsync(userId, recItems, confidence, c),
+            ct).ConfigureAwait(false);
+
+        var forYouItems = reranked.Items.Take(size).ToList();
+        var forYouTitle = string.IsNullOrWhiteSpace(reranked.RowTitle) ? "For You" : reranked.RowTitle!;
+
+        // Every card gets a deterministic reason from the explanation engine; the LLM's richer
+        // "why" (when configured + applied) overrides per item. So For You is self-explaining
+        // with Groq off, and better with it on.
+        var reasons = new Dictionary<long, string>();
+        foreach (var item in forYouItems)
+        {
+            reasons[item.Id] = _explanation.ExplainRecommendation(item, affinity);
+        }
+
+        foreach (var (id, why) in reranked.Reasons)
+        {
+            reasons[id] = why;
+        }
+
+        // Spotlight billboard: the top For You picks (LLM-curated when active) as rotating Hero
+        // cards, only when the feature is enabled and the client can render them.
+        var spotlight = forYouItems.Count > 0 && flags.Spotlight && capabilities.SupportedCardTypes.Contains(CardType.Hero)
+            ? new PendingRow("spotlight", "Spotlight", "spotlight", forYouItems.Take(settings.SpotlightCount).ToList(), RowStyle.Hero)
+            : null;
+
+        // Showcase candidates come from BELOW the billboard's slice, so the two surfaces never
+        // feature the same title — seeing the identical item as both the top banner and a
+        // full-screen showcase reads as a bug, not a recommendation.
+        return new PersonalResult(
+            spotlight,
+            new PendingRow("foryou", forYouTitle, "recommended", forYouItems, Reasons: reasons),
+            forYouItems.Skip(settings.SpotlightCount).ToList());
+    }
+
+    /// <summary>
+    /// "Because You Watched X": seeded by the user's latest watch. The similarity engine prefilters
+    /// a wide candidate pool; when the LLM is configured it then GENUINELY picks which of those a
+    /// fan of the seed would watch next (with per-item "why" blurbs shown as card subtitles).
+    /// Fail-soft: without an LLM the similarity order stands unchanged.
+    /// </summary>
+    private async Task<PendingRow?> BuildBecauseYouWatchedAsync(Guid userId, int size, FeatureFlags flags, CancellationToken ct)
+    {
+        var byw = await _similarity.BecauseYouWatchedAsync(userId, size * 2, ct).ConfigureAwait(false);
+        if (byw.Seed is not { } seed || byw.Items.Count == 0)
+        {
+            return null;
+        }
+
+        var candidates = byw.Items.Select(r => r.Item).ToList();
+        var picked = await LlmOrPassThroughAsync(
+            candidates,
+            c => flags.LlmCuration
+                ? _llmReRanker.CurateAsync(
+                    new LlmCurationRequest
+                    {
+                        Purpose = "byw",
+                        Pool = candidates,
+                        Count = size,
+                        Seed = seed,
+                        Context = "titles a fan of the just-watched seed would genuinely watch next",
+                        CacheTtl = TimeSpan.FromHours(24),
+                    },
+                    c)
+                : _llmReRanker.PickForSeedAsync(seed, candidates, c),
+            ct).ConfigureAwait(false);
+
+        var title = string.IsNullOrWhiteSpace(seed.Title) ? "Because You Watched" : $"Because You Watched {seed.Title}";
+        return new PendingRow(
+            "becauseyouwatched",
+            title,
+            "similar",
+            picked.Items.Take(size).ToList(),
+            Reasons: picked.Applied ? picked.Reasons : null);
+    }
+
+    /// <summary>
+    /// "New Since You Were Away": strict release/availability events (aired/downloaded/newly
+    /// available) since the user's last visit — backlog is handled by "Continue the Story".
+    /// </summary>
+    private async Task<PendingRow?> BuildNewSinceAsync(Guid userId, int size, CancellationToken ct)
+    {
+        var newSince = await _newSince.GetAsync(userId, size, ct).ConfigureAwait(false);
+        return newSince.Items.Count == 0
+            ? null
+            : new PendingRow(
+                "newsince",
+                "New Since You Were Away",
+                "newsince",
+                newSince.Items,
+                Reasons: newSince.Reasons.Count > 0 ? newSince.Reasons : null);
+    }
+
+    /// <summary>
+    /// Coming Soon (For You): upcoming episodes/releases for catalog titles (*arr calendar → TMDB
+    /// fallback), filtered by relevance — monitored series, new seasons of shows you watch, and
+    /// taste-aligned high-quality upcoming. Per-item labels carry the sub-type.
+    /// </summary>
+    private async Task<PendingRow?> BuildComingSoonAsync(Guid? userId, int size, CancellationToken ct)
+    {
+        var upcoming = await _upcoming.GetUpcomingAsync(userId, size, ct).ConfigureAwait(false);
+        return upcoming.Count == 0
+            ? null
+            : new PendingRow(
+                "comingsoon",
+                "Coming Soon",
+                "upcoming",
+                upcoming.Select(u => u.Item).ToList(),
+                Reasons: upcoming.ToDictionary(u => u.Item.Id, u => u.Label));
+    }
+
+    /// <summary>
+    /// The three plain catalog rows (Recently Added / Movies / Series). One context for all three:
+    /// they're indexed reads over the same table, so splitting them across connections buys nothing.
+    /// </summary>
+    private async Task<LibraryRows> BuildLibraryRowsAsync(int size, CancellationToken ct)
+    {
+        await using var db = _factory.Create();
+
+        var recentlyAdded = await db.CatalogItems
+            .OrderByDescending(c => c.DateAdded)
+            .Take(size * OverFetchFactor)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var movies = await db.CatalogItems
+            .Where(c => c.MediaType == MediaType.Movie)
+            .OrderByDescending(c => c.DateAdded)
+            .Take(size * OverFetchFactor)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var series = await db.CatalogItems
+            .Where(c => c.MediaType == MediaType.Series)
+            .OrderByDescending(c => c.DateAdded)
+            .Take(size * OverFetchFactor)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return new LibraryRows(recentlyAdded, movies, series);
+    }
+
+    /// <summary>Runs one row producer under its own time budget — see <see cref="RowBudget"/>.</summary>
+    private Task<T?> RowOrDefaultAsync<T>(
+        string name,
+        TimeSpan budget,
+        Func<CancellationToken, Task<T?>> build,
+        CancellationToken ct)
+        where T : class
+        => RowBudget.OrDefaultAsync(_metrics, name, budget, build, ct);
+
+    /// <summary>
+    /// Runs an LLM curation step under <see cref="LlmStepBudget"/>, degrading to the local ordering
+    /// when it's too slow — curation is polish on a row we can already ship.
+    /// </summary>
+    private Task<LlmReRankResult> LlmOrPassThroughAsync(
+        IReadOnlyList<CatalogItem> localOrder,
+        Func<CancellationToken, Task<LlmReRankResult>> curate,
+        CancellationToken ct)
+        => RowBudget.OrFallbackAsync(_metrics, "llm", LlmStepBudget, curate, LlmReRankResult.PassThrough(localOrder), ct);
+
+    /// <summary>
+    /// A resolved row in the shape <see cref="AddRow"/> renders. Producers return these rather than
+    /// touching the bundle, so card selection and assembly stay single-threaded below the fan-out.
+    /// </summary>
+    private sealed record PendingRow(
+        string Id,
+        string Title,
+        string Purpose,
+        IReadOnlyList<CatalogItem> Items,
+        RowStyle RowStyle = RowStyle.Standard,
+        IReadOnlyDictionary<long, string>? Reasons = null);
+
+    /// <summary>
+    /// What the personalized producer yields: the Spotlight billboard and "For You" rows, plus the
+    /// candidates the cinematic showcases draw from.
+    /// </summary>
+    private sealed record PersonalResult(
+        PendingRow? Spotlight,
+        PendingRow ForYou,
+        IReadOnlyList<CatalogItem> ShowcaseCandidates);
+
+    /// <summary>A cached home plus when it was built, so staleness can be judged independently
+    /// of the entry's own (hard) expiry.</summary>
+    private sealed record CachedHome(RenderBundle Bundle, DateTime BuiltUtc);
+
+    /// <summary>The plain catalog rows, produced together off one database context.</summary>
+    private sealed record LibraryRows(
+        IReadOnlyList<CatalogItem> RecentlyAdded,
+        IReadOnlyList<CatalogItem> Movies,
+        IReadOnlyList<CatalogItem> Series);
 
     /// <summary>
     /// Emits the cinematic Spotlight showcase rows: each holds exactly ONE item and is rendered
@@ -612,6 +829,15 @@ public class HomeService
             "series" => warm ? 10 : 14,
             _ => 100,
         };
+    }
+
+    /// <summary>Renders a producer's row, or does nothing when that producer yielded none.</summary>
+    private void AddRow(RenderBundle bundle, PendingRow? row, ClientCapabilities capabilities)
+    {
+        if (row is not null)
+        {
+            AddRow(bundle, row.Id, row.Title, row.Purpose, row.Items, capabilities, row.RowStyle, row.Reasons);
+        }
     }
 
     private void AddRow(
