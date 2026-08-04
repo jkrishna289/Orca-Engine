@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "The home is now built row by row, concurrently, instead of one row after another. Every row - Continue Watching, Recently Added, For You, Because You Watched, Coming Soon, and the trending and discovery rows - is produced independently under its own time budget, so the page costs the slowest single row rather than the sum of all of them. A row that is slow or fails is simply absent from that build instead of stalling or failing the whole home, and the LLM curation step carries its own tighter budget, so a slow Groq call costs a row its curation but never the row itself. Cached homes are now served instantly and refreshed in the background (stale-while-revalidate: 5 minutes soft, 30 minutes hard) rather than expiring outright, so a viewer rarely waits for a rebuild at all. Together these stop a cold personalized home from taking so long that the Orca X client times out and falls back to its legacy home.",
+  "changelog": "Adds Orca Observatory, an observability dashboard for the engine that lives inside the Jellyfin admin interface (Dashboard - Orca Observatory). It answers the questions the server log could not: which home row is the bottleneck, why a TMDB call failed, why a trailer is missing, why a title was recommended, and what the engine is doing right now. Eleven pages cover overview and engine health, per-row performance, metadata, the trailer resolver, the recommendation pipeline with per-pick score breakdowns, cache hit rates, a live log stream with full stack traces, a timeline of engine activity, and users. Behind it, every outbound call to TMDB, Sonarr, Radarr, Jellyseerr and the LLM is now timed and its failures recorded with status codes and exception detail, rather than collapsing into a bare counter; cache hits and misses, background maintenance ticks, and the previously invisible profile recompute backlog are all reported. IMPORTANT - administrative endpoints now require an authenticated Jellyfin administrator and return 403 otherwise. This covers all Admin and Observatory routes, the maintenance operations (catalog resync, reconcile, purge, TMDB and provider enrichment, global discovery pull, sweep, content-warning enrichment, community-rating recompute) and the operator diagnostics (trailer diagnostics, discovery runs and source stats); previously every one of these was reachable anonymously, including the endpoint that wipes all counters. Client-facing routes are unchanged. Also fixes a real defect: the plugin applied a cache size limit to Jellyfin's shared memory cache rather than its own, which could make unrelated server code throw when caching entries without a declared size. The engine now owns a private cache.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.0.11.0",
+  "version": "1.0.12.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

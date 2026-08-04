@@ -105,7 +105,7 @@ public class GeminiEmbeddingProvider : IEmbeddingProvider
 
     private async Task<IReadOnlyList<ContentVector>?> EmbedChunkAsync(string url, string apiKey, List<GeminiEmbedRequest> requests, CancellationToken ct)
     {
-        using var client = _httpClientFactory.CreateClient();
+        using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
         client.Timeout = CallTimeout;
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("x-goog-api-key", apiKey);

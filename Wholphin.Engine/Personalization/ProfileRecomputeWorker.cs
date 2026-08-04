@@ -34,6 +34,9 @@ public class ProfileRecomputeWorker : IProfileRecomputeQueue, IHostedService
     private readonly CancellationTokenSource _cts = new();
     private Task? _worker;
 
+    /// <inheritdoc />
+    public int Depth => _channel.Reader.Count;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ProfileRecomputeWorker"/> class.
     /// </summary>

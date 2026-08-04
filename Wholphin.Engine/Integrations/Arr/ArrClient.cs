@@ -100,7 +100,7 @@ public class ArrClient : IArrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(url, apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -156,7 +156,7 @@ public class ArrClient : IArrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(url, apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -230,7 +230,7 @@ public class ArrClient : IArrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build($"{baseUrl}/api/v3/series", apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -280,7 +280,7 @@ public class ArrClient : IArrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build($"{baseUrl}/api/v3/movie", apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -321,7 +321,7 @@ public class ArrClient : IArrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(url, apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -379,7 +379,7 @@ public class ArrClient : IArrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(url, apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)

@@ -19,9 +19,16 @@ namespace Wholphin.Engine.Controllers;
 /// snapshot of catalog/behavior/profile/integration state so the dashboard (and ops) can see at a
 /// glance whether the engine is healthy and configured.
 /// </summary>
+/// <remarks>
+/// Administrator-only. These endpoints expose catalog contents and per-user counts, and
+/// <c>Metrics/Reset</c> mutates state — none of that belongs on an anonymous route. Note that
+/// <c>[AllowAnonymous]</c> on an ACTION short-circuits authorization regardless of what the class
+/// declares, so this policy only holds as long as no action reintroduces one.
+/// </remarks>
 [ApiController]
 [Route("OrcaEngine/Admin")]
 [Produces("application/json")]
+[Authorize(Policy = "RequiresElevation")]
 public class AdminController : ControllerBase
 {
     private readonly IWholphinDbContextFactory _factory;
@@ -54,33 +61,13 @@ public class AdminController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The status snapshot.</returns>
     [HttpGet("Status")]
-    [AllowAnonymous]
     public async Task<ActionResult<AdminStatus>> GetStatus(CancellationToken cancellationToken)
     {
         var settings = await _settings.ResolveAsync(null, cancellationToken).ConfigureAwait(false);
 
         await using var db = _factory.Create();
 
-        // Small catalog: project the facets and group in memory.
-        var facets = await db.CatalogItems
-            .Select(c => new { c.MediaType, c.Availability, IsExternal = c.JellyfinItemId == null })
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        var catalog = new CatalogSummary
-        {
-            Total = facets.Count,
-            ExternalRows = facets.Count(f => f.IsExternal),
-        };
-        foreach (var group in facets.GroupBy(f => f.MediaType))
-        {
-            catalog.ByType[group.Key.ToString()] = group.Count();
-        }
-
-        foreach (var group in facets.GroupBy(f => f.Availability))
-        {
-            catalog.ByAvailability[group.Key.ToString()] = group.Count();
-        }
+        var catalog = await LoadCatalogSummaryAsync(db, cancellationToken).ConfigureAwait(false);
 
         var behaviorEvents = await db.BehaviorEvents.CountAsync(cancellationToken).ConfigureAwait(false);
         var profiles = await db.UserProfiles.CountAsync(cancellationToken).ConfigureAwait(false);
@@ -106,10 +93,48 @@ public class AdminController : ControllerBase
         };
     }
 
+    /// <summary>
+    /// Counts the catalog by media type and availability in a single grouped query.
+    /// </summary>
+    /// <param name="db">An open engine database context.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The catalog summary.</returns>
+    /// <remarks>
+    /// This used to project every row and group in memory, which made <c>Status</c> cost a full
+    /// table read — fine for a page an admin opens by hand, not for anything that polls. The
+    /// grouping happens in SQL now; only one row per (type, availability, external) pair comes back,
+    /// so the result set is a couple of dozen rows no matter how large the library gets.
+    /// </remarks>
+    internal static async Task<CatalogSummary> LoadCatalogSummaryAsync(WholphinDbContext db, CancellationToken cancellationToken)
+    {
+        var facets = await db.CatalogItems
+            .GroupBy(c => new { c.MediaType, c.Availability, IsExternal = c.JellyfinItemId == null })
+            .Select(g => new { g.Key.MediaType, g.Key.Availability, g.Key.IsExternal, Count = g.Count() })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var catalog = new CatalogSummary
+        {
+            Total = facets.Sum(f => f.Count),
+            ExternalRows = facets.Where(f => f.IsExternal).Sum(f => f.Count),
+        };
+
+        foreach (var group in facets.GroupBy(f => f.MediaType))
+        {
+            catalog.ByType[group.Key.ToString()] = group.Sum(f => f.Count);
+        }
+
+        foreach (var group in facets.GroupBy(f => f.Availability))
+        {
+            catalog.ByAvailability[group.Key.ToString()] = group.Sum(f => f.Count);
+        }
+
+        return catalog;
+    }
+
     /// <summary>Returns the in-process operational metric counters.</summary>
     /// <returns>The counter snapshot.</returns>
     [HttpGet("Metrics")]
-    [AllowAnonymous]
     public ActionResult<IReadOnlyDictionary<string, long>> GetMetrics() => Ok(_metrics.Snapshot());
 
     /// <summary>
@@ -119,12 +144,31 @@ public class AdminController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The diagnostics snapshot.</returns>
     [HttpGet("Diagnostics")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetDiagnostics(CancellationToken cancellationToken)
     {
         var metrics = _metrics.Snapshot();
         var recomputeCount = metrics.GetValueOrDefault("personalization.recompute.count");
         var recomputeTotalMs = metrics.GetValueOrDefault("personalization.recompute.total_ms");
+
+        // Averages every "{prefix}.count" / "{prefix}.total_ms" pair in the snapshot, so a row
+        // producer added later shows up here without touching this controller.
+        object Timing(string prefix)
+        {
+            var count = metrics.GetValueOrDefault($"{prefix}.count");
+            var totalMs = metrics.GetValueOrDefault($"{prefix}.total_ms");
+            return new
+            {
+                Count = count,
+                TotalMs = totalMs,
+                AverageMs = count > 0 ? Math.Round(totalMs / (double)count, 2) : 0,
+            };
+        }
+
+        var rowTimings = metrics.Keys
+            .Where(k => k.StartsWith("home.row.", StringComparison.Ordinal) && k.EndsWith(".count", StringComparison.Ordinal))
+            .Select(k => k[..^".count".Length])
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToDictionary(p => p["home.row.".Length..], Timing, StringComparer.Ordinal);
 
         await using var db = _factory.Create();
         var behaviorEvents = await db.BehaviorEvents.CountAsync(cancellationToken).ConfigureAwait(false);
@@ -142,6 +186,19 @@ public class AdminController : ControllerBase
                 TotalMs = recomputeTotalMs,
                 AverageMs = recomputeCount > 0 ? Math.Round(recomputeTotalMs / (double)recomputeCount, 2) : 0,
             },
+            Home = new
+            {
+                ServeCached = Timing("home.serve_cached"),
+                ServeFresh = Timing("home.serve_fresh"),
+                Build = Timing("home.build"),
+                Affinity = Timing("home.affinity"),
+                Settings = Timing("home.settings"),
+                Rows = rowTimings,
+                CacheHits = metrics.GetValueOrDefault("home.cache_hit"),
+                Built = metrics.GetValueOrDefault("home.built"),
+                Refreshed = metrics.GetValueOrDefault("home.refreshed"),
+                RefreshErrors = metrics.GetValueOrDefault("home.refresh.error"),
+            },
             Behavior = new
             {
                 Events = behaviorEvents,
@@ -155,7 +212,7 @@ public class AdminController : ControllerBase
                 CurrentHour = Personalization.HouseholdClock.Hour(),
                 Current = Personalization.Daypart.Current(),
             },
-            Cache = new { EntrySizeLimit = 4096 },
+            Cache = new { EntrySizeLimit = Caching.InMemoryCache.EntryLimit },
             Weights = new { Recommender = scoring.Recommender, Discovery = scoring.Discovery },
         });
     }
@@ -163,7 +220,6 @@ public class AdminController : ControllerBase
     /// <summary>Resets all operational metric counters.</summary>
     /// <returns>No content.</returns>
     [HttpPost("Metrics/Reset")]
-    [AllowAnonymous]
     public ActionResult ResetMetrics()
     {
         _metrics.Reset();
@@ -175,7 +231,6 @@ public class AdminController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The recent requests, newest first.</returns>
     [HttpGet("Requests")]
-    [AllowAnonymous]
     public async Task<ActionResult<IReadOnlyList<MediaRequest>>> GetRequests(
         [FromQuery] int limit = 50,
         CancellationToken cancellationToken = default)

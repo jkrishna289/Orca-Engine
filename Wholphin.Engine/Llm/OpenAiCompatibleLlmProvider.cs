@@ -96,7 +96,7 @@ public class OpenAiCompatibleLlmProvider : ILlmProvider
                 body.Messages.Add(new ChatMessage { Role = message.Role, Content = message.Content });
             }
 
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             client.Timeout = CallTimeout;
 
             HttpResponseMessage response;

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wholphin.Engine.Configuration;
 using Wholphin.Engine.Data.Enums;
+using Wholphin.Engine.Diagnostics;
 
 namespace Wholphin.Engine.Integrations.Jellyseerr;
 
@@ -72,7 +73,7 @@ public class JellyseerrClient : IJellyseerrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, $"{baseUrl}/api/v1/{kind}/{tmdbId}", apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -123,7 +124,7 @@ public class JellyseerrClient : IJellyseerrClient
                 body["userId"] = sid;
             }
 
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Post, $"{baseUrl}/api/v1/request", apiKey);
             request.Content = JsonContent.Create(body, options: JsonOptions);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
@@ -164,7 +165,7 @@ public class JellyseerrClient : IJellyseerrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, $"{baseUrl}/api/v1/{path}?page={safePage}", apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -231,7 +232,7 @@ public class JellyseerrClient : IJellyseerrClient
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = Build(HttpMethod.Get, $"{baseUrl}/api/v1/user?take=200", apiKey);
             using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)

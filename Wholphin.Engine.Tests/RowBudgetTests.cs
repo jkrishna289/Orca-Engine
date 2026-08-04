@@ -25,7 +25,13 @@ public class RowBudgetTests
         var row = await RowBudget.OrDefaultAsync<string>(metrics, "fast", Budget, _ => Task.FromResult<string?>("row"), CancellationToken.None);
 
         Assert.Equal("row", row);
-        Assert.Empty(metrics.Counters);
+
+        // A healthy row is TIMED but not flagged: the count/total_ms pair is what
+        // Admin/Diagnostics averages, and a clean run must never trip timeout/error.
+        Assert.Equal(1, metrics.Counters["home.row.fast.count"]);
+        Assert.True(metrics.Counters.ContainsKey("home.row.fast.total_ms"));
+        Assert.False(metrics.Counters.ContainsKey("home.row.fast.timeout"));
+        Assert.False(metrics.Counters.ContainsKey("home.row.fast.error"));
     }
 
     [Fact]
@@ -43,6 +49,11 @@ public class RowBudgetTests
 
         Assert.Null(row);
         Assert.Equal(1, metrics.Counters["home.row.slow.timeout"]);
+
+        // Timed even though it failed — a row that always burns its whole budget before giving up
+        // is precisely the one the timing is meant to surface.
+        Assert.Equal(1, metrics.Counters["home.row.slow.count"]);
+        Assert.True(metrics.Counters.ContainsKey("home.row.slow.total_ms"));
     }
 
     [Fact]
@@ -97,8 +108,18 @@ public class RowBudgetTests
     {
         public Dictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
 
+        /// <summary>Gets the (key, ok) pair of every timed operation, in order.</summary>
+        public List<(string Key, bool Ok)> Recorded { get; } = new();
+
         public void Increment(string key, long by = 1) =>
             Counters[key] = Counters.TryGetValue(key, out var current) ? current + by : by;
+
+        public void Record(string key, long elapsedMs, bool ok = true, string? data = null, Exception? exception = null)
+        {
+            Recorded.Add((key, ok));
+            Increment($"{key}.count");
+            Increment($"{key}.total_ms", elapsedMs);
+        }
 
         public IReadOnlyDictionary<string, long> Snapshot() => Counters;
 

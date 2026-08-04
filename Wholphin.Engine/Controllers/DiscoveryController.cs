@@ -53,7 +53,7 @@ public class DiscoveryController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The per-list pick counts.</returns>
     [HttpPost("PullGlobal")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult<GlobalPullResult>> PullGlobal(CancellationToken cancellationToken)
         => await _discovery.PullGlobalAsync(cancellationToken).ConfigureAwait(false);
 
@@ -61,7 +61,7 @@ public class DiscoveryController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The sweep counts.</returns>
     [HttpPost("Sweep")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult<SweepResult>> Sweep(CancellationToken cancellationToken)
         => await _discovery.SweepAsync(cancellationToken).ConfigureAwait(false);
 
@@ -124,6 +124,11 @@ public class DiscoveryController : ControllerBase
             x.pick.TasteScore,
             x.pick.PopularityScore,
             x.pick.FreshnessScore,
+
+            // Written for every pick since schema v7 and never read until now. Carries novelty,
+            // country boost, interest multiplier, exposure/diversity penalties and the full source
+            // attribution list — the entire "why was this recommended" answer, already on disk.
+            x.pick.ScoreExplanationJson,
             x.pick.CreatedAt,
             x.pick.ExpiresAt,
         }));
@@ -135,7 +140,7 @@ public class DiscoveryController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The runs, newest first.</returns>
     [HttpGet("Runs")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<IActionResult> Runs(
         [FromQuery] Guid userId,
         [FromQuery] int limit = 20,
@@ -158,7 +163,7 @@ public class DiscoveryController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>One row per source.</returns>
     [HttpGet("SourceStats")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<IActionResult> SourceStats(CancellationToken cancellationToken)
     {
         await using var db = _factory.Create();

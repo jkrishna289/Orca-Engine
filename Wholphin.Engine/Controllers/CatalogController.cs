@@ -64,7 +64,7 @@ public class CatalogController : ControllerBase
 
     /// <summary>Triggers a full catalog resync in the background.</summary>
     [HttpPost("Resync")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public ActionResult Resync()
     {
         _ = Task.Run(() => _sync.SyncAllAsync());
@@ -79,7 +79,7 @@ public class CatalogController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of rows deleted.</returns>
     [HttpPost("PurgeUnjustified")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult> PurgeUnjustified(CancellationToken cancellationToken = default)
     {
         await using var db = _factory.Create();
@@ -101,7 +101,7 @@ public class CatalogController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of items whose availability changed.</returns>
     [HttpPost("Reconcile")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult> Reconcile([FromQuery] int maxItems = 200, CancellationToken cancellationToken = default)
     {
         var updated = await _reconciler.ReconcileAsync(maxItems, cancellationToken).ConfigureAwait(false);
@@ -116,7 +116,7 @@ public class CatalogController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of rows enriched.</returns>
     [HttpPost("EnrichTmdb")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult> EnrichTmdb([FromQuery] int maxItems = 50, CancellationToken cancellationToken = default)
     {
         var enriched = await _enricher.EnrichAsync(maxItems, cancellationToken).ConfigureAwait(false);
@@ -132,7 +132,7 @@ public class CatalogController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of rows tagged with a provider brand.</returns>
     [HttpPost("EnrichProviders")]
-    [AllowAnonymous]
+    [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult> EnrichProviders([FromQuery] int maxItems = 40, CancellationToken cancellationToken = default)
     {
         var tagged = await _watchProviders.EnrichAsync(maxItems, cancellationToken).ConfigureAwait(false);

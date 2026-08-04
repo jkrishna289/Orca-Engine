@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging;
 using Wholphin.Engine.Caching;
+using Wholphin.Engine.Diagnostics;
 
 namespace Wholphin.Engine.Update;
 
@@ -65,7 +66,7 @@ public class AppUpdateService : IAppUpdateService
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.github.com/repos/{Repo}/releases?per_page=10");
 
             // GitHub's API rejects requests without a User-Agent.
@@ -161,7 +162,7 @@ public class AppUpdateService : IAppUpdateService
             var url = $"https://github.com/{Repo}/releases/download/{Uri.EscapeDataString(tag)}/{Uri.EscapeDataString(assetName)}";
             _logger.LogInformation("Orca Engine: caching app APK {Asset} from {Tag}.", assetName, tag);
 
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {

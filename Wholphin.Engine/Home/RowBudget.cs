@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Wholphin.Engine.Diagnostics;
@@ -20,7 +21,7 @@ public static class RowBudget
     /// Runs one row producer under its own time budget.
     /// </summary>
     /// <typeparam name="T">The producer's result type.</typeparam>
-    /// <param name="metrics">Counter sink for timeouts/errors.</param>
+    /// <param name="metrics">Counter sink for timeouts/errors/timing.</param>
     /// <param name="name">Row name, used as the metric namespace (<c>home.row.{name}.*</c>).</param>
     /// <param name="budget">How long the producer may take before it's abandoned.</param>
     /// <param name="build">The producer.</param>
@@ -29,6 +30,14 @@ public static class RowBudget
     /// The producer's result, or null when the budget expired or it threw. Only the CALLER's
     /// cancellation — the client gave up on the whole page — propagates.
     /// </returns>
+    /// <remarks>
+    /// Every row producer routes through here, so this is also the one place that has to know how
+    /// long a row took. It emits <c>home.row.{name}.count</c> + <c>home.row.{name}.total_ms</c> —
+    /// the same count/total pair <c>personalization.recompute.*</c> uses, so
+    /// <c>GET /OrcaEngine/Admin/Diagnostics</c> can average them the way it already averages that.
+    /// Timeouts and errors are timed too: a row that always burns its full budget before failing is
+    /// exactly the one worth finding.
+    /// </remarks>
     public static async Task<T?> OrDefaultAsync<T>(
         IEngineMetrics metrics,
         string name,
@@ -39,6 +48,9 @@ public static class RowBudget
     {
         using var budgeted = CancellationTokenSource.CreateLinkedTokenSource(ct);
         budgeted.CancelAfter(budget);
+        var startedAt = Stopwatch.GetTimestamp();
+        var detail = (string?)null;
+        Exception? failure = null;
         try
         {
             return await build(budgeted.Token).ConfigureAwait(false);
@@ -46,6 +58,7 @@ public static class RowBudget
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             metrics.Increment($"home.row.{name}.timeout");
+            detail = $"budget {budget.TotalMilliseconds:F0}ms exceeded";
             return null;
         }
         catch (OperationCanceledException)
@@ -53,12 +66,33 @@ public static class RowBudget
             // The client disconnected — abandoning the whole build is the right answer.
             throw;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             metrics.Increment($"home.row.{name}.error");
+            failure = ex;
             return null;
         }
+        finally
+        {
+            // A build the CALLER cancelled was abandoned mid-flight; timing it would report a
+            // truncated duration as if it were the row's real cost.
+            if (!ct.IsCancellationRequested)
+            {
+                metrics.Record(
+                    $"home.row.{name}",
+                    ElapsedMs(startedAt),
+                    ok: detail is null && failure is null,
+                    data: detail,
+                    exception: failure);
+            }
+        }
     }
+
+    /// <summary>Whole milliseconds elapsed since a <see cref="Stopwatch.GetTimestamp"/> reading.</summary>
+    /// <param name="startedAt">The starting timestamp.</param>
+    /// <returns>Elapsed whole milliseconds.</returns>
+    internal static long ElapsedMs(long startedAt) =>
+        (long)Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
 
     /// <summary>
     /// Runs an optional enhancement step (an LLM curation) under a tighter budget, degrading to a
@@ -83,6 +117,8 @@ public static class RowBudget
     {
         using var budgeted = CancellationTokenSource.CreateLinkedTokenSource(ct);
         budgeted.CancelAfter(budget);
+        var startedAt = Stopwatch.GetTimestamp();
+        var detail = (string?)null;
         try
         {
             return await step(budgeted.Token).ConfigureAwait(false);
@@ -90,7 +126,15 @@ public static class RowBudget
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             metrics.Increment($"home.{name}.timeout");
+            detail = $"budget {budget.TotalMilliseconds:F0}ms exceeded, fell back";
             return fallback;
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                metrics.Record($"home.{name}", ElapsedMs(startedAt), ok: detail is null, data: detail);
+            }
         }
     }
 }

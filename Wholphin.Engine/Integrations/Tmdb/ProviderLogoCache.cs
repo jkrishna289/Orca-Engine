@@ -78,7 +78,7 @@ public class ProviderLogoCache : IProviderLogoCache
 
             Directory.CreateDirectory(CacheDir);
 
-            using var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             using var response = await client.GetAsync(LogoBase + logoPath, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {

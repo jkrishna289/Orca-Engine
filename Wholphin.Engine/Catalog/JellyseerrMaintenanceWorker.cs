@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,6 +49,7 @@ public class JellyseerrMaintenanceWorker : IHostedService
     private readonly Wholphin.Engine.Metadata.IContentWarningEnricher _contentWarnings;
     private readonly Wholphin.Engine.Analytics.ICommunityRatingService _communityRatings;
     private readonly IWholphinDbContextFactory _factory;
+    private readonly Diagnostics.IEngineMetrics _metrics;
     private readonly ILogger<JellyseerrMaintenanceWorker> _logger;
 
     private readonly CancellationTokenSource _cts = new();
@@ -63,6 +65,7 @@ public class JellyseerrMaintenanceWorker : IHostedService
     /// <param name="contentWarnings">The content-advisory pre-generator.</param>
     /// <param name="communityRatings">The Wholphin community-rating service.</param>
     /// <param name="factory">Database context factory (per-user pull rotation).</param>
+    /// <param name="metrics">Operational metrics — the maintenance loop's heartbeat.</param>
     /// <param name="logger">The logger.</param>
     public JellyseerrMaintenanceWorker(
         IAvailabilityReconciler reconciler,
@@ -72,6 +75,7 @@ public class JellyseerrMaintenanceWorker : IHostedService
         Wholphin.Engine.Metadata.IContentWarningEnricher contentWarnings,
         Wholphin.Engine.Analytics.ICommunityRatingService communityRatings,
         IWholphinDbContextFactory factory,
+        Diagnostics.IEngineMetrics metrics,
         ILogger<JellyseerrMaintenanceWorker> logger)
     {
         _reconciler = reconciler;
@@ -81,8 +85,12 @@ public class JellyseerrMaintenanceWorker : IHostedService
         _contentWarnings = contentWarnings;
         _communityRatings = communityRatings;
         _factory = factory;
+        _metrics = metrics;
         _logger = logger;
     }
+
+    private static long ElapsedMs(long startedAt) =>
+        (long)Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
 
     /// <inheritdoc />
     public Task StartAsync(CancellationToken cancellationToken)
@@ -109,6 +117,10 @@ public class JellyseerrMaintenanceWorker : IHostedService
             using var timer = new PeriodicTimer(Interval);
             do
             {
+                // The whole cycle is timed and recorded: this loop is the engine's heartbeat, and
+                // until now a tick that failed every time only ever produced a log line — nothing
+                // counted it, so silent permanent degradation looked identical to a healthy engine.
+                var tickStartedAt = Stopwatch.GetTimestamp();
                 try
                 {
                     await _reconciler.ReconcileAsync(ct: ct).ConfigureAwait(false);
@@ -121,6 +133,8 @@ public class JellyseerrMaintenanceWorker : IHostedService
                     {
                         await RunDiscoveryCycleAsync(ct).ConfigureAwait(false);
                     }
+
+                    _metrics.Record("maintenance.tick", ElapsedMs(tickStartedAt), data: $"tick {tick}");
                 }
                 catch (OperationCanceledException)
                 {
@@ -128,6 +142,8 @@ public class JellyseerrMaintenanceWorker : IHostedService
                 }
                 catch (Exception ex)
                 {
+                    _metrics.Increment("maintenance.tick.error");
+                    _metrics.Record("maintenance.tick", ElapsedMs(tickStartedAt), ok: false, data: $"tick {tick}", exception: ex);
                     _logger.LogWarning(ex, "Orca Engine: Jellyseerr maintenance cycle failed.");
                 }
 
