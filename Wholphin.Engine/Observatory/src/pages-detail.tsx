@@ -82,6 +82,18 @@ export function TrailerResolver() {
     failures: pick<TrailerDiagnostics['Failures']>(data, 'Failures') ?? [],
   };
 
+  // Per-source counters, discovered from the metric keys so a source added later needs no edit here.
+  const metrics = (pick<Record<string, number>>(data ?? {}, 'Metrics') ?? {});
+  const sources = [...new Set(
+    Object.keys(metrics)
+      .filter((k) => k.startsWith('trailer.resolve.') && (k.endsWith('.ok') || k.endsWith('.miss')))
+      .map((k) => k.split('.')[2]),
+  )].sort().map((name) => ({
+    name,
+    ok: metrics[`trailer.resolve.${name}.ok`] ?? 0,
+    miss: metrics[`trailer.resolve.${name}.miss`] ?? 0,
+  }));
+
   if (error) return <Problem error={error} />;
 
   return (
@@ -103,6 +115,24 @@ export function TrailerResolver() {
           <Tile label="Cache size" value={fmtBytes(Number(d?.cache['TotalBytes'] ?? d?.cache['totalBytes'] ?? 0))} />
         </Tiles>
         <Meter value={d?.queueDepth ?? 0} max={500} caption={`${d?.queueDepth ?? 0} of 500 queued`} />
+      </Section>
+
+      <Section
+        title="Where trailers came from"
+        subtitle="Sources are tried in the configured order until one answers. A miss is not a failure — it just means the next source was asked."
+      >
+        <Table head={['Source', 'Resolved', 'Missed', 'Hit rate']} empty={!sources.length}>
+          {sources.map((s) => (
+            <tr key={s.name}>
+              <td className="obs-mono">{s.name}</td>
+              <td>{s.ok}</td>
+              <td className="obs-muted">{s.miss}</td>
+              <td className={s.ok === 0 && s.miss > 0 ? 'obs-warn' : undefined}>
+                {s.ok + s.miss > 0 ? `${((s.ok / (s.ok + s.miss)) * 100).toFixed(0)}%` : '—'}
+              </td>
+            </tr>
+          ))}
+        </Table>
       </Section>
 
       <Section title="States">
