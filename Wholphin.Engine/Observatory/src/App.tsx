@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePoll, useHistory } from './api';
 import { Problem, Boundary } from './ui';
 import { Overview, EngineHealth, Performance, Cache, toSnapshot, type Snapshot } from './pages-core';
-import { Metadata, TrailerResolver, Recommendations, LiveLogs, Timeline, Users, Settings } from './pages-detail';
+import { Metadata, TrailerResolver, Recommendations, LiveLogs, Timeline, Users } from './pages-detail';
+import { Settings } from './pages-settings';
 import Login from './Login';
 import { currentSession, signOut, SESSION_EXPIRED_EVENT, type Session } from './session';
 

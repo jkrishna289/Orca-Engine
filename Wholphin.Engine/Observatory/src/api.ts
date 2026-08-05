@@ -32,6 +32,22 @@ export async function post(path: string, params?: Record<string, unknown>): Prom
   if (!response.ok) throw new Error(`${path} failed (${response.status})`);
 }
 
+/** POSTs a JSON body — used for the plugin configuration, which Jellyfin replaces wholesale. */
+export async function postJson(path: string, body: unknown): Promise<void> {
+  const response = await authFetch(path, undefined, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(
+      response.status === 403
+        ? 'Administrator access required.'
+        : `${path} failed (${response.status})`,
+    );
+  }
+}
+
 export interface Fetched<T> {
   data: T | undefined;
   error: string | undefined;
