@@ -129,7 +129,25 @@ public class ObservatoryController : ControllerBase
     [Produces("application/json")]
     public ActionResult<object> Snapshot()
     {
-        return Ok(new
+        // Every field is read through Try, so one unavailable source degrades to a default and
+        // names itself in Problems instead of failing the request. A diagnostics endpoint that
+        // answers 500 tells an operator nothing except that the diagnostics are broken too.
+        var problems = new List<string>();
+
+        T Try<T>(string what, Func<T> read, T fallback)
+        {
+            try
+            {
+                return read();
+            }
+            catch (Exception ex)
+            {
+                problems.Add($"{what}: {ex.GetType().Name}: {ex.Message}");
+                return fallback;
+            }
+        }
+
+        var body = new
         {
             Plugin = Plugin.Instance?.Name ?? "Orca Engine",
             Version = Plugin.Instance?.Version?.ToString() ?? "unknown",
@@ -142,34 +160,38 @@ public class ObservatoryController : ControllerBase
             // diffs ProcessorTimeMs against wall time to get a CPU rate.
             Process = new
             {
-                WorkingSetBytes = Environment.WorkingSet,
-                GcHeapBytes = GC.GetTotalMemory(false),
-                ProcessorTimeMs = (long)ProcessorTime().TotalMilliseconds,
+                WorkingSetBytes = Try("process.workingSet", () => Environment.WorkingSet, 0L),
+                GcHeapBytes = Try("process.gcHeap", () => GC.GetTotalMemory(false), 0L),
+                ProcessorTimeMs = Try("process.cpu", () => (long)ProcessorTime().TotalMilliseconds, 0L),
                 Scope = "Jellyfin process (all plugins) — per-plugin attribution is not measurable.",
             },
 
             // The numbers the engine actually owns and can bound.
             Engine = new
             {
-                DatabaseBytes = DatabaseBytes(),
+                DatabaseBytes = Try("engine.databaseBytes", DatabaseBytes, 0L),
                 CacheEntryLimit = Caching.InMemoryCache.EntryLimit,
-                TrailerQueueDepth = _trailerQueue.Depth,
-                RecomputeQueueDepth = _recomputeQueue.Depth,
+                TrailerQueueDepth = Try("engine.trailerQueue", () => _trailerQueue.Depth, -1),
+                RecomputeQueueDepth = Try("engine.recomputeQueue", () => _recomputeQueue.Depth, -1),
             },
 
             Integrations = new
             {
-                TmdbConfigured = _tmdb.IsConfigured,
-                ArrConfigured = _arr.IsConfigured,
-                JellyseerrConfigured = _jellyseerr.IsConfigured,
+                TmdbConfigured = Try("integrations.tmdb", () => _tmdb.IsConfigured, false),
+                ArrConfigured = Try("integrations.arr", () => _arr.IsConfigured, false),
+                JellyseerrConfigured = Try("integrations.jellyseerr", () => _jellyseerr.IsConfigured, false),
             },
 
             // Monotonic counters. The client keeps a rolling window of snapshots and diffs
             // successive polls — that is where every rate and time-series chart comes from, with no
             // server-side retention at all.
-            Counters = _metrics.Snapshot(),
-            LastSeq = _events.LastSeq,
-        });
+            Counters = Try<IReadOnlyDictionary<string, long>>(
+                "counters", _metrics.Snapshot, new Dictionary<string, long>()),
+            LastSeq = Try("events.lastSeq", () => _events.LastSeq, 0L),
+            Problems = problems,
+        };
+
+        return Ok(body);
     }
 
     /// <summary>Returns recent structured events, newest first.</summary>

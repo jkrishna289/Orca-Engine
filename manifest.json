@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.12.3",
+        "changelog": "Hardens the Observatory's status endpoint so it cannot fail as a whole. Each reading - process memory, CPU time, database size, queue depths, integration status, counters - is now taken independently, and a source the server cannot read falls back to a placeholder and names itself, with the reason, in a Degraded readings panel at the top of the Overview page. Previously a single unavailable reading made the entire request fail, which left the dashboard showing nothing but an error and gave no indication which reading was at fault. A diagnostics endpoint that answers with an error tells an operator only that the diagnostics are broken too. No engine behaviour, configuration or database changes.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.0.12.3-alpha/orca-engine_1.0.12.3.zip",
+        "checksum": "06d154e81b9e250b392ce4ffd014dc85",
+        "timestamp": "2026-08-05T04:33:09Z"
+      },
+      {
         "version": "1.0.12.2",
         "changelog": "Orca Observatory now has its own address. Instead of living inside the Jellyfin admin interface, the dashboard is served by the plugin at http://<your-server>/OrcaEngine/Observatory/App - still the same Jellyfin server, the same port and the same process, just a page of its own rather than one injected into Jellyfin's dashboard. Because it no longer runs inside Jellyfin's web client, it cannot borrow the admin session it used to, so it now signs in against Jellyfin directly: enter your Jellyfin administrator username and password once, and the access token it returns is kept in the browser. Your password is never stored, and the token can be revoked at any time from Dashboard - Devices. Accounts without administrator rights are refused at sign-in rather than being let in to meet a wall of permission errors, and an expired or revoked token drops you back to the sign-in screen instead of leaving a dead page. The Orca Observatory entry has been removed from the Jellyfin sidebar accordingly; the plugin's own settings page is unchanged and still lives under Dashboard - Plugins. Moving out also removes the whole class of faults that came from living inside another application's page loader - the blank dashboard fixed in 1.0.12.1 was one of them. No engine behaviour, configuration or database changes.",
         "targetAbi": "10.11.0.0",
