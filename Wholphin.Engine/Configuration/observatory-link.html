@@ -1,0 +1,34 @@
+<div id="OrcaObservatoryLinkPage" data-role="page" class="page type-interior pluginConfigurationPage">
+    <div data-role="content">
+        <div class="content-primary">
+            <div class="verticalSection">
+                <h2 class="sectionTitle">Orca Observatory</h2>
+                <p style="opacity:.85;">
+                    The engine's dashboard runs as its own page, outside the Jellyfin web client.
+                    Opening it now&hellip;
+                </p>
+                <a is="emby-linkbutton" id="OrcaObservatoryGo" class="raised button-submit block" href="../orca">
+                    <span>Open Orca Observatory</span>
+                </a>
+                <p style="opacity:.6;font-size:90%;">
+                    If it does not open automatically, use the button above, or go to
+                    <span id="OrcaObservatoryUrl" style="font-family:monospace;"></span> directly.
+                </p>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        // Deliberately a stub, not the dashboard. The Observatory is served by the plugin itself;
+        // this page exists only so the Jellyfin sidebar has an entry that leads to it. The link is
+        // rendered as real markup first and the redirect is an enhancement, so this still works if
+        // the script never runs — the failure mode that produced a blank page once already.
+        (function () {
+            var url = (typeof ApiClient !== 'undefined' && ApiClient) ? ApiClient.getUrl('orca') : '../orca';
+            var link = document.querySelector('#OrcaObservatoryGo');
+            var label = document.querySelector('#OrcaObservatoryUrl');
+            if (link) { link.setAttribute('href', url); }
+            if (label) { label.textContent = url; }
+            window.setTimeout(function () { window.location.href = url; }, 400);
+        })();
+    </script>
+</div>

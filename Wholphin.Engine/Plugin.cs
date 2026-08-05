@@ -43,15 +43,26 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         + "recommendations, caching, and centralized administration.";
 
     /// <summary>
-    /// Returns the plugin's web configuration page.
+    /// Returns the plugin's web pages: the settings form, and a sidebar entry that leads to the
+    /// Orca Observatory.
     /// </summary>
-    /// <returns>The configuration page.</returns>
+    /// <returns>The pages, settings first.</returns>
     /// <remarks>
-    /// Settings only. The Orca Observatory dashboard is NOT a Jellyfin page — it is served
-    /// standalone from <c>GET /OrcaEngine/Observatory/App</c>. Living inside the dashboard meant
-    /// inheriting its view loader (jQuery-evaluated inline scripts, a shared DOM with no style
-    /// isolation, and a teardown event as the only unmount signal), which cost more than the
-    /// convenience was worth.
+    /// <para>
+    /// The Observatory itself is NOT a Jellyfin page — it is served standalone from
+    /// <c>/orca</c>. Living inside the dashboard meant inheriting its view loader
+    /// (jQuery-evaluated inline scripts, a shared DOM with no style isolation, and a teardown event
+    /// as the only unmount signal), which cost more than the convenience was worth.
+    /// </para>
+    /// <para>
+    /// The second page here is a redirect stub, not the dashboard returning: a link an admin can
+    /// find where they already look. It renders its link as plain markup and only enhances with a
+    /// redirect, so it still works if its script never runs.
+    /// </para>
+    /// <para>
+    /// Settings stays first — the installed-plugins card opens whichever page is registered first
+    /// for a plugin id, so reordering these would repoint the gear icon.
+    /// </para>
     /// </remarks>
     public IEnumerable<PluginPageInfo> GetPages()
     {
@@ -62,6 +73,17 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             EmbeddedResourcePath = string.Format(
                 CultureInfo.InvariantCulture,
                 "{0}.Configuration.config.html",
+                GetType().Namespace)
+        };
+
+        yield return new PluginPageInfo
+        {
+            Name = "OrcaObservatory",
+            DisplayName = "Orca Observatory",
+            EnableInMainMenu = true,
+            EmbeddedResourcePath = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}.Configuration.observatory-link.html",
                 GetType().Namespace)
         };
     }
