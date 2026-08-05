@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Makes the Observatory easy to reach. It is now answered at the short address /orca - so on a typical setup, http://your-server:8096/orca rather than the full route - and there are two ways to it from inside Jellyfin that do not involve remembering any address at all: an Orca Observatory entry in the Jellyfin sidebar, and an Open Orca Observatory button on the plugin's own settings page under Dashboard - Plugins - Orca Engine, which also prints the direct link for bookmarking. The sidebar entry is only a redirect to the dashboard, not the dashboard itself: it renders its link as ordinary markup and merely enhances it with an automatic redirect, so it still works if its script does not run. The dashboard continues to run as its own standalone page. No engine behaviour, configuration or database changes.",
+  "changelog": "The Observatory can now configure the engine, not just observe it. Its Settings page carries every admin setting the plugin has - the kill switch and home shape, all fifteen row feature flags, discovery tuning, the nine ranking weights, TMDB, Jellyseerr, Sonarr and Radarr credentials, the LLM provider and its three AI features, and all six embedding providers - grouped and explained, with the maintenance operations and counter reset alongside them. Changes are tracked as you make them: the bar at the top names exactly which settings are unsaved, Save writes them, and Discard puts them back. API keys are masked until you choose to reveal them. Reading and writing goes through Jellyfin's own plugin configuration API, so the Observatory and the plugin's page under Dashboard - Plugins are two views of the same stored settings and cannot disagree. Three settings that previously had no interface at all - the Spotlight showcase count and its feature flag, and the LLM discovery history cap - are editable for the first time, and any setting added to the engine in future appears automatically under Other settings rather than becoming unreachable. The plugin's existing configuration page is unchanged and still works.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.0.12.4",
+  "version": "1.0.13.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

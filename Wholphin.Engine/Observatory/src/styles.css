@@ -531,6 +531,69 @@ html, body {
   max-height: 340px;
 }
 
+/* ---------- settings form ---------- */
+
+.obs-savebar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--obs-panel);
+  border: 1px solid var(--obs-line);
+  border-radius: var(--obs-radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.obs-fields { display: grid; gap: 16px; }
+
+.obs-field-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 16px;
+  padding-left: 10px;
+  border-left: 2px solid transparent;
+}
+
+.obs-field-changed { border-left-color: var(--obs-accent); }
+.obs-field-label { font-size: 13px; }
+
+.obs-field-help {
+  grid-column: 2;
+  margin: 0;
+  font-size: 12px;
+  color: var(--obs-muted);
+  max-width: 70ch;
+}
+
+.obs-field-control { width: 100%; }
+.obs-secret { display: flex; gap: 6px; align-items: center; }
+.obs-secret .obs-input { flex: 1; min-width: 0; }
+.obs-btn-small { padding: 5px 10px; font-size: 12px; }
+
+.obs-field-bool { grid-template-columns: 1fr; padding-left: 10px; }
+.obs-field-bool .obs-field-help { grid-column: 1; padding-left: 26px; }
+
+.obs-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.obs-switch input { width: 16px; height: 16px; accent-color: var(--obs-accent); cursor: pointer; }
+
+@media (max-width: 720px) {
+  .obs-field-row { grid-template-columns: 1fr; }
+  .obs-field-help { grid-column: 1; }
+}
+
 .obs-problems {
   margin: 0;
   padding-left: 18px;

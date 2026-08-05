@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
-import { usePoll, useEventStream, post, pick, type EngineEvent } from './api';
+import { usePoll, useEventStream, pick, type EngineEvent } from './api';
 import {
   Section, Tiles, Tile, Table, Meter, Bars, Problem, Empty,
   fmtBytes, fmtMs, timing,
 } from './ui';
 import type { Snapshot } from './pages-core';
-import { url } from './session';
 
 export function Metadata({ snap }: { snap: Snapshot | undefined }) {
   const c = snap?.counters ?? {};
@@ -418,85 +417,6 @@ export function Users({ snap }: { snap: Snapshot | undefined }) {
           <pre className="obs-json">{JSON.stringify(behavior.data, null, 2)}</pre>
         </Section>
       )}
-    </>
-  );
-}
-
-const OPERATIONS: { label: string; path: string; params?: Record<string, unknown> }[] = [
-  { label: 'Resync catalog', path: 'OrcaEngine/Catalog/Resync' },
-  { label: 'Reconcile availability', path: 'OrcaEngine/Catalog/Reconcile' },
-  { label: 'Enrich from TMDB', path: 'OrcaEngine/Catalog/EnrichTmdb', params: { maxItems: 100 } },
-  { label: 'Pull global discovery', path: 'OrcaEngine/Discovery/PullGlobal' },
-  { label: 'Recompute community ratings', path: 'OrcaEngine/Analytics/CommunityRating/Recompute' },
-  { label: 'Purge unjustified rows', path: 'OrcaEngine/Catalog/PurgeUnjustified' },
-];
-
-export function Settings() {
-  const [busy, setBusy] = useState<string>();
-  const [message, setMessage] = useState<string>();
-
-  const run = async (op: typeof OPERATIONS[number]) => {
-    setBusy(op.label);
-    setMessage(undefined);
-    try {
-      await post(op.path, op.params);
-      setMessage(`${op.label}: done.`);
-    } catch (e) {
-      setMessage(`${op.label}: ${(e as Error).message}`);
-    } finally {
-      setBusy(undefined);
-    }
-  };
-
-  const resetMetrics = async () => {
-    if (!window.confirm('Reset all counters to zero? Timing averages and totals will be lost.')) return;
-    setBusy('reset');
-    try {
-      await post('OrcaEngine/Admin/Metrics/Reset');
-      setMessage('Counters reset.');
-    } catch (e) {
-      setMessage((e as Error).message);
-    } finally {
-      setBusy(undefined);
-    }
-  };
-
-  return (
-    <>
-      <Section
-        title="Configuration"
-        subtitle="Settings live on the plugin's own page inside Jellyfin, which writes through Jellyfin's authenticated config API."
-      >
-        <a
-          className="obs-btn obs-btn-primary"
-          href={url('web/index.html') + '#/configurationpage?name=Orca%20Engine'}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open Orca Engine settings
-        </a>
-      </Section>
-
-      <Section title="Operations">
-        <div className="obs-actions obs-wrap">
-          {OPERATIONS.map((op) => (
-            <button key={op.label} className="obs-btn" disabled={!!busy} onClick={() => run(op)}>
-              {busy === op.label ? 'Working…' : op.label}
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Danger zone">
-        <button className="obs-btn obs-btn-danger" disabled={!!busy} onClick={resetMetrics}>
-          Reset all counters
-        </button>
-      </Section>
-
-      {message && <p className="obs-note">{message}</p>}
-      <p className="obs-muted obs-small">
-        Diagnostics endpoint: <span className="obs-mono">{url('OrcaEngine/Admin/Diagnostics')}</span>
-      </p>
     </>
   );
 }
