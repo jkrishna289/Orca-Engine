@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePoll, useHistory } from './api';
-import { Problem } from './ui';
-import { Overview, EngineHealth, Performance, Cache, type Snapshot } from './pages-core';
+import { Problem, Boundary } from './ui';
+import { Overview, EngineHealth, Performance, Cache, toSnapshot, type Snapshot } from './pages-core';
 import { Metadata, TrailerResolver, Recommendations, LiveLogs, Timeline, Users, Settings } from './pages-detail';
 
 const PAGES = [
@@ -17,7 +17,8 @@ export default function App() {
   // The one poll everything shares. 5s is cheap: the endpoint is in-memory reads plus a single
   // stat() of the database file — no queries. Admin/Status and Admin/Diagnostics hit the database
   // and are polled at a minute, by the pages that need them.
-  const { data: snap, error } = usePoll<Snapshot>('OrcaEngine/Observatory/Snapshot', 5000);
+  const { data: raw, error } = usePoll<unknown>('OrcaEngine/Observatory/Snapshot', 5000);
+  const snap = useMemo(() => toSnapshot(raw), [raw]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const samples = useHistory(snap?.counters);
 
@@ -57,17 +58,21 @@ export default function App() {
 
       <main className="obs-main">
         {error && <Problem error={error} />}
-        {page === 'Overview' && <Overview snap={snap} samples={samples} snapshots={snapshots} />}
-        {page === 'Engine Health' && <EngineHealth snap={snap} samples={samples} />}
-        {page === 'Performance' && <Performance snap={snap} />}
-        {page === 'Metadata' && <Metadata snap={snap} />}
-        {page === 'Trailer Resolver' && <TrailerResolver />}
-        {page === 'Recommendation Engine' && <Recommendations />}
-        {page === 'Cache' && <Cache snap={snap} samples={samples} />}
-        {page === 'Live Logs' && <LiveLogs />}
-        {page === 'Timeline' && <Timeline />}
-        {page === 'Users' && <Users snap={snap} />}
-        {page === 'Settings' && <Settings />}
+        {/* Keyed on the page so a crash on one tab doesn't leave the boundary latched when you
+            navigate away. A dashboard that goes blank tells you nothing about the engine. */}
+        <Boundary key={page}>
+          {page === 'Overview' && <Overview snap={snap} samples={samples} snapshots={snapshots} />}
+          {page === 'Engine Health' && <EngineHealth snap={snap} samples={samples} />}
+          {page === 'Performance' && <Performance snap={snap} />}
+          {page === 'Metadata' && <Metadata snap={snap} />}
+          {page === 'Trailer Resolver' && <TrailerResolver />}
+          {page === 'Recommendation Engine' && <Recommendations />}
+          {page === 'Cache' && <Cache snap={snap} samples={samples} />}
+          {page === 'Live Logs' && <LiveLogs />}
+          {page === 'Timeline' && <Timeline />}
+          {page === 'Users' && <Users snap={snap} />}
+          {page === 'Settings' && <Settings />}
+        </Boundary>
       </main>
     </div>
   );

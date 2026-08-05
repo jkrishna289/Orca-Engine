@@ -21,6 +21,50 @@ export interface Snapshot {
   lastSeq: number;
 }
 
+/**
+ * Maps the raw snapshot into a fully-populated Snapshot.
+ *
+ * Jellyfin serializes property names as written, so the engine's responses are PascalCase — but
+ * which casing a given endpoint yields depends on content negotiation, and the client should not
+ * have to be sure. Every field is read case-insensitively and every nested object is guaranteed to
+ * exist, so no page can crash on a missing branch. That mattered: `snap.process.scope` on a
+ * PascalCase payload was one undefined lookup, and it took the whole dashboard down to a blank page.
+ */
+export function toSnapshot(raw: unknown): Snapshot | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const process = pick<Record<string, unknown>>(raw, 'Process') ?? {};
+  const engine = pick<Record<string, unknown>>(raw, 'Engine') ?? {};
+  const integrations = pick<Record<string, unknown>>(raw, 'Integrations') ?? {};
+  const num = (source: unknown, key: string) => Number(pick(source, key) ?? 0);
+
+  return {
+    plugin: String(pick(raw, 'Plugin') ?? 'Orca Engine'),
+    version: String(pick(raw, 'Version') ?? ''),
+    schemaVersion: num(raw, 'SchemaVersion'),
+    uptimeMinutes: num(raw, 'UptimeMinutes'),
+    process: {
+      workingSetBytes: num(process, 'WorkingSetBytes'),
+      gcHeapBytes: num(process, 'GcHeapBytes'),
+      processorTimeMs: num(process, 'ProcessorTimeMs'),
+      scope: String(pick(process, 'Scope') ?? ''),
+    },
+    engine: {
+      databaseBytes: num(engine, 'DatabaseBytes'),
+      cacheEntryLimit: num(engine, 'CacheEntryLimit'),
+      trailerQueueDepth: num(engine, 'TrailerQueueDepth'),
+      recomputeQueueDepth: num(engine, 'RecomputeQueueDepth'),
+    },
+    integrations: {
+      tmdbConfigured: !!pick(integrations, 'TmdbConfigured'),
+      arrConfigured: !!pick(integrations, 'ArrConfigured'),
+      jellyseerrConfigured: !!pick(integrations, 'JellyseerrConfigured'),
+    },
+    // Metric keys are data, not property names — never re-cased.
+    counters: (pick<Record<string, number>>(raw, 'Counters') ?? {}),
+    lastSeq: num(raw, 'LastSeq'),
+  };
+}
+
 /** CPU percentage from two processor-time samples. Whole process — see the Scope caption. */
 function cpuPercent(samples: Sample[], snapshots: Snapshot[]): number | undefined {
   if (snapshots.length < 2 || samples.length < 2) return undefined;

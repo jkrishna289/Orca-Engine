@@ -19,7 +19,10 @@ const safe = bundle.replace(/<\/script>/gi, '<\\/script>');
 const html = `<div id="OrcaObservatoryPage" data-role="page" class="page type-interior pluginConfigurationPage">
     <div data-role="content">
         <div class="content-primary">
-            <div id="OrcaObservatoryRoot"></div>
+            <div id="OrcaObservatoryRoot" style="padding:24px;font-family:system-ui,sans-serif;opacity:.7">
+                Starting Orca Observatory&hellip;
+                <div style="font-size:12px;margin-top:6px">If this message stays, the dashboard script did not run — check the browser console.</div>
+            </div>
             <noscript>Orca Observatory needs JavaScript.</noscript>
         </div>
     </div>

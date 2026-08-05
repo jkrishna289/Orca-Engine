@@ -1,4 +1,37 @@
-import type { ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+
+/**
+ * Catches a render crash and shows it, instead of unmounting the tree.
+ *
+ * React 18 tears the whole root down on an uncaught render error — which for a self-hosted
+ * diagnostics page means a blank screen and no way to tell a crash from a script that never loaded.
+ * Showing the failure is the entire point of this tool.
+ */
+export class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[OrcaObservatory]', error, info.componentStack);
+  }
+
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    return (
+      <div className="obs-section">
+        <h2>This panel failed to render</h2>
+        <p className="obs-muted obs-small">
+          The rest of the dashboard still works. Full detail is in the browser console.
+        </p>
+        <pre className="obs-json">{String(error.stack ?? error)}</pre>
+      </div>
+    );
+  }
+}
 
 export function Section({ title, subtitle, children, actions }: {
   title: string;
