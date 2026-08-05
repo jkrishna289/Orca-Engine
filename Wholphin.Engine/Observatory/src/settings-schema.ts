@@ -59,7 +59,6 @@ export const GROUPS: Group[] = [
       { key: 'FeatureComingSoon', label: 'Coming soon', kind: 'bool', help: 'Needs Sonarr or Radarr for the calendar.' },
       { key: 'FeatureContinueTheStory', label: 'Continue the story', kind: 'bool', help: 'Skipped seasons and abandoned series.' },
       { key: 'FeatureMoodCollections', label: 'Mood collections', kind: 'bool' },
-      { key: 'FeatureTrailerPrebuffer', label: 'Trailer prebuffer', kind: 'bool', help: 'Server-side trailer caching. Needs yt-dlp and ffmpeg on the server.' },
       { key: 'FeatureContentWarnings', label: 'Content advisories', kind: 'bool', help: 'LLM-generated. Needs an LLM key.' },
       { key: 'FeatureRequests', label: 'Media requests', kind: 'bool', help: 'Lets the client request titles through Jellyseerr.' },
       { key: 'FeatureTasteDiscovery', label: 'Taste discovery', kind: 'bool', help: 'Per-user justified TMDB pulls plus trending and country rows. Needs a TMDB key.' },
@@ -98,13 +97,28 @@ export const GROUPS: Group[] = [
     fields: [
       { key: 'TmdbApiKey', label: 'TMDB API key (v3)', kind: 'secret', help: 'The single most useful key here — artwork, trailers, discovery and watch providers all need it.' },
       { key: 'WatchProviderRegion', label: 'Watch provider region', kind: 'text', placeholder: 'US', help: 'ISO-3166-1 country code used to resolve streaming-provider branding.' },
-      { key: 'TrailerLanguage', label: 'Trailer language', kind: 'text', placeholder: 'en', help: 'ISO 639-1. A matching-language trailer wins when one exists.' },
       { key: 'JellyseerrUrl', label: 'Jellyseerr URL', kind: 'text', placeholder: 'http://localhost:5055' },
       { key: 'JellyseerrApiKey', label: 'Jellyseerr API key', kind: 'secret' },
       { key: 'SonarrUrl', label: 'Sonarr URL', kind: 'text', placeholder: 'http://localhost:8989' },
       { key: 'SonarrApiKey', label: 'Sonarr API key', kind: 'secret' },
       { key: 'RadarrUrl', label: 'Radarr URL', kind: 'text', placeholder: 'http://localhost:7878' },
       { key: 'RadarrApiKey', label: 'Radarr API key', kind: 'secret' },
+    ],
+  },
+  {
+    title: 'Trailers',
+    blurb: 'Where trailer URLs come from, and which videos are acceptable. Sources are tried in the order listed until one answers.',
+    fields: [
+      {
+        key: 'TrailerSourceOrder', label: 'Source order', kind: 'text',
+        placeholder: 'tmdb,jellyfin,stored',
+        help: 'Comma-separated. tmdb = TMDB videos (language-aware). jellyfin = trailer URLs Jellyfin already found for a library item — free, no key, but library items only. stored = the URL saved on the catalog row. search = ask yt-dlp to search YouTube by title and year; powerful, but it can return a fan edit or a review, so it is off by default. Remove a token to disable that source; unknown tokens are ignored.',
+      },
+      { key: 'TrailerLanguage', label: 'Preferred language', kind: 'text', placeholder: 'en', help: 'ISO 639-1. A matching-language trailer wins whenever one exists; otherwise the title\'s native trailer is used.' },
+      { key: 'TrailerAllowTeasers', label: 'Allow teasers', kind: 'bool', help: 'Use a teaser when no full trailer exists. Off means such titles simply get no trailer.' },
+      { key: 'TrailerRequireOfficial', label: 'Require official', kind: 'bool', help: 'Official videos are always preferred; this makes them mandatory, which reduces coverage.' },
+      { key: 'TrailerAllowNonYouTube', label: 'Allow non-YouTube', kind: 'bool', help: 'Accept Vimeo and similar. yt-dlp can fetch them, but they are rarer and less reliably the real trailer.' },
+      { key: 'FeatureTrailerPrebuffer', label: 'Prebuffer trailers', kind: 'bool', help: 'Download and transcode ahead of time. Needs yt-dlp and ffmpeg on the server.' },
     ],
   },
   {

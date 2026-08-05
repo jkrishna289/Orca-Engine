@@ -9,6 +9,7 @@ using MediaBrowser.Common.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wholphin.Engine.Data;
+using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Diagnostics;
 using Wholphin.Engine.Integrations.Tmdb;
@@ -32,7 +33,11 @@ public class TrailerService : ITrailerService
     /// <summary>Fallback preview start when no duration metadata is available (matches the client default).</summary>
     private const int DefaultPreviewStartMs = 3_000;
 
+    /// <summary>Used when the admin has not set an order (or has cleared it to nothing).</summary>
+    private const string DefaultSourceOrder = "tmdb,jellyfin,stored";
+
     private readonly IApplicationPaths _appPaths;
+    private readonly MediaBrowser.Controller.Library.ILibraryManager _libraryManager;
     private readonly ITmdbClient _tmdb;
     private readonly IWholphinDbContextFactory _factory;
     private readonly ITrailerStateStore _state;
@@ -46,6 +51,7 @@ public class TrailerService : ITrailerService
     /// </summary>
     public TrailerService(
         IApplicationPaths appPaths,
+        MediaBrowser.Controller.Library.ILibraryManager libraryManager,
         ITmdbClient tmdb,
         IWholphinDbContextFactory factory,
         ITrailerStateStore state,
@@ -53,6 +59,7 @@ public class TrailerService : ITrailerService
         ILogger<TrailerService> logger)
     {
         _appPaths = appPaths;
+        _libraryManager = libraryManager;
         _tmdb = tmdb;
         _factory = factory;
         _state = state;
@@ -189,39 +196,120 @@ public class TrailerService : ITrailerService
         }
     }
 
+    /// <summary>The trailer sources tried, in admin-configured order, until one yields a URL.</summary>
+    /// <remarks>
+    /// Each source records whether it produced a URL (<c>trailer.resolve.{source}.ok</c> /
+    /// <c>.miss</c>), so the dashboard can show where trailers actually come from — and, when one is
+    /// missing, which sources were asked and came back empty.
+    /// </remarks>
     private async Task<string?> ResolveTrailerUrlAsync(int tmdbId, MediaType mediaType, string? lang, CancellationToken ct)
     {
-        // Language-aware pick first (per-request lang > admin TrailerLanguage > "en"): the stored
-        // catalog URL predates language preference, so it only serves as the fallback when TMDB is
-        // unreachable/unconfigured or offers no videos.
-        if (_tmdb.IsConfigured)
+        var order = (Plugin.Instance?.Configuration?.TrailerSourceOrder ?? DefaultSourceOrder)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // One context for whichever sources need the catalog row, opened only if they do.
+        CatalogItem? row = null;
+        async Task<CatalogItem?> RowAsync()
         {
-            var picked = await _tmdb.GetTrailerUrlAsync(tmdbId, mediaType, lang, ct).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(picked))
+            if (row is not null)
             {
-                return picked;
+                return row;
             }
+
+            await using var db = _factory.Create();
+            row = await db.CatalogItems
+                .AsNoTracking()
+                .Where(c => c.TmdbId == tmdbId)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+            return row;
         }
 
-        await using var db = _factory.Create();
-        var stored = await db.CatalogItems
-            .Where(c => c.TmdbId == tmdbId)
-            .Select(c => c.TrailerUrl)
-            .FirstOrDefaultAsync(ct)
-            .ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(stored))
+        foreach (var source in order)
         {
-            return stored;
-        }
+            var url = source.ToLowerInvariant() switch
+            {
+                "tmdb" => await FromTmdbAsync(tmdbId, mediaType, lang, ct).ConfigureAwait(false),
+                "jellyfin" => FromJellyfin(await RowAsync().ConfigureAwait(false)),
+                "stored" => (await RowAsync().ConfigureAwait(false))?.TrailerUrl,
+                "search" => FromSearch(await RowAsync().ConfigureAwait(false)),
+                _ => null,
+            };
 
-        // Not stored — the full enrichment is a last resort (also TMDB-backed, so usually moot).
-        if (_tmdb.IsConfigured)
-        {
-            var enrichment = await _tmdb.EnrichAsync(tmdbId, mediaType, ct).ConfigureAwait(false);
-            return enrichment?.TrailerUrl;
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                _metrics.Increment($"trailer.resolve.{source.ToLowerInvariant()}.ok");
+                return url;
+            }
+
+            _metrics.Increment($"trailer.resolve.{source.ToLowerInvariant()}.miss");
         }
 
         return null;
+    }
+
+    private async Task<string?> FromTmdbAsync(int tmdbId, MediaType mediaType, string? lang, CancellationToken ct)
+    {
+        if (!_tmdb.IsConfigured)
+        {
+            return null;
+        }
+
+        var picked = await _tmdb.GetTrailerUrlAsync(tmdbId, mediaType, lang, ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(picked))
+        {
+            return picked;
+        }
+
+        // The full enrichment is TMDB-backed too, so this is usually moot — but it costs one call
+        // and occasionally carries a URL the videos endpoint did not.
+        var enrichment = await _tmdb.EnrichAsync(tmdbId, mediaType, ct).ConfigureAwait(false);
+        return enrichment?.TrailerUrl;
+    }
+
+    /// <summary>
+    /// The trailer Jellyfin's own metadata providers already found for this title.
+    /// </summary>
+    /// <remarks>
+    /// Free and already on disk for anything in the library — no API key, no request. Only library
+    /// items have one, so this silently yields nothing for discovery rows.
+    /// </remarks>
+    private string? FromJellyfin(CatalogItem? row)
+    {
+        if (row?.JellyfinItemId is not { } id || id == Guid.Empty)
+        {
+            return null;
+        }
+
+        try
+        {
+            var trailers = _libraryManager.GetItemById(id)?.RemoteTrailers;
+            return trailers?.Select(t => t.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Orca Engine: could not read Jellyfin trailers for {Id}.", id);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// A yt-dlp search expression, used verbatim as the download input.
+    /// </summary>
+    /// <remarks>
+    /// Off by default: a text search can return a fan edit, a reaction video or a review, and a
+    /// confidently wrong trailer is worse than none. Enabled, it is the only source that can cover
+    /// a title TMDB has no video for at all.
+    /// </remarks>
+    private static string? FromSearch(CatalogItem? row)
+    {
+        if (string.IsNullOrWhiteSpace(row?.Title))
+        {
+            return null;
+        }
+
+        var year = row.ProductionYear is > 0 ? $" {row.ProductionYear}" : string.Empty;
+        return $"ytsearch1:{row.Title}{year} official trailer";
     }
 
     private bool ProbeBinaries()

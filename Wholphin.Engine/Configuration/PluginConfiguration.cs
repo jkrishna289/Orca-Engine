@@ -172,6 +172,39 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public string TrailerLanguage { get; set; } = "en";
 
+    // --- Trailer sources -------------------------------------------------------------------
+
+    /// <summary>
+    /// Gets or sets the ordered, comma-separated list of trailer sources to try. Recognised tokens:
+    /// <c>tmdb</c> (TMDB's videos, language-aware), <c>jellyfin</c> (the trailer URLs Jellyfin's own
+    /// metadata providers already found for a library item), <c>stored</c> (the URL saved on the
+    /// catalog row), and <c>search</c> (ask yt-dlp to search YouTube by title and year).
+    /// </summary>
+    /// <remarks>
+    /// Removing a token disables that source; reordering changes preference. Unrecognised tokens are
+    /// ignored, so a typo costs a source rather than breaking resolution. <c>search</c> is off by
+    /// default deliberately — a text search can return a fan edit or a review rather than the real
+    /// trailer, which is worse than showing none.
+    /// </remarks>
+    public string TrailerSourceOrder { get; set; } = "tmdb,jellyfin,stored";
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a teaser may be used when no full trailer exists.
+    /// </summary>
+    public bool TrailerAllowTeasers { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether only videos TMDB marks "official" are eligible.
+    /// Official is always preferred; this makes it mandatory.
+    /// </summary>
+    public bool TrailerRequireOfficial { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether non-YouTube videos (Vimeo, …) may be used. yt-dlp can
+    /// fetch them, but they are rarer and less consistently the real trailer.
+    /// </summary>
+    public bool TrailerAllowNonYouTube { get; set; }
+
     /// <summary>Gets or sets the Sonarr base URL (e.g., http://localhost:8989). Empty disables the Sonarr calendar. (Milestone 8.)</summary>
     public string SonarrUrl { get; set; } = string.Empty;
 

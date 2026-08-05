@@ -696,25 +696,68 @@ public class TmdbClient : ITmdbClient
     /// </summary>
     private static string? Trailer(TmdbVideos? videos, string? preferredLang = null)
     {
-        if (videos?.Results is not { Count: > 0 } list)
+        var config = Plugin.Instance?.Configuration;
+        return PickTrailer(
+            videos?.Results,
+            string.IsNullOrWhiteSpace(preferredLang) ? PreferredTrailerLanguage() : preferredLang,
+            config?.TrailerAllowTeasers ?? true,
+            config?.TrailerRequireOfficial ?? false,
+            config?.TrailerAllowNonYouTube ?? false);
+    }
+
+    /// <summary>
+    /// The trailer-selection decision, separated from reading configuration so it can be tested.
+    /// </summary>
+    /// <param name="list">TMDB's videos for a title.</param>
+    /// <param name="lang">Preferred ISO 639-1 audio language.</param>
+    /// <param name="allowTeasers">Whether a teaser may be used when no trailer exists.</param>
+    /// <param name="requireOfficial">Whether only videos marked official are eligible.</param>
+    /// <param name="allowOtherSites">Whether non-YouTube sites may be used.</param>
+    /// <returns>A playable URL, or null when nothing qualifies.</returns>
+    /// <remarks>
+    /// The flags narrow which videos are eligible at all; the ladder still decides preference among
+    /// whatever survives. Official is always PREFERRED — requiring it removes the unofficial rungs
+    /// rather than reordering them.
+    /// </remarks>
+    internal static string? PickTrailer(
+        System.Collections.Generic.IReadOnlyList<TmdbVideo>? list,
+        string lang,
+        bool allowTeasers = true,
+        bool requireOfficial = false,
+        bool allowOtherSites = false)
+    {
+        if (list is not { Count: > 0 })
         {
             return null;
         }
 
-        var lang = string.IsNullOrWhiteSpace(preferredLang) ? PreferredTrailerLanguage() : preferredLang;
+        bool Eligible(TmdbVideo v)
+            => !string.IsNullOrWhiteSpace(v.Key)
+               && (allowOtherSites || IsSite(v, "YouTube"))
+               && (!requireOfficial || v.Official)
+               && (allowTeasers || !IsType(v, "Teaser"));
 
-        var pick = list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer") && v.Official && IsLang(v, lang))
-                   ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer") && IsLang(v, lang))
-                   ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Teaser") && IsLang(v, lang))
-                   ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer") && v.Official)
-                   ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Trailer"))
-                   ?? list.FirstOrDefault(v => IsYouTube(v) && IsType(v, "Teaser"))
-                   ?? list.FirstOrDefault(IsYouTube);
+        var pick = list.FirstOrDefault(v => Eligible(v) && IsType(v, "Trailer") && v.Official && IsLang(v, lang))
+                   ?? list.FirstOrDefault(v => Eligible(v) && IsType(v, "Trailer") && IsLang(v, lang))
+                   ?? list.FirstOrDefault(v => Eligible(v) && IsType(v, "Teaser") && IsLang(v, lang))
+                   ?? list.FirstOrDefault(v => Eligible(v) && IsType(v, "Trailer") && v.Official)
+                   ?? list.FirstOrDefault(v => Eligible(v) && IsType(v, "Trailer"))
+                   ?? list.FirstOrDefault(v => Eligible(v) && IsType(v, "Teaser"))
+                   ?? list.FirstOrDefault(Eligible);
 
-        return pick?.Key is { Length: > 0 } key ? "https://www.youtube.com/watch?v=" + key : null;
+        if (pick?.Key is not { Length: > 0 } key)
+        {
+            return null;
+        }
 
-        static bool IsYouTube(TmdbVideo v)
-            => string.Equals(v.Site, "YouTube", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(v.Key);
+        // Vimeo ids are numeric paths, not YouTube watch params — yt-dlp handles both, given the
+        // right URL shape for the site the video actually lives on.
+        return IsSite(pick, "Vimeo")
+            ? "https://vimeo.com/" + key
+            : "https://www.youtube.com/watch?v=" + key;
+
+        static bool IsSite(TmdbVideo v, string site)
+            => string.Equals(v.Site, site, StringComparison.OrdinalIgnoreCase);
 
         static bool IsType(TmdbVideo v, string type)
             => string.Equals(v.Type, type, StringComparison.OrdinalIgnoreCase);
