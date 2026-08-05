@@ -531,6 +531,14 @@ html, body {
   max-height: 340px;
 }
 
+.obs-problems {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  color: var(--obs-warn);
+}
+
 .obs-stack { display: grid; gap: 14px; }
 .obs-muted { color: var(--obs-muted); }
 .obs-small { font-size: 12px; }

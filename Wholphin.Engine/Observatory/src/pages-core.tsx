@@ -19,6 +19,8 @@ export interface Snapshot {
   integrations: { tmdbConfigured: boolean; arrConfigured: boolean; jellyseerrConfigured: boolean };
   counters: Record<string, number>;
   lastSeq: number;
+  /** Sources the server could not read this tick, each naming itself and why. */
+  problems: string[];
 }
 
 /**
@@ -62,6 +64,7 @@ export function toSnapshot(raw: unknown): Snapshot | undefined {
     // Metric keys are data, not property names — never re-cased.
     counters: (pick<Record<string, number>>(raw, 'Counters') ?? {}),
     lastSeq: num(raw, 'LastSeq'),
+    problems: (pick<string[]>(raw, 'Problems') ?? []),
   };
 }
 
@@ -94,6 +97,14 @@ export function Overview({ snap, samples, snapshots }: {
 
   return (
     <>
+      {!!snap?.problems.length && (
+        <Section title="Degraded readings" subtitle="The engine could not read these this tick; everything else on this page is still accurate.">
+          <ul className="obs-problems">
+            {snap.problems.map((p) => <li key={p} className="obs-mono obs-small">{p}</li>)}
+          </ul>
+        </Section>
+      )}
+
       <Section title="Engine" subtitle={`${snap?.plugin ?? 'Orca Engine'} ${snap?.version ?? ''} · schema v${snap?.schemaVersion ?? '?'}`}>
         <Tiles>
           <Tile label="Status" value={enabled === false ? 'Disabled' : 'Running'} tone={enabled === false ? 'bad' : 'ok'} />

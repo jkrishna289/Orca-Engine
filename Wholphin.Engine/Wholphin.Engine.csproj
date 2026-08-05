@@ -10,8 +10,8 @@
     <!-- Jellyfin reports Plugin.Version from the ASSEMBLY version — keep in lockstep with
          meta.json/build.yaml/manifest.json on every release (1.0.1-1.0.3 forgot this, so the
          dashboard kept showing 1.0.0.0 even after successful catalog updates). -->
-    <AssemblyVersion>1.0.12.2</AssemblyVersion>
-    <FileVersion>1.0.12.2</FileVersion>
+    <AssemblyVersion>1.0.12.3</AssemblyVersion>
+    <FileVersion>1.0.12.3</FileVersion>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
