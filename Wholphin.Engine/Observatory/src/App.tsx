@@ -3,6 +3,8 @@ import { usePoll, useHistory } from './api';
 import { Problem, Boundary } from './ui';
 import { Overview, EngineHealth, Performance, Cache, toSnapshot, type Snapshot } from './pages-core';
 import { Metadata, TrailerResolver, Recommendations, LiveLogs, Timeline, Users, Settings } from './pages-detail';
+import Login from './Login';
+import { currentSession, signOut, SESSION_EXPIRED_EVENT, type Session } from './session';
 
 const PAGES = [
   'Overview', 'Engine Health', 'Performance', 'Metadata', 'Trailer Resolver',
@@ -12,6 +14,20 @@ const PAGES = [
 type Page = typeof PAGES[number];
 
 export default function App() {
+  const [session, setSession] = useState<Session | null>(() => currentSession());
+
+  // A token can be revoked or expire while the page is open; any poll may be the one to find out.
+  useEffect(() => {
+    const onExpired = () => setSession(null);
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
+
+  if (!session) return <Login onSignedIn={setSession} />;
+  return <Dashboard session={session} onSignOut={() => { signOut(); setSession(null); }} />;
+}
+
+function Dashboard({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
   const [page, setPage] = useState<Page>('Overview');
 
   // The one poll everything shares. 5s is cheap: the endpoint is in-memory reads plus a single
@@ -40,6 +56,10 @@ export default function App() {
               {snap ? `${snap.plugin} ${snap.version}` : 'Connecting…'}
             </p>
           </div>
+        </div>
+        <div className="obs-actions">
+          {session.userName && <span className="obs-muted obs-small">{session.userName}</span>}
+          <button className="obs-btn" onClick={onSignOut}>Sign out</button>
         </div>
       </header>
 

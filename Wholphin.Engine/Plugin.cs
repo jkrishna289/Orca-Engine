@@ -43,16 +43,15 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         + "recommendations, caching, and centralized administration.";
 
     /// <summary>
-    /// Returns the plugin's web pages: the configuration form, and the Orca Observatory dashboard.
+    /// Returns the plugin's web configuration page.
     /// </summary>
-    /// <returns>The pages, configuration first.</returns>
+    /// <returns>The configuration page.</returns>
     /// <remarks>
-    /// Order matters. The installed-plugins card opens the FIRST page registered for a plugin id,
-    /// so the settings form has to stay at the head of this list or the gear icon would open the
-    /// dashboard instead. <c>DisplayName</c> is what the sidebar actually renders — without it the
-    /// menu entry is blank — and only one page may set <c>EnableInMainMenu</c>, because the drawer
-    /// keys its list on the plugin id. Page names are global across every installed plugin, hence
-    /// the "Orca" prefix.
+    /// Settings only. The Orca Observatory dashboard is NOT a Jellyfin page — it is served
+    /// standalone from <c>GET /OrcaEngine/Observatory/App</c>. Living inside the dashboard meant
+    /// inheriting its view loader (jQuery-evaluated inline scripts, a shared DOM with no style
+    /// isolation, and a teardown event as the only unmount signal), which cost more than the
+    /// convenience was worth.
     /// </remarks>
     public IEnumerable<PluginPageInfo> GetPages()
     {
@@ -63,17 +62,6 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             EmbeddedResourcePath = string.Format(
                 CultureInfo.InvariantCulture,
                 "{0}.Configuration.config.html",
-                GetType().Namespace)
-        };
-
-        yield return new PluginPageInfo
-        {
-            Name = "OrcaObservatory",
-            DisplayName = "Orca Observatory",
-            EnableInMainMenu = true,
-            EmbeddedResourcePath = string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}.Configuration.observatory.html",
                 GetType().Namespace)
         };
     }

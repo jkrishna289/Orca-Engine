@@ -1,10 +1,9 @@
 /*
- * Scoped to the Observatory's shadow root, so none of this leaks into the Jellyfin dashboard and
- * none of the dashboard's styles reach in. Dark-first, because that is the dashboard's default,
- * with a light mapping for admins who run it that way.
+ * The Observatory is a standalone page served by the plugin, so it owns the whole document.
+ * Dark-first, matching Jellyfin's default, with a light mapping for admins who run it that way.
  */
 
-:host {
+:root {
   --obs-bg: #101317;
   --obs-panel: #171b21;
   --obs-panel-2: #1d222a;
@@ -21,7 +20,7 @@
 }
 
 @media (prefers-color-scheme: light) {
-  :host {
+  :root {
     --obs-bg: #f6f7f9;
     --obs-panel: #ffffff;
     --obs-panel-2: #f0f2f5;
@@ -33,6 +32,14 @@
 }
 
 * { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--obs-bg);
+  color: var(--obs-text);
+  color-scheme: dark light;
+}
 
 .obs-root {
   background: var(--obs-bg);
@@ -47,7 +54,14 @@
 
 /* ---------- header + nav ---------- */
 
-.obs-head { margin-bottom: 18px; }
+.obs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
 
 .obs-brand { display: flex; align-items: center; gap: 12px; }
 
@@ -461,6 +475,47 @@
   color: var(--obs-muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- sign in ---------- */
+
+.obs-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--obs-bg);
+  color: var(--obs-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.obs-login-card {
+  width: 100%;
+  max-width: 380px;
+  display: grid;
+  gap: 16px;
+  background: var(--obs-panel);
+  border: 1px solid var(--obs-line);
+  border-radius: var(--obs-radius);
+  padding: 26px;
+}
+
+.obs-login-card .obs-brand { margin-bottom: 4px; }
+.obs-login-card h1 { margin: 0; font-size: 19px; font-weight: 650; }
+.obs-login-card .obs-problem { margin: 0; }
+
+.obs-field { display: grid; gap: 6px; }
+
+.obs-field > span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--obs-muted);
+}
+
+.obs-field .obs-input { width: 100%; min-width: 0; padding: 9px 11px; }
+.obs-btn-wide { width: 100%; text-align: center; padding: 10px; font-size: 14px; }
 
 /* ---------- misc ---------- */
 
