@@ -23,27 +23,42 @@ function mount(host: HTMLElement): Root {
   return root;
 }
 
-function start() {
+/** Attempts to mount. Returns false only while the page element is not in the document yet. */
+function start(): boolean {
   const host = document.querySelector<HTMLElement>('#OrcaObservatoryRoot');
-  if (!host || host.dataset.mounted === 'true') return;
+  if (!host) return false;
+  if (host.dataset.mounted === 'true') return true;
   host.dataset.mounted = 'true';
 
-  const root = mount(host);
+  try {
+    const root = mount(host);
 
-  // 'viewdestroy' is the dashboard's only teardown signal. Without unmounting here, every
-  // navigation away and back would leave another live React tree behind — still polling, still
-  // holding an open event stream.
-  const page = host.closest('[data-role="page"]') ?? host;
-  page.addEventListener('viewdestroy', function teardown() {
-    page.removeEventListener('viewdestroy', teardown);
+    // 'viewdestroy' is the dashboard's only teardown signal. Without unmounting here, every
+    // navigation away and back would leave another live React tree behind — still polling, still
+    // holding an open event stream.
+    const page = host.closest('[data-role="page"]') ?? host;
+    page.addEventListener('viewdestroy', function teardown() {
+      page.removeEventListener('viewdestroy', teardown);
+      host.dataset.mounted = 'false';
+      root.unmount();
+    });
+  } catch (error) {
+    // A diagnostics tool that fails by showing nothing is worse than useless — you cannot tell a
+    // crash from a script that never ran. Say which one it was, on the page.
     host.dataset.mounted = 'false';
-    root.unmount();
-  });
+    host.textContent = `Orca Observatory failed to start: ${String(error)}`;
+    console.error('[OrcaObservatory] mount failed', error);
+  }
+
+  return true;
 }
 
-// The page markup may already be in the DOM by the time this script runs, or not quite yet.
-if (document.querySelector('#OrcaObservatoryRoot')) {
-  start();
-} else {
-  document.addEventListener('DOMContentLoaded', start, { once: true });
+// The dashboard is a long-lived single-page app: DOMContentLoaded fired long before anyone
+// navigated here, so waiting on it would wait forever. The page element is also not reliably in
+// the document at the instant this script is evaluated, so poll briefly instead of assuming.
+if (!start()) {
+  let attempts = 0;
+  const timer = window.setInterval(() => {
+    if (start() || ++attempts > 100) window.clearInterval(timer);
+  }, 100);
 }

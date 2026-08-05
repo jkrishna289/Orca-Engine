@@ -149,6 +149,27 @@ export interface EngineEvent {
 }
 
 /**
+ * Normalizes one event.
+ *
+ * The two sources disagree on casing by construction: the SSE frames are serialized camelCase by
+ * this plugin, while `Observatory/Events` goes through Jellyfin's formatter and comes back
+ * PascalCase. Reading both case-insensitively is cheaper than making the server lie about one.
+ */
+function toEvent(raw: unknown): EngineEvent {
+  const ms = pick(raw, 'ElapsedMs');
+  return {
+    seq: Number(pick(raw, 'Seq') ?? 0),
+    at: String(pick(raw, 'At') ?? new Date().toISOString()),
+    level: String(pick(raw, 'Level') ?? 'info'),
+    component: String(pick(raw, 'Component') ?? '?'),
+    event: String(pick(raw, 'Event') ?? '?'),
+    elapsedMs: ms === null || ms === undefined ? null : Number(ms),
+    data: (pick<string>(raw, 'Data') ?? null) as string | null,
+    exception: (pick<string>(raw, 'Exception') ?? null) as string | null,
+  };
+}
+
+/**
  * Live event stream.
  *
  * Uses fetch + a stream reader rather than EventSource because EventSource cannot set headers —
@@ -168,9 +189,9 @@ export function useEventStream(paused: boolean, capacity = 1000) {
     (async () => {
       // Seed from the ring so the view isn't empty until something happens.
       try {
-        const recent = await get<EngineEvent[]>('OrcaEngine/Observatory/Events', { limit: 300 });
+        const recent = await get<unknown[]>('OrcaEngine/Observatory/Events', { limit: 300 });
         if (stopped) return;
-        const ordered = [...recent].sort((a, b) => a.seq - b.seq);
+        const ordered = recent.map(toEvent).sort((a, b) => a.seq - b.seq);
         cursor.current = ordered.length ? ordered[ordered.length - 1].seq : 0;
         setEvents(ordered);
       } catch {
@@ -210,7 +231,7 @@ export function useEventStream(paused: boolean, capacity = 1000) {
                 .join('');
               if (!payload) continue;
               try {
-                const parsed = JSON.parse(payload) as EngineEvent;
+                const parsed = toEvent(JSON.parse(payload));
                 cursor.current = Math.max(cursor.current, parsed.seq);
                 setEvents((prev) => [...prev, parsed].slice(-capacity));
               } catch {
