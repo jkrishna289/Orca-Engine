@@ -338,6 +338,19 @@
             </form>
 
             <div class="verticalSection" style="margin-top:2em;">
+                <h3 class="sectionTitle">Orca Observatory</h3>
+                <p style="opacity:.85;margin-top:0;">
+                    The engine's dashboard — health, performance, live logs, and why a title was
+                    recommended. It opens in a new tab and signs in with your Jellyfin admin account.
+                </p>
+                <a is="emby-linkbutton" id="WeOpenObservatory" class="raised button-submit block"
+                   href="../orca" target="_blank" rel="noreferrer"><span>Open Orca Observatory</span></a>
+                <p style="opacity:.6;font-size:90%;">
+                    Direct link: <span id="WeObservatoryUrl" style="font-family:monospace;"></span>
+                </p>
+            </div>
+
+            <div class="verticalSection" style="margin-top:2em;">
                 <h3 class="sectionTitle">Status &amp; Operations</h3>
                 <div id="WholphinEngineStatus" style="white-space:pre-wrap;font-family:monospace;opacity:.85;">Loading…</div>
                 <div style="margin-top:1em;">
@@ -416,6 +429,7 @@
                         document.querySelector('#JinaEmbeddingModel').value = config.JinaEmbeddingModel || '';
                         document.querySelector('#OnnxModelPath').value = config.OnnxModelPath || '';
                         Dashboard.hideLoadingMsg();
+                        setObservatoryLink();
                         loadStatus();
                     });
                 });
@@ -491,6 +505,17 @@
             function fmtMap(map) {
                 if (!map) return '—';
                 return Object.keys(map).map(function (k) { return k + '=' + map[k]; }).join(', ') || '—';
+            }
+
+            // The Observatory is served by the plugin, not by Jellyfin's web client, so its address
+            // is resolved from the server root rather than the dashboard's hash route.
+            function setObservatoryLink() {
+                var link = document.querySelector('#WeOpenObservatory');
+                var label = document.querySelector('#WeObservatoryUrl');
+                if (!link) return;
+                var url = ApiClient.getUrl('orca');
+                link.setAttribute('href', url);
+                if (label) label.textContent = url;
             }
 
             function loadStatus() {

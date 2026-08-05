@@ -94,10 +94,12 @@ public class ObservatoryController : ControllerBase
     /// </para>
     /// <para>
     /// Served from the plugin's own route rather than as a Jellyfin dashboard page, so the
-    /// Observatory has a URL of its own without needing a second service or port.
+    /// Observatory has a URL of its own without needing a second service or port. Also answers on
+    /// <c>/orca</c> — an address an admin can actually remember and type.
     /// </para>
     /// </remarks>
     [HttpGet("App")]
+    [HttpGet("/orca")]
     [AllowAnonymous]
     [Produces("text/html")]
     public IActionResult App()
