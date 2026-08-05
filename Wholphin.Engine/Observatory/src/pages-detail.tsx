@@ -5,8 +5,7 @@ import {
   fmtBytes, fmtMs, timing,
 } from './ui';
 import type { Snapshot } from './pages-core';
-
-declare const ApiClient: { getUrl(path: string, params?: Record<string, unknown>): string };
+import { url } from './session';
 
 export function Metadata({ snap }: { snap: Snapshot | undefined }) {
   const c = snap?.counters ?? {};
@@ -466,9 +465,16 @@ export function Settings() {
     <>
       <Section
         title="Configuration"
-        subtitle="Settings live on the plugin's own configuration page, which writes through Jellyfin's authenticated config API."
+        subtitle="Settings live on the plugin's own page inside Jellyfin, which writes through Jellyfin's authenticated config API."
       >
-        <a className="obs-btn obs-btn-primary" href="#/configurationpage?name=Orca%20Engine">Open Orca Engine settings</a>
+        <a
+          className="obs-btn obs-btn-primary"
+          href={url('web/index.html') + '#/configurationpage?name=Orca%20Engine'}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open Orca Engine settings
+        </a>
       </Section>
 
       <Section title="Operations">
@@ -489,7 +495,7 @@ export function Settings() {
 
       {message && <p className="obs-note">{message}</p>}
       <p className="obs-muted obs-small">
-        Diagnostics endpoint: <span className="obs-mono">{ApiClient.getUrl('OrcaEngine/Admin/Diagnostics')}</span>
+        Diagnostics endpoint: <span className="obs-mono">{url('OrcaEngine/Admin/Diagnostics')}</span>
       </p>
     </>
   );

@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Fixes the Orca Observatory dashboard, which rendered as a blank page in 1.0.12.0. The engine serializes its responses with property names exactly as declared, and the dashboard's snapshot reader expected the other capitalisation - so one lookup returned nothing, reading a field from it threw, and React tore the whole page down before anything drew. The dashboard now reads every field from the engine case-insensitively, with defaults for anything absent, so a payload it does not recognise can no longer blank it. Three further hardening changes came out of the same fault: each page is wrapped in an error boundary, so a failure in one panel shows that panel's error and leaves the rest of the dashboard working instead of emptying the screen; the dashboard now waits for the Jellyfin page container to appear rather than assuming it is present the instant its script runs; and the page carries visible placeholder text, so a script that never executes is distinguishable at a glance from one that started and failed. Upgrade directly from 1.0.12.0 - there are no configuration or database changes, and no engine behaviour changes.",
+  "changelog": "Orca Observatory now has its own address. Instead of living inside the Jellyfin admin interface, the dashboard is served by the plugin at http://<your-server>/OrcaEngine/Observatory/App - still the same Jellyfin server, the same port and the same process, just a page of its own rather than one injected into Jellyfin's dashboard. Because it no longer runs inside Jellyfin's web client, it cannot borrow the admin session it used to, so it now signs in against Jellyfin directly: enter your Jellyfin administrator username and password once, and the access token it returns is kept in the browser. Your password is never stored, and the token can be revoked at any time from Dashboard - Devices. Accounts without administrator rights are refused at sign-in rather than being let in to meet a wall of permission errors, and an expired or revoked token drops you back to the sign-in screen instead of leaving a dead page. The Orca Observatory entry has been removed from the Jellyfin sidebar accordingly; the plugin's own settings page is unchanged and still lives under Dashboard - Plugins. Moving out also removes the whole class of faults that came from living inside another application's page loader - the blank dashboard fixed in 1.0.12.1 was one of them. No engine behaviour, configuration or database changes.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.0.12.1",
+  "version": "1.0.12.2",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

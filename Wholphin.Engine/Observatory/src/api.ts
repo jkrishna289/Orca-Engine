@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-/** Jellyfin's global dashboard client. Present because we render inside its SPA. */
-declare const ApiClient: {
-  getUrl(path: string, params?: Record<string, unknown>): string;
-  accessToken(): string;
-};
+import { authFetch, currentSession, url } from './session';
 
 /**
  * Jellyfin's MVC stack content-negotiates between camelCase and PascalCase output formatters, so
@@ -21,9 +16,7 @@ export function pick<T = unknown>(source: unknown, key: string): T | undefined {
 }
 
 export async function get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
-  const response = await fetch(ApiClient.getUrl(path, params), {
-    headers: { 'X-Emby-Token': ApiClient.accessToken(), Accept: 'application/json' },
-  });
+  const response = await authFetch(path, params, { headers: { Accept: 'application/json' } });
   if (!response.ok) {
     throw new Error(
       response.status === 403
@@ -35,10 +28,7 @@ export async function get<T>(path: string, params?: Record<string, unknown>): Pr
 }
 
 export async function post(path: string, params?: Record<string, unknown>): Promise<void> {
-  const response = await fetch(ApiClient.getUrl(path, params), {
-    method: 'POST',
-    headers: { 'X-Emby-Token': ApiClient.accessToken() },
-  });
+  const response = await authFetch(path, params, { method: 'POST' });
   if (!response.ok) throw new Error(`${path} failed (${response.status})`);
 }
 
@@ -200,13 +190,12 @@ export function useEventStream(paused: boolean, capacity = 1000) {
 
       while (!stopped) {
         try {
-          const response = await fetch(
-            ApiClient.getUrl('OrcaEngine/Observatory/Stream', { after: cursor.current }),
-            {
-              headers: { 'X-Emby-Token': ApiClient.accessToken(), Accept: 'text/event-stream' },
-              signal: abort.signal,
-            },
-          );
+          const session = currentSession();
+          if (!session) break;
+          const response = await fetch(url('OrcaEngine/Observatory/Stream', { after: cursor.current }), {
+            headers: { 'X-Emby-Token': session.token, Accept: 'text/event-stream' },
+            signal: abort.signal,
+          });
           if (!response.ok || !response.body) throw new Error(`stream ${response.status}`);
           setConnected(true);
 

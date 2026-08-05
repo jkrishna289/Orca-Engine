@@ -82,6 +82,41 @@ public class ObservatoryController : ControllerBase
     }
 
     /// <summary>
+    /// Serves the Orca Observatory dashboard itself.
+    /// </summary>
+    /// <returns>The dashboard page.</returns>
+    /// <remarks>
+    /// <para>
+    /// Anonymous by necessity — this IS the sign-in page. It contains no data and no credentials:
+    /// it is an empty shell that authenticates against Jellyfin and then calls the endpoints below,
+    /// every one of which requires an administrator. Serving the shell to an unauthenticated
+    /// visitor gives them a login form, nothing more.
+    /// </para>
+    /// <para>
+    /// Served from the plugin's own route rather than as a Jellyfin dashboard page, so the
+    /// Observatory has a URL of its own without needing a second service or port.
+    /// </para>
+    /// </remarks>
+    [HttpGet("App")]
+    [AllowAnonymous]
+    [Produces("text/html")]
+    public IActionResult App()
+    {
+        var name = $"{typeof(Plugin).Namespace}.Configuration.observatory-app.html";
+        var stream = typeof(Plugin).Assembly.GetManifestResourceStream(name);
+        if (stream is null)
+        {
+            return NotFound("Observatory page is missing from the plugin assembly.");
+        }
+
+        // The page is a build artifact that only changes with the plugin version, but it is also
+        // the thing an admin re-loads when something looks wrong — so let the browser revalidate
+        // rather than serve a stale copy of a dashboard that was just fixed.
+        Response.Headers.CacheControl = "no-cache";
+        return File(stream, "text/html; charset=utf-8");
+    }
+
+    /// <summary>
     /// Returns everything the Overview and Engine Health pages need, in one round trip.
     /// </summary>
     /// <returns>The snapshot.</returns>
