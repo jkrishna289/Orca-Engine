@@ -216,6 +216,53 @@
                 </div>
 
                 <div class="verticalSection">
+                    <h3 class="sectionTitle">Source streaming</h3>
+                    <p>Off by default. When enabled, a title that is not in your library can be streamed directly from a torrent source and played immediately, instead of being downloaded first. Peer traffic originates from this server's IP address. Nothing is imported into your library.</p>
+                </div>
+
+                <div class="checkboxContainer">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="FeatureSourceStreaming" />
+                        <span>Enable source streaming</span>
+                    </label>
+                    <div class="fieldDescription">With this off, the streaming endpoints return 404 and the app hides the feature entirely.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="StreamCachePath">Stream cache folder</label>
+                    <input is="emby-input" type="text" id="StreamCachePath" />
+                    <div class="fieldDescription">Where in-flight pieces are stored. Empty uses the plugin data folder. Needs room for whole media files while streaming.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="StreamCacheMaxGb">Stream cache limit (GB)</label>
+                    <input is="emby-input" type="number" id="StreamCacheMaxGb" min="1" />
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="MaxConcurrentStreamSessions">Maximum concurrent streams</label>
+                    <input is="emby-input" type="number" id="MaxConcurrentStreamSessions" min="1" />
+                    <div class="fieldDescription">Each stream costs disk, bandwidth and peer connections. Keep this low.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="StreamSessionIdleMinutes">Idle stream timeout (minutes)</label>
+                    <input is="emby-input" type="number" id="StreamSessionIdleMinutes" min="1" />
+                    <div class="fieldDescription">A stream nobody is watching is torn down after this long.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="ProwlarrUrl">Prowlarr URL</label>
+                    <input is="emby-input" type="text" id="ProwlarrUrl" placeholder="http://localhost:9696" />
+                    <div class="fieldDescription">Used only to find sources. Prowlarr never handles playback or downloads. Empty disables source discovery.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="ProwlarrApiKey">Prowlarr API key</label>
+                    <input is="emby-input" type="text" id="ProwlarrApiKey" />
+                    <div class="fieldDescription">Sent as the X-Api-Key header. Found in Prowlarr under Settings → General.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="SourceSearchCacheHours">Source search cache (hours)</label>
+                    <input is="emby-input" type="number" id="SourceSearchCacheHours" min="1" />
+                    <div class="fieldDescription">Results are shared between users, so a popular title is searched once rather than once per viewer.</div>
+                </div>
+
+                <div class="verticalSection">
                     <h3 class="sectionTitle">AI (any OpenAI-compatible LLM)</h3>
                     <p>Optional. A hosted (or local) LLM powers the "For You" re-ranker, AI discovery picks, trivia and content advisories. The engine works fully without it; recommendations are always computed locally first. Only anonymized taste summaries + public title metadata are sent, never account identity. Defaults to Groq; set a base URL to use OpenAI, Ollama, OpenRouter, LiteLLM, etc.</p>
                 </div>
@@ -409,6 +456,14 @@
                         document.querySelector('#SonarrApiKey').value = config.SonarrApiKey || '';
                         document.querySelector('#RadarrUrl').value = config.RadarrUrl || '';
                         document.querySelector('#RadarrApiKey').value = config.RadarrApiKey || '';
+                        document.querySelector('#FeatureSourceStreaming').checked = config.FeatureSourceStreaming;
+                        document.querySelector('#StreamCachePath').value = config.StreamCachePath || '';
+                        document.querySelector('#StreamCacheMaxGb').value = config.StreamCacheMaxGb || 20;
+                        document.querySelector('#MaxConcurrentStreamSessions').value = config.MaxConcurrentStreamSessions || 3;
+                        document.querySelector('#StreamSessionIdleMinutes').value = config.StreamSessionIdleMinutes || 20;
+                        document.querySelector('#ProwlarrUrl').value = config.ProwlarrUrl || '';
+                        document.querySelector('#ProwlarrApiKey').value = config.ProwlarrApiKey || '';
+                        document.querySelector('#SourceSearchCacheHours').value = config.SourceSearchCacheHours || 6;
                         document.querySelector('#FeatureLlmRerank').checked = config.FeatureLlmRerank;
                         document.querySelector('#FeatureLlmDiscovery').checked = config.FeatureLlmDiscovery;
                         document.querySelector('#FeatureLlmCuration').checked = config.FeatureLlmCuration;
@@ -476,6 +531,14 @@
                         config.SonarrApiKey = document.querySelector('#SonarrApiKey').value;
                         config.RadarrUrl = document.querySelector('#RadarrUrl').value;
                         config.RadarrApiKey = document.querySelector('#RadarrApiKey').value;
+                        config.FeatureSourceStreaming = document.querySelector('#FeatureSourceStreaming').checked;
+                        config.StreamCachePath = document.querySelector('#StreamCachePath').value;
+                        config.StreamCacheMaxGb = parseInt(document.querySelector('#StreamCacheMaxGb').value, 10) || 20;
+                        config.MaxConcurrentStreamSessions = parseInt(document.querySelector('#MaxConcurrentStreamSessions').value, 10) || 3;
+                        config.StreamSessionIdleMinutes = parseInt(document.querySelector('#StreamSessionIdleMinutes').value, 10) || 20;
+                        config.ProwlarrUrl = document.querySelector('#ProwlarrUrl').value;
+                        config.ProwlarrApiKey = document.querySelector('#ProwlarrApiKey').value;
+                        config.SourceSearchCacheHours = parseInt(document.querySelector('#SourceSearchCacheHours').value, 10) || 6;
                         config.FeatureLlmRerank = document.querySelector('#FeatureLlmRerank').checked;
                         config.FeatureLlmDiscovery = document.querySelector('#FeatureLlmDiscovery').checked;
                         config.FeatureLlmCuration = document.querySelector('#FeatureLlmCuration').checked;

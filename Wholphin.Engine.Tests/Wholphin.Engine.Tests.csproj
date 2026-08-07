@@ -16,6 +16,12 @@
     <!-- The engine references the ASP.NET shared framework; the test project must resolve it too
          to compile against engine types. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- The engine excludes these packages' runtime assets so the shipped plugin never carries a
+         duplicate of an assembly Jellyfin already has loaded. Tests have the opposite need: there is
+         no host here, so they must resolve the real assemblies themselves. Keep the versions in
+         lockstep with Wholphin.Engine.csproj. -->
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">

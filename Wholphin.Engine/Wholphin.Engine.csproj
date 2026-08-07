@@ -10,9 +10,13 @@
     <!-- Jellyfin reports Plugin.Version from the ASSEMBLY version — keep in lockstep with
          meta.json/build.yaml/manifest.json on every release (1.0.1-1.0.3 forgot this, so the
          dashboard kept showing 1.0.0.0 even after successful catalog updates). -->
-    <AssemblyVersion>1.0.14.0</AssemblyVersion>
-    <FileVersion>1.0.14.0</FileVersion>
+    <AssemblyVersion>1.0.14.1</AssemblyVersion>
+    <FileVersion>1.0.14.1</FileVersion>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- A plugin ships as a folder of DLLs with no restore step, so anything not copied to the
+         output simply isn't there at runtime. Needed since MonoTorrent arrived. Host-provided
+         packages opt out of runtime assets below so we never ship a second copy of Jellyfin's. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,9 +24,14 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <!-- Jellyfin plugin SDK. Pinned to 10.11.0 for broad 10.11.x compatibility;
          bump to match your exact server version if needed. -->
-    <PackageReference Include="Jellyfin.Controller" Version="10.11.0" />
+    <!-- ExcludeAssets=runtime: the server already has these loaded. Compile against them, but never
+         copy them into the plugin folder — a duplicate would be loaded alongside Jellyfin's own. -->
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.0" ExcludeAssets="runtime" />
     <!-- Match Jellyfin 10.11's EF Core version so the plugin reuses the server's loaded assemblies. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" ExcludeAssets="runtime" />
+    <!-- Torrent streaming. Genuinely new to the process, so this one DOES ship (with its
+         ReusableTasks + Mono.Nat dependencies) — see build.yaml's artifact list. -->
+    <PackageReference Include="MonoTorrent" Version="3.0.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -47,8 +56,7 @@
     <Exec Command="npm --version" WorkingDirectory="Observatory" ContinueOnError="true" StandardOutputImportance="low" StandardErrorImportance="low">
       <Output TaskParameter="ExitCode" PropertyName="NpmExitCode" />
     </Exec>
-    <Message Condition="'$(NpmExitCode)' != '0'" Importance="normal"
-             Text="Orca Observatory: npm not found — using the committed Configuration/observatory.html." />
+    <Message Condition="'$(NpmExitCode)' != '0'" Importance="normal" Text="Orca Observatory: npm not found — using the committed Configuration/observatory.html." />
     <Exec Condition="'$(NpmExitCode)' == '0'" Command="npm ci --no-audit --no-fund" WorkingDirectory="Observatory" StandardOutputImportance="low" />
     <Exec Condition="'$(NpmExitCode)' == '0'" Command="npm run build" WorkingDirectory="Observatory" StandardOutputImportance="low" />
   </Target>

@@ -115,6 +115,7 @@ public class SettingsService : ISettingsService
         f.TasteDiscovery = config.FeatureTasteDiscovery;
         f.LlmDiscovery = config.FeatureLlmDiscovery;
         f.LlmCuration = config.FeatureLlmCuration;
+        f.SourceStreaming = config.FeatureSourceStreaming;
 
         if (IsCountry(config.WatchProviderRegion))
         {

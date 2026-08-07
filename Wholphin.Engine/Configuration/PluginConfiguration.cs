@@ -217,6 +217,57 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the Radarr API key (sent as the X-Api-Key header).</summary>
     public string RadarrApiKey { get; set; } = string.Empty;
 
+    // --- Torrent source streaming (opt-in; off by default) ---------------------------------
+
+    /// <summary>
+    /// Gets or sets a value indicating whether torrent source streaming is active. Off by default:
+    /// peer traffic originates from this server's IP, so enabling it is an operator decision and
+    /// deliberately not a silent upgrade. With this off the endpoints 404 and the app hides the
+    /// feature entirely.
+    /// </summary>
+    public bool FeatureSourceStreaming { get; set; }
+
+    /// <summary>
+    /// Gets or sets the directory holding in-flight torrent pieces. Empty uses an "orca-streams"
+    /// folder under the plugin's data path. Needs room for whole media files while streaming.
+    /// </summary>
+    public string StreamCachePath { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the cap in GB for the piece cache; the oldest finished session is evicted first.</summary>
+    public int StreamCacheMaxGb { get; set; } = 20;
+
+    /// <summary>
+    /// Gets or sets how many torrent sessions may run at once. Each costs disk, bandwidth and peer
+    /// connections, and MonoTorrent runs in-process — this bound is what keeps a bad source from
+    /// taking the media server down with it.
+    /// </summary>
+    public int MaxConcurrentStreamSessions { get; set; } = 3;
+
+    /// <summary>Gets or sets how long a session with no reads survives before it is torn down.</summary>
+    public int StreamSessionIdleMinutes { get; set; } = 20;
+
+    /// <summary>
+    /// Gets or sets how long opening a stream may take before it is abandoned, in seconds.
+    ///
+    /// This is the bound on fetching torrent metadata and pre-buffering the first and last piece. A
+    /// source whose swarm is dead or unreachable would otherwise block forever, and the viewer would
+    /// sit on a spinner instead of being told to pick something else.
+    /// </summary>
+    public int StreamOpenTimeoutSeconds { get; set; } = 60;
+
+    /// <summary>Gets or sets the Prowlarr base URL (e.g., http://localhost:9696). Empty disables source discovery.</summary>
+    public string ProwlarrUrl { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the Prowlarr API key (sent as the X-Api-Key header).</summary>
+    public string ProwlarrApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets how long a source search is cached, in hours. Shared across users: the answer to
+    /// "what can I stream for this title" barely changes minute to minute, and re-asking every
+    /// indexer per viewer is the fastest way to get rate-limited.
+    /// </summary>
+    public int SourceSearchCacheHours { get; set; } = 6;
+
     // --- Stage-3 LLM re-ranker (Groq; opt-in, additive) -----------------------------------
 
     /// <summary>

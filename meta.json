@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Trailers can now come from more than one place. Until now TMDB was the only source, and a title TMDB had no video for simply had no trailer. There are now four sources, tried in an order you control from the Observatory's new Trailers settings group: tmdb (TMDB's videos, language-aware, as before), jellyfin (the trailer URLs Jellyfin's own metadata providers already found for a library item - free, no API key, and already on disk), stored (the URL saved on the catalog row), and search (ask yt-dlp to search YouTube by title and year). Removing a source from the list disables it; reordering changes preference. Search is off by default on purpose, because a text search can return a fan edit or a review and a confidently wrong trailer is worse than none. Three new controls decide which videos are acceptable at all: whether a teaser may stand in when no full trailer exists, whether only videos TMDB marks official are eligible, and whether non-YouTube videos such as Vimeo may be used - each narrows the field without changing the preference order, which still puts a trailer in your language above an official badge. The Trailer Resolver page gains a breakdown of which source actually answered and which were asked and came back empty, so a missing trailer now shows where the search stopped. Note this covers trailer URLs specifically; artwork and overviews still come from TMDB and Jellyfin alone.",
+  "changelog": "Adds optional torrent source streaming. When a title is not in your library, the app can now find streamable sources and start playing one immediately, streaming it while it downloads rather than waiting for a download to finish. Nothing is imported into your library. Sources are found through Prowlarr, ranked server-side for the best chance of playing smoothly rather than the largest file, and served to the player over ordinary HTTP with range requests so seeking works. Audio and subtitle tracks are read from the file with ffprobe so track selection behaves the same as it does for library media. Off by default: enable it under Source streaming in the plugin settings and set a Prowlarr URL and API key. Note that peer traffic originates from this server's IP address.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,10 +8,23 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.0.14.0",
+  "version": "1.0.14.1",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
-    "Wholphin.Engine.dll"
+    "Wholphin.Engine.dll",
+    "MonoTorrent.dll",
+    "MonoTorrent.BEncoding.dll",
+    "MonoTorrent.Client.dll",
+    "MonoTorrent.Connections.dll",
+    "MonoTorrent.Dht.dll",
+    "MonoTorrent.Factories.dll",
+    "MonoTorrent.Messages.dll",
+    "MonoTorrent.PiecePicking.dll",
+    "MonoTorrent.PieceWriter.dll",
+    "MonoTorrent.PortForwarding.dll",
+    "MonoTorrent.Trackers.dll",
+    "Mono.Nat.dll",
+    "ReusableTasks.dll"
   ]
 }
