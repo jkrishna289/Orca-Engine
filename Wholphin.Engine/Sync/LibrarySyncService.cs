@@ -74,6 +74,11 @@ public class LibrarySyncService : ILibrarySyncService
             if (mapped.JellyfinItemId is { } jid && existing.TryGetValue(jid, out var current))
             {
                 mapped.Id = current.Id;
+
+                // SetValues copies every scalar, nulls included, and Map only knows the fields
+                // Jellyfin supplies — so without this a sync erases every enrichment and, worse,
+                // clears the stamps that stop enrichers re-fetching what they already paid for.
+                CatalogMapper.PreserveEnrichment(mapped, current);
                 db.Entry(current).CurrentValues.SetValues(mapped);
             }
             else

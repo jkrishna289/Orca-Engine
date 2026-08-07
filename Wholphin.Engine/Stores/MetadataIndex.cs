@@ -55,6 +55,11 @@ public class MetadataIndex : IMetadataIndex
         else
         {
             item.Id = existing.Id;
+
+            // The TmdbId fallback above is deliberate — it is how a requestable row becomes a
+            // library row once the media actually arrives. What it must NOT do is discard the
+            // enrichment that row accumulated while it was still requestable.
+            Sync.CatalogMapper.PreserveEnrichment(item, existing);
             db.Entry(existing).CurrentValues.SetValues(item);
         }
 
