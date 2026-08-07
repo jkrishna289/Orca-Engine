@@ -23,6 +23,15 @@ public class ImagesController : ControllerBase
         _logos = logos;
     }
 
+    /// <summary>How long a client may keep a cached image without revalidating.</summary>
+    /// <remarks>
+    /// The content at a given key never changes — a provider logo is replaced by a new key, not
+    /// edited in place — so this is safe to set aggressively. Without it, <c>PhysicalFileResult</c>
+    /// still emits an ETag and answers 304, but every card on every render pays a round trip to be
+    /// told nothing changed.
+    /// </remarks>
+    private const string ImmutableFor30Days = "public, max-age=2592000, immutable";
+
     /// <summary>Serves a cached watch-provider logo by TMDB provider id (404 when not yet cached).</summary>
     /// <param name="providerId">The TMDB provider id.</param>
     /// <returns>The logo image, or 404.</returns>
@@ -31,6 +40,12 @@ public class ImagesController : ControllerBase
     public IActionResult GetProviderLogo(int providerId)
     {
         var (path, contentType) = _logos.Resolve(providerId);
-        return path is null ? NotFound() : PhysicalFile(path, contentType);
+        if (path is null)
+        {
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = ImmutableFor30Days;
+        return PhysicalFile(path, contentType);
     }
 }

@@ -53,6 +53,59 @@ public static class CatalogMapper
     }
 
     /// <summary>
+    /// Carries every column <see cref="Map"/> does not own across from the row already in the
+    /// database, so an upsert refreshes what Jellyfin knows without erasing what the engine learned.
+    /// </summary>
+    /// <param name="mapped">The freshly-mapped row, about to overwrite <paramref name="existing"/>.</param>
+    /// <param name="existing">The row currently stored.</param>
+    /// <remarks>
+    /// <para>
+    /// Both upsert paths (<c>Sync/LibrarySyncService</c> and <c>Stores/MetadataIndex</c>) apply a
+    /// mapped row with <c>CurrentValues.SetValues</c>, which copies EVERY scalar property — nulls
+    /// included. <see cref="Map"/> only knows the 21 fields Jellyfin supplies, so without this the
+    /// other 14 were written back as NULL on every single sync.
+    /// </para>
+    /// <para>
+    /// That was not merely lost data. <see cref="CatalogItem.ProvidersSyncedAt"/> and
+    /// <see cref="CatalogItem.ContentWarningsSyncedAt"/> are the "already done" stamps their
+    /// enrichers filter on, so clearing them re-queued every row on every sync — re-spending TMDB
+    /// quota, and re-spending PAID LLM calls, on titles that were already enriched.
+    /// </para>
+    /// <para>
+    /// Anything added to <see cref="CatalogItem"/> that is populated by something other than the
+    /// Jellyfin projection belongs in this method. That is the whole maintenance burden, and it is
+    /// why this lives next to <see cref="Map"/> rather than at the call sites.
+    /// </para>
+    /// </remarks>
+    public static void PreserveEnrichment(CatalogItem mapped, CatalogItem existing)
+    {
+        // Enrichment provenance and scheduling stamps.
+        mapped.ProviderBrandId = existing.ProviderBrandId;
+        mapped.ProviderBrandName = existing.ProviderBrandName;
+        mapped.ProvidersSyncedAt = existing.ProvidersSyncedAt;
+        mapped.ContentWarningsJson = existing.ContentWarningsJson;
+        mapped.ContentWarningsSyncedAt = existing.ContentWarningsSyncedAt;
+
+        // TMDB enrichment, which only ever runs for rows Jellyfin does not own — but a requestable
+        // row becomes a library row the moment the media arrives, and its art should survive that.
+        mapped.OriginalLanguage = existing.OriginalLanguage;
+        mapped.CollectionName = existing.CollectionName;
+        mapped.PosterImageUrl = existing.PosterImageUrl;
+        mapped.BackdropImageUrl = existing.BackdropImageUrl;
+        mapped.TrailerUrl = existing.TrailerUrl;
+
+        // Locally computed, from behavior signals rather than any provider.
+        mapped.WholphinRating = existing.WholphinRating;
+        mapped.WholphinVotes = existing.WholphinVotes;
+
+        mapped.FeatureVectorJson = existing.FeatureVectorJson;
+
+        // DateAdded comes from Jellyfin for library items, but a requestable row set it when the
+        // pick was imported; don't lose that ordering signal to a null.
+        mapped.DateAdded ??= existing.DateAdded;
+    }
+
+    /// <summary>
     /// Serializes the relevant cast/crew as role-prefixed names ("Actor:Tom Cruise",
     /// "Director:Christopher Nolan"), capping actors so a big cast doesn't dominate. The role prefix
     /// lets the Person affinity dimension distinguish actors/directors/writers with one key space.
