@@ -60,6 +60,9 @@ public class FeatureFlags
     /// <summary>Gets or sets a value indicating whether the LLM curates every personalized surface (For You/Spotlight, moods, similar, Coming Soon); list rows stay algorithmic.</summary>
     public bool LlmCuration { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether torrent source streaming is offered. Off unless the operator enables it.</summary>
+    public bool SourceStreaming { get; set; }
+
     /// <summary>Returns a shallow copy so a resolved layer can be mutated without affecting defaults.</summary>
     /// <returns>A clone of these flags.</returns>
     public FeatureFlags Clone() => (FeatureFlags)MemberwiseClone();

@@ -12,6 +12,7 @@ using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Diagnostics;
+using Wholphin.Engine.Http;
 using Wholphin.Engine.Integrations.Tmdb;
 
 namespace Wholphin.Engine.Trailer;
@@ -387,44 +388,8 @@ public class TrailerService : ITrailerService
     }
 
     /// <summary>Runs a process and returns its stdout (or null on failure/timeout/missing binary).</summary>
-    private async Task<string?> RunCaptureAsync(string fileName, string args, int timeoutMs, CancellationToken ct)
-    {
-        try
-        {
-            using var p = new Process
-            {
-                StartInfo = new ProcessStartInfo(fileName, args)
-                {
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                },
-            };
-            p.Start();
-            var stdout = p.StandardOutput.ReadToEndAsync();
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(timeoutMs);
-            try
-            {
-                await p.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                TryKill(p);
-                return null;
-            }
-
-            return p.ExitCode == 0 ? await stdout.ConfigureAwait(false) : null;
-        }
-        catch (Exception ex)
-        {
-            // ffprobe not installed / spawn error — fail soft; the caller falls back to the default offset.
-            _logger.LogDebug(ex, "Orca Engine: capture process {File} failed.", fileName);
-            return null;
-        }
-    }
+    private Task<string?> RunCaptureAsync(string fileName, string args, int timeoutMs, CancellationToken ct) =>
+        ExternalProcess.CaptureAsync(fileName, args, timeoutMs, _logger, ct);
 
     /// <summary>Probes the transcoded file's duration via ffprobe (ms), or null when unavailable.</summary>
     private async Task<int?> ProbeDurationMsAsync(string filePath, CancellationToken ct)
@@ -458,20 +423,7 @@ public class TrailerService : ITrailerService
         return Math.Min(proportional, Math.Max(0, maxSkip));
     }
 
-    private static void TryKill(Process p)
-    {
-        try
-        {
-            if (!p.HasExited)
-            {
-                p.Kill(entireProcessTree: true);
-            }
-        }
-        catch
-        {
-            // best effort
-        }
-    }
+    private static void TryKill(Process p) => ExternalProcess.TryKill(p);
 
     private static void TryDelete(string path)
     {

@@ -209,5 +209,24 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // LAN app-update channel: mirrors the newest Orca X GitHub release + disk-caches its APKs,
         // so every TV client updates from the server instead of re-downloading from GitHub.
         serviceCollection.AddSingleton<Wholphin.Engine.Update.IAppUpdateService, Wholphin.Engine.Update.AppUpdateService>();
+
+        // Torrent source streaming: MonoTorrent sessions exposed over HTTP Range, so an unavailable
+        // title can be played immediately rather than downloaded first. Off unless the operator sets
+        // FeatureSourceStreaming; the service holds no resources until a session is actually opened.
+        // Fetching a .torrent needs redirects left UNFOLLOWED: indexers routinely 302 a download link
+        // to a magnet: URI, which HttpClient cannot follow (not an HTTP scheme) and which therefore
+        // throws instead of surfacing the Location header we actually want.
+        serviceCollection
+            .AddHttpClient(Streaming.TorrentStreamService.TorrentFetchClient)
+            .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.HttpClientHandler
+            {
+                AllowAutoRedirect = false,
+            });
+
+        serviceCollection.AddSingleton<Streaming.MediaProbe>();
+        serviceCollection.AddSingleton<Streaming.ITorrentStreamService, Streaming.TorrentStreamService>();
+        // Source discovery. Prowlarr finds candidates and nothing else — ranking is the engine's, and
+        // playback belongs to the stream service above.
+        serviceCollection.AddSingleton<Integrations.Prowlarr.IProwlarrClient, Integrations.Prowlarr.ProwlarrClient>();
     }
 }
