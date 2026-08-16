@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.1.0.0",
+        "changelog": "Torrent streaming becomes something you can see, configure and prove. A new Torrent Streaming page in the Observatory answers the three questions that previously needed server logs and root access: whether peers can reach your server, whether the swarm is healthy, and why a stream is slow. It shows live sessions with time-to-ready, time-to-first-frame, stalls and the throughput actually needed to sustain playback, alongside a plain-language diagnosis of each one. Peer discovery, privacy and connection settings are now configurable rather than fixed in code: DHT, peer exchange, local peer discovery and an encryption mode with the same three choices qBittorrent offers, plus the listen port, UPnP forwarding and the peer connection budget. Changes apply immediately without restarting Jellyfin. Reachability is reported honestly - the page will only call your server reachable when a peer has actually connected in, because a router accepting a port mapping does not mean traffic crosses it. Four fixes make streams start faster: peer discovery now starts with the server instead of when someone presses play, so DHT has time to find nodes beforehand; DHT shares the peer port, so a single firewall rule or port forward now covers both, where before it used a random port nothing could cover; re-opening a partly-cached torrent no longer re-verifies the whole file first; and a stream that has stopped no longer keeps downloading in the background, which previously continued at full speed for twenty minutes after playback ended.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.1.0.0-alpha/orca-engine_1.1.0.0.zip",
+        "checksum": "9da0a341f7f8e510e7b19cd2793eade6",
+        "timestamp": "2026-08-16T13:55:00Z"
+      },
+      {
         "version": "1.0.14.1",
         "changelog": "Adds optional torrent source streaming. When a title is not in your library, the app can now find streamable sources and start playing one immediately, streaming it while it downloads rather than waiting for a download to finish. Nothing is imported into your library. Sources are found through Prowlarr, ranked server-side for the best chance of playing smoothly rather than the largest file, and served to the player over ordinary HTTP with range requests so seeking works. Audio and subtitle tracks are read from the file with ffprobe so track selection behaves the same as it does for library media. Off by default: enable it under Source streaming in the plugin settings and set a Prowlarr URL and API key. Note that peer traffic originates from this server's IP address.",
         "targetAbi": "10.11.0.0",
