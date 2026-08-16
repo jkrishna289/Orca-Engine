@@ -63,6 +63,16 @@ public class FeatureFlags
     /// <summary>Gets or sets a value indicating whether torrent source streaming is offered. Off unless the operator enables it.</summary>
     public bool SourceStreaming { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether a streamed title can be kept permanently.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="SourceStreaming"/> because it needs one more thing the operator may
+    /// not have set: a folder inside a Jellyfin library to copy into. Without it the app must not
+    /// offer to keep anything, since the offer would be a dead end.
+    /// </remarks>
+    public bool KeepStream { get; set; }
+
     /// <summary>Returns a shallow copy so a resolved layer can be mutated without affecting defaults.</summary>
     /// <returns>A clone of these flags.</returns>
     public FeatureFlags Clone() => (FeatureFlags)MemberwiseClone();

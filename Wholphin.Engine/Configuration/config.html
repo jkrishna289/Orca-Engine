@@ -235,6 +235,12 @@
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="StreamCacheMaxGb">Stream cache limit (GB)</label>
                     <input is="emby-input" type="number" id="StreamCacheMaxGb" min="1" />
+                    <div class="fieldDescription">Downloaded pieces are kept after a stream ends, so resuming a title is instant. This is the ceiling; least-recently-used files are dropped first.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="StreamLibraryPath">Keep folder</label>
+                    <input is="emby-input" type="text" id="StreamLibraryPath" />
+                    <div class="fieldDescription">Where "Keep in library" copies a finished film. Must be inside one of your Jellyfin libraries, or the scan will not find it. Leave empty to disable keeping.</div>
                 </div>
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="MaxConcurrentStreamSessions">Maximum concurrent streams</label>
@@ -459,6 +465,7 @@
                         document.querySelector('#FeatureSourceStreaming').checked = config.FeatureSourceStreaming;
                         document.querySelector('#StreamCachePath').value = config.StreamCachePath || '';
                         document.querySelector('#StreamCacheMaxGb').value = config.StreamCacheMaxGb || 20;
+                        document.querySelector('#StreamLibraryPath').value = config.StreamLibraryPath || '';
                         document.querySelector('#MaxConcurrentStreamSessions').value = config.MaxConcurrentStreamSessions || 3;
                         document.querySelector('#StreamSessionIdleMinutes').value = config.StreamSessionIdleMinutes || 20;
                         document.querySelector('#ProwlarrUrl').value = config.ProwlarrUrl || '';
@@ -534,6 +541,7 @@
                         config.FeatureSourceStreaming = document.querySelector('#FeatureSourceStreaming').checked;
                         config.StreamCachePath = document.querySelector('#StreamCachePath').value;
                         config.StreamCacheMaxGb = parseInt(document.querySelector('#StreamCacheMaxGb').value, 10) || 20;
+                        config.StreamLibraryPath = document.querySelector('#StreamLibraryPath').value;
                         config.MaxConcurrentStreamSessions = parseInt(document.querySelector('#MaxConcurrentStreamSessions').value, 10) || 3;
                         config.StreamSessionIdleMinutes = parseInt(document.querySelector('#StreamSessionIdleMinutes').value, 10) || 20;
                         config.ProwlarrUrl = document.querySelector('#ProwlarrUrl').value;

@@ -237,23 +237,43 @@ public class PluginConfiguration : BasePluginConfiguration
     public int StreamCacheMaxGb { get; set; } = 20;
 
     /// <summary>
+    /// Gets or sets the folder a kept title is copied into, which must be inside a Jellyfin library
+    /// for the scan to find it.
+    /// </summary>
+    /// <remarks>
+    /// Empty disables keeping, and that is the only safe default. Picking a folder on the operator's
+    /// behalf would either land films somewhere Jellyfin never scans — reporting success and producing
+    /// nothing — or start writing into a library the operator never agreed to have written to.
+    /// </remarks>
+    public string StreamLibraryPath { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets how many torrent sessions may run at once. Each costs disk, bandwidth and peer
     /// connections, and MonoTorrent runs in-process — this bound is what keeps a bad source from
     /// taking the media server down with it.
     /// </summary>
-    public int MaxConcurrentStreamSessions { get; set; } = 3;
+    /// <remarks>
+    /// Raised from 3 once failed sessions stopped squatting their slots: a viewer who tries three
+    /// dead sources in a row used to fill the cap, after which every further attempt was refused
+    /// instantly — indistinguishable, from the client, from every remaining source also being dead.
+    /// </remarks>
+    public int MaxConcurrentStreamSessions { get; set; } = 8;
 
     /// <summary>Gets or sets how long a session with no reads survives before it is torn down.</summary>
     public int StreamSessionIdleMinutes { get; set; } = 20;
 
     /// <summary>
-    /// Gets or sets how long opening a stream may take before it is abandoned, in seconds.
-    ///
-    /// This is the bound on fetching torrent metadata and pre-buffering the first and last piece. A
-    /// source whose swarm is dead or unreachable would otherwise block forever, and the viewer would
-    /// sit on a spinner instead of being told to pick something else.
+    /// Gets or sets how long opening a stream may take before it is abandoned, in seconds. Zero — the
+    /// default — means no limit.
     /// </summary>
-    public int StreamOpenTimeoutSeconds { get; set; } = 60;
+    /// <remarks>
+    /// Session creation no longer blocks on the swarm at all: it returns a Preparing session
+    /// immediately and reports live health while peers are found, so there is nothing for a deadline
+    /// to protect. The old 60s bound routinely killed healthy, popular torrents that simply had not
+    /// found their first peer yet, and reported them to the viewer as dead. Left configurable only
+    /// for operators who genuinely want an upper bound; the code treats any value below 1 as none.
+    /// </remarks>
+    public int StreamOpenTimeoutSeconds { get; set; }
 
     /// <summary>Gets or sets the Prowlarr base URL (e.g., http://localhost:9696). Empty disables source discovery.</summary>
     public string ProwlarrUrl { get; set; } = string.Empty;
@@ -267,6 +287,121 @@ public class PluginConfiguration : BasePluginConfiguration
     /// indexer per viewer is the fastest way to get rate-limited.
     /// </summary>
     public int SourceSearchCacheHours { get; set; } = 6;
+
+    // --- Peer discovery -------------------------------------------------------------------
+    //
+    // The four switches qBittorrent groups under "Privacy", mapped onto what MonoTorrent 3.0.2
+    // actually exposes. Every default reproduces the behaviour that was hardcoded before these
+    // existed, so an install that never opens the page behaves identically.
+    //
+    // qBittorrent's "anonymous mode" is deliberately absent: it suppresses the client fingerprint in
+    // the peer id and the IP in tracker announces, and MonoTorrent offers no control over either.
+    // A switch by that name would tell a viewer they are anonymous when they are not.
+
+    /// <summary>
+    /// Gets or sets a value indicating whether DHT is used to find peers.
+    /// </summary>
+    /// <remarks>
+    /// Honest caveat: MonoTorrent 3.0.2's DHT has never bootstrapped on the measured hosts — it sends
+    /// its queries and receives nothing back, logged as <c>dht=NotReady</c> for a session's whole
+    /// life. The switch is real and wired; the peers it should produce are not yet. The Observatory
+    /// tab reports the live DHT state rather than implying this setting delivers on its own.
+    /// </remarks>
+    public bool StreamEnableDht { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether Peer Exchange may introduce peers found by other peers.</summary>
+    public bool StreamEnablePeerExchange { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether Local Peer Discovery multicasts on the LAN.
+    /// </summary>
+    /// <remarks>
+    /// Costs nothing outbound and finds peers on the same network for free, but it does announce to
+    /// the LAN what this server is downloading — the one switch here with a real privacy cost inside
+    /// the household rather than outside it.
+    /// </remarks>
+    public bool StreamEnableLocalPeerDiscovery { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets peer-connection encryption: <c>allow</c>, <c>require</c> or <c>disable</c>.
+    /// </summary>
+    /// <remarks>
+    /// The same three choices qBittorrent offers. <c>allow</c> prefers encrypted connections but
+    /// accepts plaintext, which is the widest-reaching setting and the default. <c>require</c> refuses
+    /// unencrypted peers, which is more private and strictly shrinks the usable swarm. Anything
+    /// unrecognised is treated as <c>allow</c> rather than failing a stream over a typo.
+    /// </remarks>
+    public string StreamEncryptionMode { get; set; } = "allow";
+
+    // --- Connectivity ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Gets or sets the TCP port peers connect in on. Zero picks a random one each start.
+    /// </summary>
+    /// <remarks>
+    /// Zero was the effective behaviour before this setting existed, and it quietly defeated the one
+    /// lever that adds peers for free. Measured 2026-08-16: the engine listened on 46497, a different
+    /// port every restart, so the UPnP mapping moved with it and a static router forward could not be
+    /// configured at all. Behind NAT with no reachable port a client only ever talks to peers that
+    /// accept inbound — the rest can see us and never reach us — which showed up as connections
+    /// pinned at the half-open cap while the trackers reported dozens of idle seeds.
+    ///
+    /// Pinning a port is what makes inbound reachability provable. An inbound peer costs no outbound
+    /// connection attempt, so it adds swarm capacity without touching the NAT budget below.
+    /// </remarks>
+    public int StreamListenPort { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the router is asked to open that port over UPnP/NAT-PMP.</summary>
+    public bool StreamAllowPortForwarding { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the externally reachable address to advertise, when it differs from the one peers
+    /// connect in on. Empty — the normal case — advertises whatever the listener sees.
+    /// </summary>
+    /// <remarks>
+    /// Only needed when a port was forwarded manually to a different external port, or the server sits
+    /// behind an address it cannot observe. Both this and <see cref="StreamReportedPort"/> must be set
+    /// for either to take effect; half a pair would advertise an endpoint no peer can reach.
+    /// </remarks>
+    public string StreamReportedAddress { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the external port to advertise alongside <see cref="StreamReportedAddress"/>.</summary>
+    public int StreamReportedPort { get; set; }
+
+    // --- Peer budget ----------------------------------------------------------------------
+    //
+    // Editable, but the defaults do not move. See the comment on these constants' former home in
+    // TorrentStreamService for why the half-open number in particular is not a speed knob.
+
+    /// <summary>Gets or sets the ceiling on simultaneous peer connections across all sessions.</summary>
+    public int StreamMaxConnections { get; set; } = 80;
+
+    /// <summary>
+    /// Gets or sets how many connection attempts may be in flight at once.
+    /// </summary>
+    /// <remarks>
+    /// This is a budget against the household router's NAT table, not a download-speed setting. Raising
+    /// it above 8 has twice coincided with the entire LAN losing connectivity — the August incident at
+    /// 20 half-open with a 5s timeout, and again on 2026-08-13 at 20 with a 10s timeout, which reset an
+    /// SSH session to the server mid-test. Prove inbound reachability with a forwarded port first; that
+    /// adds peers without adding a single outbound attempt.
+    /// </remarks>
+    public int StreamMaxHalfOpenConnections { get; set; } = 8;
+
+    /// <summary>Gets or sets how long an unanswered peer connection attempt is held before giving up.</summary>
+    public int StreamConnectionTimeoutSeconds { get; set; } = 10;
+
+    /// <summary>Gets or sets a download ceiling in KiB/s across all sessions. Zero is unlimited.</summary>
+    public int StreamMaxDownloadRateKbps { get; set; }
+
+    /// <summary>
+    /// Gets or sets an upload ceiling in KiB/s across all sessions. Zero is unlimited.
+    /// </summary>
+    /// <remarks>
+    /// Worth leaving unlimited: many peers reciprocate on upload rate, so throttling it tends to cost
+    /// download speed on the very swarms that are already slow.
+    /// </remarks>
+    public int StreamMaxUploadRateKbps { get; set; }
 
     // --- Stage-3 LLM re-ranker (Groq; opt-in, additive) -----------------------------------
 

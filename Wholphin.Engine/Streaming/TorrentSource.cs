@@ -54,13 +54,39 @@ public class TorrentSource
     public long SizeBytes { get; set; }
 
     /// <summary>Gets or sets the seeder count — the dominant predictor of whether streaming works.</summary>
+    /// <remarks>
+    /// Measured from the trackers when <see cref="SwarmVerified"/> is true, otherwise whatever the
+    /// indexer claimed — which is routinely fiction (186 claimed against a real swarm of 1).
+    /// </remarks>
     public int Seeders { get; set; }
 
     /// <summary>Gets or sets the leecher count.</summary>
     public int Leechers { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the counts above were measured rather than claimed.
+    /// </summary>
+    /// <remarks>
+    /// False means no tracker answered for this infohash, or it is an HTTP .torrent link whose
+    /// infohash would have cost a fetch to learn. Those keep the indexer's number, so the flag is what
+    /// separates "3 seeders, confirmed" from "3 seeders, allegedly".
+    /// </remarks>
+    public bool SwarmVerified { get; set; }
+
     /// <summary>Gets or sets the indexer that supplied this result.</summary>
     public string? Indexer { get; set; }
+
+    /// <summary>
+    /// Gets or sets the infohash as the indexer reported it, when it did.
+    /// </summary>
+    /// <remarks>
+    /// Server-only. The point of this is swarm verification: a result whose only link is an HTTP
+    /// proxy has no infohash to scrape without fetching the .torrent first, and those are precisely
+    /// the results whose claimed seeder counts proved least reliable. Not sent to clients — it is not
+    /// secret, they simply have no use for it.
+    /// </remarks>
+    [JsonIgnore]
+    public string? InfoHash { get; set; }
 
     /// <summary>Gets or sets vertical resolution in pixels (1080, 2160, ...); 0 when unknown.</summary>
     public int ResolutionHeight { get; set; }

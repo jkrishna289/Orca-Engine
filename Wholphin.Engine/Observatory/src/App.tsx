@@ -4,12 +4,13 @@ import { Problem, Boundary } from './ui';
 import { Overview, EngineHealth, Performance, Cache, toSnapshot, type Snapshot } from './pages-core';
 import { Metadata, TrailerResolver, Recommendations, LiveLogs, Timeline, Users } from './pages-detail';
 import { Settings } from './pages-settings';
+import { TorrentStreaming } from './pages-streaming';
 import Login from './Login';
 import { currentSession, signOut, SESSION_EXPIRED_EVENT, type Session } from './session';
 
 const PAGES = [
   'Overview', 'Engine Health', 'Performance', 'Metadata', 'Trailer Resolver',
-  'Recommendation Engine', 'Cache', 'Live Logs', 'Timeline', 'Users', 'Settings',
+  'Recommendation Engine', 'Torrent Streaming', 'Cache', 'Live Logs', 'Timeline', 'Users', 'Settings',
 ] as const;
 
 type Page = typeof PAGES[number];
@@ -88,6 +89,7 @@ function Dashboard({ session, onSignOut }: { session: Session; onSignOut: () => 
           {page === 'Metadata' && <Metadata snap={snap} />}
           {page === 'Trailer Resolver' && <TrailerResolver />}
           {page === 'Recommendation Engine' && <Recommendations />}
+          {page === 'Torrent Streaming' && <TorrentStreaming snap={snap} />}
           {page === 'Cache' && <Cache snap={snap} samples={samples} />}
           {page === 'Live Logs' && <LiveLogs />}
           {page === 'Timeline' && <Timeline />}

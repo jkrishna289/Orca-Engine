@@ -122,6 +122,67 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    title: 'Torrent streaming',
+    blurb: 'Off by default: peer traffic comes from this server\'s IP, so switching it on is an operator decision. The Torrent Streaming tab shows what these settings are actually doing.',
+    fields: [
+      { key: 'FeatureSourceStreaming', label: 'Source streaming', kind: 'bool', help: 'Master switch. Off means the endpoints 404 and the app hides the feature entirely.' },
+      { key: 'ProwlarrUrl', label: 'Prowlarr URL', kind: 'text', placeholder: 'http://localhost:9696', help: 'Where sources are searched. Empty disables discovery. Only public indexers are ever used — private-tracker results are dropped, because streaming reads scattered pieces and stops when the viewer does, which gets accounts banned.' },
+      { key: 'ProwlarrApiKey', label: 'Prowlarr API key', kind: 'secret' },
+      { key: 'SourceSearchCacheHours', label: 'Search cache (hours)', kind: 'int', min: 1, max: 168, help: 'Shared across users. Empty results are cached for only 3 minutes regardless.' },
+      { key: 'StreamCachePath', label: 'Piece cache folder', kind: 'text', placeholder: 'empty uses orca-streams under the plugin data path', help: 'Needs room for whole media files while streaming.' },
+      { key: 'StreamCacheMaxGb', label: 'Piece cache cap (GB)', kind: 'int', min: 1, max: 2000 },
+      { key: 'StreamLibraryPath', label: 'Keep folder', kind: 'text', placeholder: 'empty disables keeping', help: 'Must be inside a Jellyfin library or the scan will never find what is copied there. Empty is the only safe default.' },
+      { key: 'MaxConcurrentStreamSessions', label: 'Concurrent sessions', kind: 'int', min: 1, max: 20 },
+      { key: 'StreamSessionIdleMinutes', label: 'Idle timeout (minutes)', kind: 'int', min: 1, max: 240, help: 'How long a session with no reads survives.' },
+      { key: 'StreamOpenTimeoutSeconds', label: 'Open timeout (seconds)', kind: 'int', min: 0, max: 600, help: '0 means none, which is the default: a popular torrent can take minutes to find its first peer, and a deadline used to report those as dead.' },
+    ],
+  },
+  {
+    title: 'Peer discovery and privacy',
+    blurb: 'How the engine finds peers, and what it reveals doing so. Defaults match the behaviour that was hardcoded before these were editable.',
+    fields: [
+      { key: 'StreamEnableDht', label: 'Enable DHT', kind: 'bool', help: 'Finds peers without a tracker. Honest caveat: MonoTorrent\'s DHT has never bootstrapped on this server — the Torrent Streaming tab reports its real state rather than assuming this switch delivers.' },
+      { key: 'StreamEnablePeerExchange', label: 'Enable peer exchange (PeX)', kind: 'bool', help: 'Lets connected peers introduce the peers they know. Costs no extra connection attempts.' },
+      { key: 'StreamEnableLocalPeerDiscovery', label: 'Enable local peer discovery', kind: 'bool', help: 'Finds peers on your own network for free — but announces to the LAN what this server is downloading.' },
+      {
+        key: 'StreamEncryptionMode', label: 'Encryption mode', kind: 'select',
+        options: [
+          { value: 'allow', label: 'Allow encryption (prefer, accept plaintext)' },
+          { value: 'require', label: 'Require encryption' },
+          { value: 'disable', label: 'Disable encryption' },
+        ],
+        help: 'Require is more private and strictly shrinks the usable swarm, since unencrypted peers are refused.',
+      },
+    ],
+  },
+  {
+    title: 'Connectivity and port forwarding',
+    blurb: 'Inbound peers are the one source of extra swarm capacity that costs no outbound connection attempt. Making this server reachable is the most effective change available here — and the Torrent Streaming tab will tell you whether it worked.',
+    fields: [
+      { key: 'StreamListenPort', label: 'Inbound port', kind: 'int', min: 0, max: 65535, help: 'The local port peers connect in on. 0 picks a random one every restart, which means any router forward is stale immediately. Set a fixed high port (51413 is conventional) and forward it, and peers can reach you instead of only the other way round.' },
+      { key: 'StreamAllowPortForwarding', label: 'Ask the router (UPnP/NAT-PMP)', kind: 'bool', help: 'Fails soft: if the router refuses, the engine carries on outbound-only. A created mapping means the router agreed — not that a peer got through, which only the reachability check can show.' },
+    ],
+  },
+  {
+    title: 'Advanced networking',
+    blurb: 'Leave both of these empty unless you know you need them. The inbound port above is the local endpoint peers connect to; these override the external endpoint advertised to trackers, and are only needed when the two genuinely differ — a manual forward to a different external port, or a host that cannot observe its own public address. Setting them wrongly advertises an endpoint nothing can reach. Both are required together, or neither applies.',
+    fields: [
+      { key: 'StreamReportedAddress', label: 'Advertised address', kind: 'text', placeholder: 'usually empty', help: 'External IP peers should use. Ignored unless the advertised port is also set.' },
+      { key: 'StreamReportedPort', label: 'Advertised port', kind: 'int', min: 0, max: 65535, help: 'External port peers should use. Ignored unless the advertised address is also set.' },
+    ],
+  },
+  {
+    title: 'Peer budget',
+    blurb: 'A budget against your router, not a speed control. Read the warning on the half-open field before changing anything here.',
+    fields: [
+      { key: 'StreamMaxConnections', label: 'Max connections', kind: 'int', min: 1, max: 500, help: 'Total simultaneous peer connections across all sessions.' },
+      { key: 'StreamMaxHalfOpenConnections', label: 'Max connection attempts in flight', kind: 'int', min: 1, max: 50, help: 'WARNING: raising this above 8 has twice taken the whole LAN offline — the August incident, and again on 2026-08-13, which reset an SSH session to the server mid-test. An unanswered connection attempt holds a slot in the router\'s NAT table for two minutes, so what loads the router is the rate of new attempts. Forward a port first: inbound peers add swarm capacity without a single outbound attempt.' },
+      { key: 'StreamConnectionTimeoutSeconds', label: 'Connection timeout (seconds)', kind: 'int', min: 1, max: 60, help: 'Lowering this raises the attempt rate for the same in-flight count, so it pushes on the router in the same way the field above does.' },
+      { key: 'StreamMaxDownloadRateKbps', label: 'Download cap (KiB/s)', kind: 'int', min: 0, max: 1000000, help: '0 is unlimited. A cap below the media bitrate guarantees stalls.' },
+      { key: 'StreamMaxUploadRateKbps', label: 'Upload cap (KiB/s)', kind: 'int', min: 0, max: 1000000, help: '0 is unlimited, and usually right — many peers reciprocate on upload rate, so throttling it tends to cost download speed on exactly the swarms that are already slow.' },
+    ],
+  },
+  {
     title: 'AI',
     blurb: 'Any OpenAI-compatible endpoint. Every AI feature fails soft — if the call fails, the engine\'s own ranking is used instead.',
     fields: [
