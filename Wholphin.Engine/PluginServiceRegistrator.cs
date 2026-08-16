@@ -224,7 +224,16 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
             });
 
         serviceCollection.AddSingleton<Streaming.MediaProbe>();
+        // Public tracker list, refreshed daily from ngosang/trackerslist. Singleton so the fetch and
+        // its 12h cache are shared rather than repeated per stream.
+        serviceCollection.AddSingleton<Streaming.TrackerList>();
+        // Measures real swarm health at search time, so ranking stops trusting indexer-claimed
+        // seeder counts (observed: 186 claimed against a real swarm of 1).
+        serviceCollection.AddSingleton<Streaming.SwarmScraper>();
         serviceCollection.AddSingleton<Streaming.ITorrentStreamService, Streaming.TorrentStreamService>();
+        // Brings the listener, port mapping, LSD and DHT up at server start rather than leaving the
+        // first viewer to press play and wait for all of it. DHT alone needs minutes to bootstrap.
+        serviceCollection.AddHostedService<Streaming.TorrentEngineWarmup>();
         // Source discovery. Prowlarr finds candidates and nothing else — ranking is the engine's, and
         // playback belongs to the stream service above.
         serviceCollection.AddSingleton<Integrations.Prowlarr.IProwlarrClient, Integrations.Prowlarr.ProwlarrClient>();

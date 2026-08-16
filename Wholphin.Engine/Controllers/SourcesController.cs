@@ -29,16 +29,23 @@ public class SourcesController : ControllerBase
 
     private readonly IProwlarrClient _prowlarr;
     private readonly ICache _cache;
+    private readonly Streaming.SwarmScraper _swarm;
     private readonly ILogger<SourcesController> _logger;
 
     /// <summary>Initializes a new instance of the <see cref="SourcesController"/> class.</summary>
     /// <param name="prowlarr">The indexer search client.</param>
     /// <param name="cache">The engine's shared in-memory cache.</param>
+    /// <param name="swarm">Measures real swarm health, replacing the indexer's claims.</param>
     /// <param name="logger">Logger.</param>
-    public SourcesController(IProwlarrClient prowlarr, ICache cache, ILogger<SourcesController> logger)
+    public SourcesController(
+        IProwlarrClient prowlarr,
+        ICache cache,
+        Streaming.SwarmScraper swarm,
+        ILogger<SourcesController> logger)
     {
         _prowlarr = prowlarr;
         _cache = cache;
+        _swarm = swarm;
         _logger = logger;
     }
 
@@ -49,6 +56,33 @@ public class SourcesController : ControllerBase
     /// <param name="id">The opaque source id handed to the client.</param>
     /// <returns>The cache key.</returns>
     internal static string SourceHandleKey(string id) => $"source-handle:{id}";
+
+    /// <summary>
+    /// What a source handle resolves to when the viewer picks it: a magnet when the indexer told us
+    /// the infohash, otherwise its download link.
+    /// </summary>
+    /// <param name="source">The ranked source.</param>
+    /// <returns>A magnet URI, or the original download URL.</returns>
+    /// <remarks>
+    /// Measured: a YTS source showed **14 verified seeders** in the picker and then failed to open
+    /// with 503 every time, because its Prowlarr download link could not be fetched into anything
+    /// usable. The infohash was right there in the search result the whole time — the swarm scrape
+    /// had already used it to measure that swarm. Building the magnet from it removes the HTTP round
+    /// trip that was failing, cannot 404, and takes the magnet path, which is where the healthy
+    /// tracker list gets injected.
+    ///
+    /// The display name is carried as <c>dn</c> only as a courtesy to logs; nothing depends on it.
+    /// </remarks>
+    private static string HandleFor(Streaming.TorrentSource source)
+    {
+        var hash = Streaming.SwarmScraper.Normalise(source.InfoHash);
+        if (hash is null)
+        {
+            return source.DownloadUrl;
+        }
+
+        return $"magnet:?xt=urn:btih:{hash}&dn={Uri.EscapeDataString(source.Title)}";
+    }
 
     /// <summary>
     /// Finds streamable sources for a title.
@@ -101,6 +135,14 @@ public class SourcesController : ControllerBase
         }
 
         var candidates = await _prowlarr.SearchAsync(query, movie, cancellationToken).ConfigureAwait(false);
+
+        // Measure the swarms before ranking, because the ranker both orders and *filters* on seeder
+        // count. Indexer-claimed counts are routinely fiction, so ranking on them promotes torrents
+        // that cannot play and prints an invented "N sharing" to the viewer. Verification is
+        // fail-safe: a source whose tracker did not answer keeps its claimed count rather than being
+        // zeroed out of existence.
+        await _swarm.VerifyAsync(candidates, cancellationToken).ConfigureAwait(false);
+
         var groups = SourceRanker.Rank(candidates, height);
 
         // Remember id -> download URL so a later session request can resolve it without the client
@@ -109,7 +151,7 @@ public class SourcesController : ControllerBase
         // search results would have expired.
         foreach (var s in groups.All)
         {
-            _cache.Set(SourceHandleKey(s.Id), s.DownloadUrl, TimeSpan.FromHours(24));
+            _cache.Set(SourceHandleKey(s.Id), HandleFor(s), TimeSpan.FromHours(24));
         }
 
         // An empty result gets a deliberately short TTL. "No sources" is far more often a failed

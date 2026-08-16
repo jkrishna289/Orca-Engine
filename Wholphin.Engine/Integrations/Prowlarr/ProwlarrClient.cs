@@ -107,11 +107,43 @@ public class ProwlarrClient : IProwlarrClient
                 return Array.Empty<TorrentSource>();
             }
 
+            // Private trackers are never offered for streaming. Streaming reads scattered pieces and
+            // stops when the viewer does — on a private tracker that is hit-and-run, which wrecks
+            // ratio and gets the operator's account banned.
+            //
+            // Fails CLOSED: if the indexer list can't be read we cannot prove an indexer is public, so
+            // nothing is offered. "No sources" is a recoverable annoyance; streaming someone's private
+            // tracker membership into a ban is not.
+            var publicIndexers = await PublicIndexerIdsAsync(baseUrl, apiKey, cancellationToken).ConfigureAwait(false);
+            if (publicIndexers is null)
+            {
+                _logger.LogWarning(
+                    "Orca Engine: could not read Prowlarr's indexer list — refusing all sources rather than "
+                    + "risk streaming from a private tracker.");
+                return Array.Empty<TorrentSource>();
+            }
+
+            var beforePrivacy = results.Count;
+            results = results.Where(r => r.IndexerId is int id && publicIndexers.Contains(id)).ToList();
+            var droppedPrivate = beforePrivacy - results.Count;
+
             var mapped = results
                 .Select(Map)
                 .Where(s => s is not null)
                 .Select(s => s!)
                 .ToList();
+
+            if (droppedPrivate > 0)
+            {
+                _metrics.Increment("prowlarr.search.dropped.private", droppedPrivate);
+                _logger.LogInformation(
+                    "Orca Engine: dropped {Dropped} result(s) from private/semi-private indexers.",
+                    droppedPrivate);
+            }
+
+            // Counted so the Observatory can show the privacy filter working rather than asserting it.
+            _metrics.Increment("prowlarr.search.ok");
+            _metrics.Increment("prowlarr.search.results", mapped.Count);
 
             // "usable" means it had a magnet OR a fetchable .torrent link — an earlier version of this
             // message said "with a magnet", which made the log look like every result was a magnet
@@ -130,6 +162,57 @@ public class ProwlarrClient : IProwlarrClient
             _metrics.Increment("prowlarr.search.error");
             _logger.LogWarning(ex, "Orca Engine: Prowlarr search failed for {Query}.", query);
             return Array.Empty<TorrentSource>();
+        }
+    }
+
+    /// <summary>
+    /// Ids of the indexers Prowlarr reports as public.
+    /// </summary>
+    /// <param name="baseUrl">Prowlarr base URL.</param>
+    /// <param name="apiKey">Prowlarr API key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The public indexer ids, or null when the list could not be read at all.</returns>
+    /// <remarks>
+    /// Null is deliberately distinct from empty: empty means "asked, and none are public", while null
+    /// means "could not ask", and only the caller can decide that the safe response to not knowing is
+    /// to offer nothing. Anything Prowlarr does not explicitly call "public" — including
+    /// <c>semiPrivate</c> — is treated as private.
+    /// </remarks>
+    private async Task<HashSet<int>?> PublicIndexerIdsAsync(
+        string baseUrl,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/api/v1/indexer");
+            request.Headers.Add(ApiKeyHeader, apiKey);
+
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var indexers = await response.Content
+                .ReadFromJsonAsync<List<ProwlarrIndexer>>(JsonOptions, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (indexers is null)
+            {
+                return null;
+            }
+
+            return indexers
+                .Where(i => string.Equals(i.Privacy, "public", StringComparison.OrdinalIgnoreCase))
+                .Select(i => i.Id)
+                .ToHashSet();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Orca Engine: reading Prowlarr's indexer list failed.");
+            return null;
         }
     }
 
@@ -165,6 +248,7 @@ public class ProwlarrClient : IProwlarrClient
             Seeders = r.Seeders ?? 0,
             Leechers = r.Leechers ?? 0,
             Indexer = r.Indexer,
+            InfoHash = r.InfoHash,
         };
     }
 
@@ -214,10 +298,34 @@ public class ProwlarrClient : IProwlarrClient
 
         public string? Indexer { get; set; }
 
+        /// <summary>Gets or sets which indexer produced this, used to look its privacy up.</summary>
+        public int? IndexerId { get; set; }
+
         public string? MagnetUrl { get; set; }
 
         public string? DownloadUrl { get; set; }
 
         public string? Guid { get; set; }
+
+        /// <summary>
+        /// Gets or sets the torrent's infohash, when the indexer reported one.
+        /// </summary>
+        /// <remarks>
+        /// Worth having even though it is often absent: without it, a result whose only link is an
+        /// HTTP proxy cannot have its swarm measured without fetching the .torrent, and those are
+        /// exactly the results whose seeder counts proved least trustworthy.
+        /// </remarks>
+        public string? InfoHash { get; set; }
+    }
+
+    /// <summary>One configured indexer, reduced to the privacy decision.</summary>
+    private sealed class ProwlarrIndexer
+    {
+        public int Id { get; set; }
+
+        public string? Name { get; set; }
+
+        /// <summary>Gets or sets Prowlarr's classification: <c>public</c>, <c>private</c> or <c>semiPrivate</c>.</summary>
+        public string? Privacy { get; set; }
     }
 }

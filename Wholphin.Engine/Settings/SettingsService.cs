@@ -117,6 +117,10 @@ public class SettingsService : ISettingsService
         f.LlmCuration = config.FeatureLlmCuration;
         f.SourceStreaming = config.FeatureSourceStreaming;
 
+        // Keeping needs somewhere to keep it. Reporting this on unless a folder is configured would
+        // make the app offer a permanent copy it cannot actually produce.
+        f.KeepStream = config.FeatureSourceStreaming && !string.IsNullOrWhiteSpace(config.StreamLibraryPath);
+
         if (IsCountry(config.WatchProviderRegion))
         {
             settings.CountryCode = config.WatchProviderRegion.Trim().ToUpperInvariant();
