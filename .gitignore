@@ -2,7 +2,7 @@
 bin/
 obj/
 out/
-
+graphify-out/
 # IDE
 .vs/
 .vscode/
