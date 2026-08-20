@@ -21,11 +21,33 @@ export interface Field {
   options?: { value: string; label: string }[];
 }
 
+/**
+ * Which dashboard page owns a group.
+ *
+ * Settings used to be one page of sixteen sections, which made finding the one field you wanted a
+ * scrolling exercise. A group now lives on the page whose subject it configures — you change the
+ * embedding batch size while looking at the embedding diagnostics — and the Settings page keeps only
+ * what belongs nowhere else plus the destructive operations.
+ */
+export type SettingsTab =
+  | 'general'
+  | 'recommendations'
+  | 'embeddings'
+  | 'metadata'
+  | 'trailers'
+  | 'streaming';
+
 export interface Group {
   title: string;
   blurb?: string;
+  /** Defaults to 'general', which is the Settings page itself. */
+  tab?: SettingsTab;
   fields: Field[];
 }
+
+/** The groups belonging to one page, in schema order. */
+export const groupsFor = (tab: SettingsTab): Group[] =>
+  GROUPS.filter((g) => (g.tab ?? 'general') === tab);
 
 /** The plugin's own id — the Jellyfin configuration API is keyed on it. */
 export const PLUGIN_ID = 'b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e';
@@ -45,6 +67,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Home rows',
+    tab: 'recommendations',
     blurb: 'Which rows the engine is allowed to emit. Turning one off removes it everywhere.',
     fields: [
       { key: 'FeaturePersonalization', label: 'Personalization', kind: 'bool', help: 'The For You row and personalized ordering. Off makes every home identical.' },
@@ -65,6 +88,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Discovery tuning',
+    tab: 'recommendations',
     blurb: 'How aggressively the engine looks beyond your library. Defaults are the designed behaviour.',
     fields: [
       { key: 'DiscoveryMinConfidence', label: 'Minimum profile confidence', kind: 'float', min: 0, max: 1, step: 0.05, help: 'Below this, a user gets no taste pull — too little history to be worth guessing from.' },
@@ -77,6 +101,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Ranking weights',
+    tab: 'recommendations',
     blurb: 'Advanced. These sum into the final score — changing one changes the balance of all of them.',
     fields: [
       { key: 'WeightRecPersonalization', label: 'For You · personalization', kind: 'float', min: 0, max: 1, step: 0.05 },
@@ -106,6 +131,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Trailers',
+    tab: 'trailers',
     blurb: 'Where trailer URLs come from, and which videos are acceptable. Sources are tried in the order listed until one answers.',
     fields: [
       {
@@ -122,6 +148,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Trailer search scoring',
+    tab: 'trailers',
     blurb: 'How the YouTube search source decides which result is really the trailer. Signals are added together and compared against the minimum; below it, the source returns nothing rather than a video it cannot vouch for.',
     fields: [
       { key: 'TrailerSearchMinScore', label: 'Minimum score', kind: 'int', min: 0, max: 200, help: 'Raise it to be stricter (fewer trailers, fewer wrong ones). Lower it to accept weaker matches.' },
@@ -139,6 +166,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Metadata providers',
+    tab: 'metadata',
     blurb: 'Extra sources beyond TMDB. Each one is dormant until its key is set, and is only ever asked for the fields a title is actually missing. The Metadata tab shows their live health.',
     fields: [
       { key: 'FeatureMetadataProviders', label: 'Multi-provider metadata', kind: 'bool', help: 'Master switch. Harmless when on with no keys set — the pass exits immediately.' },
@@ -159,6 +187,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Provider resilience',
+    tab: 'metadata',
     blurb: 'Shared limits for every metadata provider. They exist so one broken or throttled provider degrades quickly instead of costing every request its full timeout.',
     fields: [
       { key: 'MetadataProviderTimeoutSeconds', label: 'Timeout (seconds)', kind: 'int', min: 1, max: 120 },
@@ -170,6 +199,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Torrent streaming',
+    tab: 'streaming',
     blurb: 'Off by default: peer traffic comes from this server\'s IP, so switching it on is an operator decision. The Torrent Streaming tab shows what these settings are actually doing.',
     fields: [
       { key: 'FeatureSourceStreaming', label: 'Source streaming', kind: 'bool', help: 'Master switch. Off means the endpoints 404 and the app hides the feature entirely.' },
@@ -186,6 +216,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Peer discovery and privacy',
+    tab: 'streaming',
     blurb: 'How the engine finds peers, and what it reveals doing so. Defaults match the behaviour that was hardcoded before these were editable.',
     fields: [
       { key: 'StreamEnableDht', label: 'Enable DHT', kind: 'bool', help: 'Finds peers without a tracker. Honest caveat: MonoTorrent\'s DHT has never bootstrapped on this server — the Torrent Streaming tab reports its real state rather than assuming this switch delivers.' },
@@ -204,6 +235,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Connectivity and port forwarding',
+    tab: 'streaming',
     blurb: 'Inbound peers are the one source of extra swarm capacity that costs no outbound connection attempt. Making this server reachable is the most effective change available here — and the Torrent Streaming tab will tell you whether it worked.',
     fields: [
       { key: 'StreamListenPort', label: 'Inbound port', kind: 'int', min: 0, max: 65535, help: 'The local port peers connect in on. 0 picks a random one every restart, which means any router forward is stale immediately. Set a fixed high port (51413 is conventional) and forward it, and peers can reach you instead of only the other way round.' },
@@ -212,6 +244,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Advanced networking',
+    tab: 'streaming',
     blurb: 'Leave both of these empty unless you know you need them. The inbound port above is the local endpoint peers connect to; these override the external endpoint advertised to trackers, and are only needed when the two genuinely differ — a manual forward to a different external port, or a host that cannot observe its own public address. Setting them wrongly advertises an endpoint nothing can reach. Both are required together, or neither applies.',
     fields: [
       { key: 'StreamReportedAddress', label: 'Advertised address', kind: 'text', placeholder: 'usually empty', help: 'External IP peers should use. Ignored unless the advertised port is also set.' },
@@ -220,6 +253,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Peer budget',
+    tab: 'streaming',
     blurb: 'A budget against your router, not a speed control. Read the warning on the half-open field before changing anything here.',
     fields: [
       { key: 'StreamMaxConnections', label: 'Max connections', kind: 'int', min: 1, max: 500, help: 'Total simultaneous peer connections across all sessions.' },
@@ -231,6 +265,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'AI',
+    tab: 'recommendations',
     blurb: 'Any OpenAI-compatible endpoint. Every AI feature fails soft — if the call fails, the engine\'s own ranking is used instead.',
     fields: [
       { key: 'LlmBaseUrl', label: 'LLM base URL', kind: 'text', placeholder: 'https://api.groq.com/openai/v1', help: 'Empty uses Groq. Use http://localhost:11434/v1 for a local Ollama.' },
@@ -247,6 +282,7 @@ export const GROUPS: Group[] = [
   },
   {
     title: 'Embeddings',
+    tab: 'embeddings',
     blurb: 'Content vectors for similarity. The default is local and needs no key; the others fall back to it if unconfigured or failing.',
     fields: [
       {

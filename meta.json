@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Adds a scheduled task that re-reads every account's watch history and folds anything new into their taste profile. It appears under Dashboard, Scheduled Tasks as 'Import Jellyfin watch history', runs once a day by default, and the schedule is editable there or can be run on demand. Live capture already sees ordinary viewing, so this is reconciliation: it catches what was watched while the server or plugin was down, bulk mark-as-played edits, accounts added since the last scan, and ratings or favourites the engine did not see change. Repeating it is cheap because each run replaces its own previous rows rather than adding to them, so a daily schedule cannot inflate anyone's history. This is a beta release.",
+  "changelog": "Settings move to the pages they belong to. The Settings tab had grown to sixteen sections, which made finding one field a scrolling exercise. Each subsystem's settings now sit at the bottom of its own page, with their own save button: trailer sources and scoring under Trailer Resolver, provider keys and resilience under Metadata, home rows, discovery tuning, ranking weights and AI under Recommendation Engine, provider and batch size under Embeddings, and peers, ports and connection budget under Torrent Streaming. You change a setting while looking at the diagnostics for the thing it affects. The Settings tab keeps only what belongs nowhere else - the engine kill switch, refresh interval, home shape, time zone and service URLs - plus anything the dashboard does not yet describe and the maintenance operations. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.2.3.0",
+  "version": "1.2.4.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

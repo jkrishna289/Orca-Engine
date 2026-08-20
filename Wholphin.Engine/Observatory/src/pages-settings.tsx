@@ -1,18 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { get, postJson, post } from './api';
 import { Section, Problem, Empty } from './ui';
-import { GROUPS, KNOWN_KEYS, PLUGIN_ID, inferField, type Field } from './settings-schema';
+import { KNOWN_KEYS, PLUGIN_ID, groupsFor, inferField, type Field, type Group, type SettingsTab } from './settings-schema';
 
 type Config = Record<string, unknown>;
 
 /**
- * Full admin configuration for the engine.
+ * The settings belonging to one page, with its own save bar.
  *
  * Reads and writes through Jellyfin's own plugin configuration API rather than an endpoint of the
  * engine's own — that API is already admin-gated and already the thing Jellyfin persists, so there
  * is nothing here for a second implementation to disagree with.
+ *
+ * Each mounted panel holds its own copy of the configuration and posts it whole, because Jellyfin
+ * replaces the stored object rather than merging. That is safe here only because one page is mounted
+ * at a time and each loads fresh on mount — a panel that stayed alive in the background would post a
+ * stale copy over someone else's save.
  */
-export function Settings() {
+export function SettingsPanel({ tab, groups, extras: showExtras = false, operations = false }: {
+  tab?: SettingsTab;
+  groups?: Group[];
+  extras?: boolean;
+  operations?: boolean;
+}) {
+  const shown = groups ?? groupsFor(tab ?? 'general');
   const [saved, setSaved] = useState<Config>();
   const [draft, setDraft] = useState<Config>();
   const [error, setError] = useState<string>();
@@ -68,10 +79,16 @@ export function Settings() {
 
   const set = (key: string, value: unknown) => setDraft((d) => ({ ...(d ?? {}), [key]: value }));
 
-  const extras = Object.keys(draft)
-    .filter((k) => !KNOWN_KEYS.has(k))
-    .sort()
-    .map((k) => inferField(k, draft[k]));
+  const extras = showExtras
+    ? Object.keys(draft)
+        .filter((k) => !KNOWN_KEYS.has(k))
+        .sort()
+        .map((k) => inferField(k, draft[k]))
+    : [];
+
+  if (shown.length === 0 && extras.length === 0 && !operations) {
+    return null;
+  }
 
   return (
     <>
@@ -89,7 +106,7 @@ export function Settings() {
         </div>
       </div>
 
-      {GROUPS.map((group) => (
+      {shown.map((group) => (
         <Section key={group.title} title={group.title} subtitle={group.blurb}>
           <div className="obs-fields">
             {group.fields.map((field) => (
@@ -128,7 +145,30 @@ export function Settings() {
         </Section>
       )}
 
-      <Operations />
+      {operations && <Operations />}
+    </>
+  );
+}
+
+/**
+ * The Settings page: what belongs to no particular screen, anything the dashboard does not describe,
+ * and the destructive operations. Everything else now lives beside the thing it configures.
+ */
+export function Settings() {
+  return (
+    <>
+      <Section
+        title="Settings"
+        subtitle="Engine-wide options and maintenance. Settings for a specific subsystem now live on that subsystem's own page — trailers under Trailer Resolver, embeddings under Embeddings, and so on."
+      >
+        <Empty>
+          Looking for something else? Home rows, discovery and AI are under <b>Recommendation
+          Engine</b>; provider keys under <b>Metadata</b>; peers and ports under <b>Torrent
+          Streaming</b>.
+        </Empty>
+      </Section>
+
+      <SettingsPanel tab="general" extras operations />
     </>
   );
 }
