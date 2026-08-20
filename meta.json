@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Adds a Taste Graph page, which answers in one place the question the dashboard could not previously answer: whether the engine has learned what each account likes, is learning it right now, or has nothing to go on yet. One row per account with its state, how much history sits behind it, how much of that was imported versus captured live, and the languages and genres learned so far. The button that scans every account's existing Jellyfin watch history now lives here rather than under Users, where nobody was going to look for it. This is a beta release.",
+  "changelog": "Fixes the watch history import, which failed immediately on Jellyfin 10.11.11 with a MissingMethodException. The way to list user accounts changed inside the 10.11 patch series - 10.11.0 exposes a Users property and 10.11.11 replaced it with a GetUsers method, and the two are mutually exclusive - so a plugin built against one crashes on the other. The engine now asks in a way that works on either, and falls back to reporting no users rather than throwing if a future version renames it again. Also fixes the Recompute queue tile on the Users page, which showed -1 because reading the queue length threw instead of returning a number. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.2.1.0",
+  "version": "1.2.2.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

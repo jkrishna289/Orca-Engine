@@ -35,7 +35,11 @@ public class ProfileRecomputeWorker : IProfileRecomputeQueue, IHostedService
     private Task? _worker;
 
     /// <inheritdoc />
-    public int Depth => _channel.Reader.Count;
+    /// <remarks>
+    /// Guarded because <c>Reader.Count</c> throws when the channel implementation cannot count, and
+    /// the dashboard tile was reporting the caller's -1 error fallback as if it were a queue depth.
+    /// </remarks>
+    public int Depth => _channel.Reader.CanCount ? _channel.Reader.Count : 0;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProfileRecomputeWorker"/> class.

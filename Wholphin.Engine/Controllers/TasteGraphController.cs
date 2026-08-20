@@ -84,8 +84,14 @@ public class TasteGraphController : ControllerBase
         var byUser = totals.ToDictionary(t => t.UserId, t => t);
 
         var users = new List<object>();
-        foreach (var user in _users.Users)
+        foreach (var id in JellyfinUsers.AllIds(_users))
         {
+            var user = _users.GetUserById(id);
+            if (user is null)
+            {
+                continue;
+            }
+
             var counts = byUser.GetValueOrDefault(user.Id);
             var events = counts?.Total ?? 0;
             var imported = counts?.Imported ?? 0;
