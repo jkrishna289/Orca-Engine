@@ -5,6 +5,7 @@ import {
   fmtBytes, fmtMs, timing,
 } from './ui';
 import type { Snapshot } from './pages-core';
+import { SettingsPanel } from './pages-settings';
 
 interface ProviderHealth {
   Name: string;
@@ -130,6 +131,8 @@ export function Metadata({ snap }: { snap: Snapshot | undefined }) {
           <pre className="obs-json">{JSON.stringify(stats.data, null, 2)}</pre>
         </Section>
       )}
+
+      <SettingsPanel tab="metadata" />
     </>
   );
 }
@@ -234,6 +237,8 @@ export function TrailerResolver() {
           ))}
         </Table>
       </Section>
+
+      <SettingsPanel tab="trailers" />
     </>
   );
 }
@@ -312,6 +317,8 @@ export function Recommendations() {
           })}
         </Table>
       </Section>
+
+      <SettingsPanel tab="recommendations" />
     </>
   );
 }
@@ -850,6 +857,8 @@ export function Embeddings() {
           ))}
         </Table>
       </Section>
+
+      <SettingsPanel tab="embeddings" />
     </>
   );
 }

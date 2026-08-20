@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePoll, get, pick } from './api';
 import { Section, Tiles, Tile, Badge, Table, Meter, Empty, Problem, fmtBytes, fmtMs } from './ui';
+import { SettingsPanel } from './pages-settings';
 import type { Snapshot } from './pages-core';
 
 /**
- * Torrent streaming — settings live on the Settings tab; this is the runtime picture.
+ * Torrent streaming — the runtime picture, with its own settings at the bottom of the page.
  *
  * Ordered to answer three questions in sequence, because that is the order they have to be answered
  * in: can peers reach us, is the swarm healthy, and why is this stream slow. Reachability leads
@@ -400,6 +401,8 @@ export function TorrentStreaming({ snap }: { snap: Snapshot | undefined }) {
           />
         </Tiles>
       </Section>
+
+      <SettingsPanel tab="streaming" />
     </>
   );
 }
