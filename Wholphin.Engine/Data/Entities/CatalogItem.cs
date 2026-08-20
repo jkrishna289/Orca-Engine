@@ -82,6 +82,28 @@ public class CatalogItem
     /// <summary>Gets or sets a trailer URL (typically a YouTube watch URL from TMDB). Informational; not a directly-playable stream.</summary>
     public string? TrailerUrl { get; set; }
 
+    /// <summary>Gets or sets an absolute clear-logo (transparent title treatment) image URL, from Fanart.tv or TVDB.</summary>
+    public string? LogoImageUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets external critic scores as a JSON object keyed by source ("imdb", "rt",
+    /// "metacritic"), each 0-100. Null = never fetched.
+    /// </summary>
+    public string? RatingsJson { get; set; }
+
+    /// <summary>
+    /// Gets or sets which provider supplied each field, as a JSON object (field → provider name).
+    /// </summary>
+    /// <remarks>
+    /// One JSON column rather than a provenance column per field: this exists so a later pass can tell
+    /// whether an incoming value comes from a better-ranked provider than the one already stored, and
+    /// nothing queries it relationally.
+    /// </remarks>
+    public string? MetadataSourcesJson { get; set; }
+
+    /// <summary>Gets or sets when the multi-provider metadata pass last ran (null = never; drives round-robin enrichment).</summary>
+    public DateTime? MetadataSyncedAt { get; set; }
+
     /// <summary>Gets or sets the genres as a JSON array (denormalized for fast reads).</summary>
     public string? GenresJson { get; set; }
 

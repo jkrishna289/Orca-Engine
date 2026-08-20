@@ -34,17 +34,51 @@ public class BehaviorController : ControllerBase
 
     private readonly IBehaviorService _behavior;
     private readonly IWholphinDbContextFactory _factory;
+    private readonly IWatchHistoryImporter _historyImporter;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BehaviorController"/> class.
     /// </summary>
     /// <param name="behavior">The behavior capture service.</param>
     /// <param name="factory">Database context factory (external-item attribution + memory).</param>
-    public BehaviorController(IBehaviorService behavior, IWholphinDbContextFactory factory)
+    /// <param name="historyImporter">One-time backfill of Jellyfin's existing watch history.</param>
+    public BehaviorController(
+        IBehaviorService behavior,
+        IWholphinDbContextFactory factory,
+        IWatchHistoryImporter historyImporter)
     {
         _behavior = behavior;
         _factory = factory;
+        _historyImporter = historyImporter;
     }
+
+    /// <summary>
+    /// Starts the one-time watch-history import: reads every user's existing Jellyfin played /
+    /// favorite / rating state and backfills the behavior log from it.
+    /// </summary>
+    /// <returns>202 with the initial progress, or 409 when a run is already in flight.</returns>
+    /// <remarks>
+    /// Returns immediately — the run happens in the background and is followed with
+    /// <see cref="GetImportHistory"/>. Safe to re-run: each run replaces its own previous rows and
+    /// never touches live-captured events.
+    /// </remarks>
+    [HttpPost("ImportHistory")]
+    [Authorize(Policy = "RequiresElevation")]
+    public ActionResult<HistoryImportProgress> StartImportHistory()
+    {
+        if (!_historyImporter.TryStart())
+        {
+            return Conflict(_historyImporter.Progress);
+        }
+
+        return Accepted(_historyImporter.Progress);
+    }
+
+    /// <summary>Returns the live progress of the watch-history import, per user.</summary>
+    /// <returns>The progress snapshot.</returns>
+    [HttpGet("ImportHistory")]
+    [Authorize(Policy = "RequiresElevation")]
+    public ActionResult<HistoryImportProgress> GetImportHistory() => Ok(_historyImporter.Progress);
 
     /// <summary>Records an explicit thumbs-up / thumbs-down for an item.</summary>
     /// <param name="request">The feedback request.</param>

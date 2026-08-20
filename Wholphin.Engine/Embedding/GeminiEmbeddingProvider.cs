@@ -50,6 +50,19 @@ public class GeminiEmbeddingProvider : IEmbeddingProvider
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Plugin.Instance?.Configuration?.GeminiApiKey);
 
     /// <inheritdoc />
+    public int MaxBatchSize => BatchSize;
+
+    /// <inheritdoc />
+    public string ModelId
+    {
+        get
+        {
+            var configured = Plugin.Instance?.Configuration?.GeminiEmbeddingModel?.Trim();
+            return string.IsNullOrWhiteSpace(configured) ? DefaultModel : configured;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ContentVector>?> EmbedAsync(IReadOnlyList<string> documents, CancellationToken ct = default)
     {
         var apiKey = Plugin.Instance?.Configuration?.GeminiApiKey?.Trim();

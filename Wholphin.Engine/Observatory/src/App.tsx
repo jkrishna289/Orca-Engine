@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePoll, useHistory } from './api';
-import { Problem, Boundary } from './ui';
+import { Problem, Boundary, AlertBanner } from './ui';
 import { Overview, EngineHealth, Performance, Cache, toSnapshot, type Snapshot } from './pages-core';
-import { Metadata, TrailerResolver, Recommendations, LiveLogs, Timeline, Users } from './pages-detail';
+import { Metadata, TrailerResolver, Recommendations, Embeddings, LiveLogs, Timeline, Users } from './pages-detail';
 import { Settings } from './pages-settings';
 import { TorrentStreaming } from './pages-streaming';
 import Login from './Login';
@@ -10,7 +10,7 @@ import { currentSession, signOut, SESSION_EXPIRED_EVENT, type Session } from './
 
 const PAGES = [
   'Overview', 'Engine Health', 'Performance', 'Metadata', 'Trailer Resolver',
-  'Recommendation Engine', 'Torrent Streaming', 'Cache', 'Live Logs', 'Timeline', 'Users', 'Settings',
+  'Recommendation Engine', 'Embeddings', 'Torrent Streaming', 'Cache', 'Live Logs', 'Timeline', 'Users', 'Settings',
 ] as const;
 
 type Page = typeof PAGES[number];
@@ -65,6 +65,9 @@ function Dashboard({ session, onSignOut }: { session: Session; onSignOut: () => 
         </div>
       </header>
 
+      {/* Above the navigation, not inside a page: a degraded engine is not a per-tab fact. */}
+      {snap && <AlertBanner alerts={snap.alerts} />}
+
       <nav className="obs-nav" aria-label="Observatory sections">
         {PAGES.map((name) => (
           <button
@@ -89,6 +92,7 @@ function Dashboard({ session, onSignOut }: { session: Session; onSignOut: () => 
           {page === 'Metadata' && <Metadata snap={snap} />}
           {page === 'Trailer Resolver' && <TrailerResolver />}
           {page === 'Recommendation Engine' && <Recommendations />}
+          {page === 'Embeddings' && <Embeddings />}
           {page === 'Torrent Streaming' && <TorrentStreaming snap={snap} />}
           {page === 'Cache' && <Cache snap={snap} samples={samples} />}
           {page === 'Live Logs' && <LiveLogs />}

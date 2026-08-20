@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +21,7 @@ public class CatalogController : ControllerBase
 {
     private readonly ILibrarySyncService _sync;
     private readonly IAvailabilityReconciler _reconciler;
-    private readonly ICatalogEnricher _enricher;
+    private readonly IReadOnlyList<ICatalogEnricher> _enrichers;
     private readonly IWatchProviderEnricher _watchProviders;
     private readonly IWholphinDbContextFactory _factory;
 
@@ -31,13 +31,13 @@ public class CatalogController : ControllerBase
     public CatalogController(
         ILibrarySyncService sync,
         IAvailabilityReconciler reconciler,
-        ICatalogEnricher enricher,
+        IEnumerable<ICatalogEnricher> enrichers,
         IWatchProviderEnricher watchProviders,
         IWholphinDbContextFactory factory)
     {
         _sync = sync;
         _reconciler = reconciler;
-        _enricher = enricher;
+        _enrichers = enrichers.ToList();
         _watchProviders = watchProviders;
         _factory = factory;
     }
@@ -109,8 +109,9 @@ public class CatalogController : ControllerBase
     }
 
     /// <summary>
-    /// Backfills genres + poster/backdrop artwork + trailer onto requestable catalog rows that are
-    /// missing them, using TMDB. No-op unless a TMDB API key is configured.
+    /// Runs every catalog enricher: the TMDB backfill (genres + artwork + trailer on requestable
+    /// rows) and the multi-provider pass (ratings + clear logos). Each self-gates on its own keys, so
+    /// this is a no-op when nothing is configured.
     /// </summary>
     /// <param name="maxItems">Maximum rows to enrich this pass (1-500).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -119,7 +120,12 @@ public class CatalogController : ControllerBase
     [Authorize(Policy = "RequiresElevation")]
     public async Task<ActionResult> EnrichTmdb([FromQuery] int maxItems = 50, CancellationToken cancellationToken = default)
     {
-        var enriched = await _enricher.EnrichAsync(maxItems, cancellationToken).ConfigureAwait(false);
+        var enriched = 0;
+        foreach (var enricher in _enrichers)
+        {
+            enriched += await enricher.EnrichAsync(maxItems, cancellationToken).ConfigureAwait(false);
+        }
+
         return Ok(new { enriched });
     }
 

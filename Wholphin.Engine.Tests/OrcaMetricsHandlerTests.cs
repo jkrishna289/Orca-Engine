@@ -58,7 +58,7 @@ public class OrcaMetricsHandlerTests
         var metrics = new RecordingMetrics();
         var handler = new OrcaMetricsHandler(metrics)
         {
-            InnerHandler = new StubHandler(_ => throw new HttpRequestException("no route to host")),
+            InnerHandler = new FakeHttpHandler(_ => throw new HttpRequestException("no route to host")),
         };
         using var invoker = new HttpMessageInvoker(handler);
 
@@ -78,7 +78,7 @@ public class OrcaMetricsHandlerTests
 
         var handler = new OrcaMetricsHandler(metrics)
         {
-            InnerHandler = new StubHandler(ct => throw new OperationCanceledException(ct)),
+            InnerHandler = new FakeHttpHandler(ct => throw new OperationCanceledException(ct)),
         };
         using var invoker = new HttpMessageInvoker(handler);
 
@@ -94,40 +94,10 @@ public class OrcaMetricsHandlerTests
     {
         var handler = new OrcaMetricsHandler(metrics)
         {
-            InnerHandler = new StubHandler(_ => new HttpResponseMessage(status)),
+            InnerHandler = new FakeHttpHandler(_ => new HttpResponseMessage(status)),
         };
         using var invoker = new HttpMessageInvoker(handler);
         return await invoker.SendAsync(new HttpRequestMessage(HttpMethod.Get, url), CancellationToken.None);
     }
 
-    private sealed class StubHandler : HttpMessageHandler
-    {
-        private readonly Func<CancellationToken, HttpResponseMessage> _respond;
-
-        public StubHandler(Func<CancellationToken, HttpResponseMessage> respond) => _respond = respond;
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(_respond(cancellationToken));
-    }
-
-    private sealed class RecordingMetrics : IEngineMetrics
-    {
-        public Dictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
-
-        public List<(string Key, bool Ok, string? Data, Exception? Exception)> Records { get; } = new();
-
-        public void Increment(string key, long by = 1) =>
-            Counters[key] = Counters.TryGetValue(key, out var current) ? current + by : by;
-
-        public void Record(string key, long elapsedMs, bool ok = true, string? data = null, Exception? exception = null)
-        {
-            Records.Add((key, ok, data, exception));
-            Increment($"{key}.count");
-            Increment($"{key}.total_ms", elapsedMs);
-        }
-
-        public IReadOnlyDictionary<string, long> Snapshot() => Counters;
-
-        public void Reset() => Counters.Clear();
-    }
 }

@@ -21,6 +21,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         : base(applicationPaths, xmlSerializer)
     {
         Instance = this;
+        UpgradeTrailerSourceOrder();
     }
 
     /// <summary>
@@ -86,5 +87,29 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 "{0}.Configuration.observatory-link.html",
                 GetType().Namespace)
         };
+    }
+
+    /// <summary>
+    /// One-time upgrade of an existing install's trailer source order to include the sources added
+    /// with the multi-provider metadata work.
+    /// </summary>
+    /// <remarks>
+    /// A default only reaches FRESH installs — an existing server has the old value persisted in its
+    /// XML, so without this the very fix that motivated the work (finding a trailer when TMDB has no
+    /// video) would never reach anyone already running the plugin. Matched against the exact previous
+    /// default so an admin who deliberately customised the order is left alone.
+    /// </remarks>
+    private void UpgradeTrailerSourceOrder()
+    {
+        const string PreviousDefault = "tmdb,jellyfin,stored";
+
+        var config = Configuration;
+        if (config is null || !string.Equals(config.TrailerSourceOrder?.Trim(), PreviousDefault, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        config.TrailerSourceOrder = "tmdb,jellyfin,stored,tvdb,search";
+        SaveConfiguration();
     }
 }

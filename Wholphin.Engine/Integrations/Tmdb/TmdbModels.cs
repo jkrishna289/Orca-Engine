@@ -238,6 +238,26 @@ public class TmdbDetail
     /// <summary>Gets or sets the last episode to air (TV only).</summary>
     [JsonPropertyName("last_episode_to_air")]
     public TmdbEpisodeStub? LastEpisodeToAir { get; set; }
+
+    /// <summary>Gets or sets the appended external-ids block.</summary>
+    [JsonPropertyName("external_ids")]
+    public TmdbExternalIds? ExternalIds { get; set; }
+}
+
+/// <summary>
+/// The <c>external_ids</c> append-to-response block — the join keys every other metadata provider
+/// needs. OMDb is keyed by IMDb id and Fanart keys series by TVDB id, so without these no provider
+/// beyond TMDB can be asked about a title at all.
+/// </summary>
+public class TmdbExternalIds
+{
+    /// <summary>Gets or sets the IMDb id (e.g. "tt0816692").</summary>
+    [JsonPropertyName("imdb_id")]
+    public string? ImdbId { get; set; }
+
+    /// <summary>Gets or sets the TVDB id (series).</summary>
+    [JsonPropertyName("tvdb_id")]
+    public int? TvdbId { get; set; }
 }
 
 /// <summary>Which "related titles" TMDB list to pull.</summary>
@@ -434,6 +454,12 @@ public class TmdbEnrichment
 
     /// <summary>Gets or sets the collection/franchise name (movies only).</summary>
     public string? CollectionName { get; set; }
+
+    /// <summary>Gets or sets the IMDb id, when TMDB knows one. The key OMDb is addressed by.</summary>
+    public string? ImdbId { get; set; }
+
+    /// <summary>Gets or sets the TVDB id, when TMDB knows one. The key Fanart addresses series by.</summary>
+    public int? TvdbId { get; set; }
 }
 
 /// <summary>A TMDB collection/franchise reference (from a movie detail's <c>belongs_to_collection</c>).</summary>

@@ -1,33 +1,107 @@
 import { useMemo, useState } from 'react';
-import { usePoll, useEventStream, pick, type EngineEvent } from './api';
+import { usePoll, useEventStream, post, postFor, pick, type EngineEvent } from './api';
 import {
   Section, Tiles, Tile, Table, Meter, Bars, Problem, Empty,
   fmtBytes, fmtMs, timing,
 } from './ui';
 import type { Snapshot } from './pages-core';
 
+interface ProviderHealth {
+  Name: string;
+  Configured: boolean;
+  Success: number;
+  Empty: number;
+  Failure: number;
+  Timeout: number;
+  RateLimited: number;
+  ShortCircuited: number;
+  ConsecutiveFailures: number;
+  AvgLatencyMs: number;
+  LastSuccessUtc: string | null;
+  LastFailureUtc: string | null;
+  LastFailureKind: string | null;
+  BreakerOpen: boolean;
+}
+
+interface MetadataDiagnostics {
+  Providers: ProviderHealth[];
+  Priority: Record<string, string[]>;
+  Coverage: { Total: number; NeverSynced: number; WithPoster: number; WithLogo: number; WithRatings: number } | null;
+  Metrics: Record<string, number>;
+}
+
+/** A provider is only "off" if it has no key — that is a config choice, not a fault. */
+function providerState(p: ProviderHealth): { label: string; tone: 'ok' | 'warn' | 'bad' } {
+  if (p.BreakerOpen) return { label: 'Circuit open', tone: 'bad' };
+  if (!p.Configured) return { label: 'No key', tone: 'warn' };
+  if (p.ConsecutiveFailures > 0) return { label: 'Degraded', tone: 'warn' };
+  return { label: 'Healthy', tone: 'ok' };
+}
+
 export function Metadata({ snap }: { snap: Snapshot | undefined }) {
   const c = snap?.counters ?? {};
   const stats = usePoll<Record<string, unknown>>('OrcaEngine/Catalog/Stats', 60_000);
+  const diag = usePoll<MetadataDiagnostics>('OrcaEngine/Metadata/Diagnostics', 30_000);
   const ops = ['enrich', 'discover', 'search', 'related', 'providers', 'videos', 'keywords', 'upcoming', 'genre'];
+
+  const providers = pick<ProviderHealth[]>(diag.data ?? {}, 'Providers') ?? [];
+  const priority = pick<Record<string, string[]>>(diag.data ?? {}, 'Priority') ?? {};
+  const coverage = pick<Record<string, number>>(diag.data ?? {}, 'Coverage') ?? {};
+  const configured = providers.filter((p) => p.Configured).length;
+  const broken = providers.filter((p) => p.BreakerOpen).length;
 
   return (
     <>
       <Section
-        title="Provenance"
-        subtitle="TMDB is the only external metadata provider wired into the engine today, alongside Jellyfin itself. Per-field provenance becomes meaningful once a second provider exists."
+        title="Providers"
+        subtitle="Each provider declares which fields it can supply, and is asked only for the ones a title is actually missing. A miss is not a failure — it just means that provider had nothing for that title."
+        actions={<button className="obs-btn" onClick={diag.reload}>Refresh</button>}
       >
-        <Table head={['Field', 'Source']}>
-          {[
-            ['Poster', 'TMDb (external rows) · Jellyfin (library items)'],
-            ['Backdrop', 'TMDb (external rows) · Jellyfin (library items)'],
-            ['Overview', 'TMDb (external rows) · Jellyfin (library items)'],
-            ['Genres / tags / people', 'TMDb (external rows) · Jellyfin (library items)'],
-            ['Trailer URL', 'TMDb videos → YouTube'],
-            ['Watch provider', 'TMDb'],
-            ['Trivia / content advisories', 'LLM'],
-          ].map(([field, source]) => (
-            <tr key={field}><td>{field}</td><td className="obs-muted">{source}</td></tr>
+        <Tiles>
+          <Tile label="Configured" value={`${configured} of ${providers.length || '—'}`} tone={configured > 1 ? 'ok' : undefined} />
+          <Tile label="Circuits open" value={broken} tone={broken > 0 ? 'bad' : 'ok'} hint="Providers temporarily withdrawn after repeated failures" />
+          <Tile label="With ratings" value={`${coverage['WithRatings'] ?? 0}`} hint="Catalog rows carrying external critic scores" />
+          <Tile label="With logo" value={`${coverage['WithLogo'] ?? 0}`} hint="Catalog rows carrying a clear logo" />
+        </Tiles>
+
+        <Table
+          head={['Provider', 'State', 'OK', 'Empty', 'Errors', 'Timeouts', '429s', 'Avg', 'Last success']}
+          empty={!providers.length}
+        >
+          {providers.map((p) => {
+            const state = providerState(p);
+            return (
+              <tr key={p.Name}>
+                <td className="obs-mono">{p.Name}</td>
+                <td className={state.tone === 'ok' ? undefined : `obs-${state.tone}`}>{state.label}</td>
+                <td>{p.Success}</td>
+                <td className="obs-muted">{p.Empty}</td>
+                <td className={p.Failure > 0 ? 'obs-bad' : undefined}>{p.Failure}</td>
+                <td className={p.Timeout > 0 ? 'obs-warn' : undefined}>{p.Timeout}</td>
+                <td className={p.RateLimited > 0 ? 'obs-warn' : undefined}>{p.RateLimited}</td>
+                <td>{fmtMs(p.AvgLatencyMs)}</td>
+                <td className="obs-muted">{p.LastSuccessUtc ? new Date(p.LastSuccessUtc).toLocaleString() : '—'}</td>
+              </tr>
+            );
+          })}
+        </Table>
+        {providers.some((p) => p.LastFailureKind) && (
+          <p className="obs-muted obs-small">
+            Last failures: {providers.filter((p) => p.LastFailureKind).map((p) => `${p.Name} → ${p.LastFailureKind}`).join(' · ')}
+          </p>
+        )}
+      </Section>
+
+      <Section
+        title="Field priority"
+        subtitle="Which provider wins each field, in order. Artwork is additionally scored on language and resolution, so a higher-priority provider does not win with a worse image."
+      >
+        <Table head={['Field group', 'Order']} empty={!Object.keys(priority).length}>
+          {Object.entries(priority).map(([field, order]) => (
+            <tr key={field}>
+              <td>{field}</td>
+              <td className="obs-mono obs-muted">{(order ?? []).join(' → ') || '—'}</td>
+            </tr>
           ))}
         </Table>
       </Section>
@@ -100,7 +174,7 @@ export function TrailerResolver() {
     <>
       <Section
         title="Resolver"
-        subtitle="Trailers resolve through TMDB's videos endpoint, which names a YouTube video; yt-dlp then downloads it. TMDB is the only source."
+        subtitle="Sources are tried in the configured order until one names a video; yt-dlp then downloads it. The last source searches YouTube directly and scores the results, so a title no provider has a video for can still get one."
         actions={<button className="obs-btn" onClick={reload}>Refresh</button>}
       >
         <Tiles>
@@ -143,7 +217,7 @@ export function TrailerResolver() {
 
       <Section
         title="Failures"
-        subtitle="FailedPermanent means TMDB named no trailer at all. FailedTemporary means the download or transcode fell over — those retry."
+        subtitle="FailedPermanent means every configured source came back empty — including the scored YouTube search, which declines rather than guess. FailedTemporary means the download or transcode fell over; those retry."
       >
         <Table head={['TMDB id', 'Type', 'State', 'Reason', 'Attempts', 'Last tried']} empty={!d?.failures.length}>
           {d?.failures.map((f, i) => (
@@ -426,6 +500,7 @@ export function Users({ snap }: { snap: Snapshot | undefined }) {
   return (
     <>
       {status.error && <Problem error={status.error} />}
+      <HistoryImport />
       <Section title="Audience">
         <Tiles>
           <Tile label="Profiles" value={String(pick(status.data, 'Profiles') ?? 0)} />
@@ -447,6 +522,335 @@ export function Users({ snap }: { snap: Snapshot | undefined }) {
           <pre className="obs-json">{JSON.stringify(behavior.data, null, 2)}</pre>
         </Section>
       )}
+    </>
+  );
+}
+
+/** One user's row in the import run. Mirrors the server's HistoryImportUser. */
+interface ImportUser {
+  userId: string;
+  userName: string;
+  state: string;
+  itemsScanned: number;
+  itemsTotal: number;
+  eventsImported: number;
+  unresolved: number;
+  confidence: number;
+  error: string | null;
+}
+
+interface ImportProgress {
+  running: boolean;
+  phase: string;
+  startedUtc: string | null;
+  finishedUtc: string | null;
+  usersTotal: number;
+  usersDone: number;
+  eventsImported: number;
+  error: string | null;
+  users: ImportUser[];
+}
+
+function toImport(raw: unknown): ImportProgress | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const num = (source: unknown, key: string) => Number(pick(source, key) ?? 0);
+  const str = (source: unknown, key: string) => (pick<string>(source, key) ?? null) as string | null;
+
+  return {
+    running: !!pick(raw, 'Running'),
+    phase: String(pick(raw, 'Phase') ?? 'idle'),
+    startedUtc: str(raw, 'StartedUtc'),
+    finishedUtc: str(raw, 'FinishedUtc'),
+    usersTotal: num(raw, 'UsersTotal'),
+    usersDone: num(raw, 'UsersDone'),
+    eventsImported: num(raw, 'EventsImported'),
+    error: str(raw, 'Error'),
+    users: (pick<unknown[]>(raw, 'Users') ?? []).map((u) => ({
+      userId: String(pick(u, 'UserId') ?? ''),
+      userName: String(pick(u, 'UserName') ?? '?'),
+      state: String(pick(u, 'State') ?? 'pending'),
+      itemsScanned: num(u, 'ItemsScanned'),
+      itemsTotal: num(u, 'ItemsTotal'),
+      eventsImported: num(u, 'EventsImported'),
+      unresolved: num(u, 'Unresolved'),
+      confidence: num(u, 'Confidence'),
+      error: str(u, 'Error'),
+    })),
+  };
+}
+
+/** Mirrors WatchHistoryImporter.TargetConfidence — what a full history import should reach. */
+const TARGET_CONFIDENCE = 0.8;
+
+const n = (value: number) => value.toLocaleString();
+
+/**
+ * The one-time backfill of Jellyfin's existing watch history, and its per-user progress.
+ *
+ * Polls at 2s whether or not a run is in flight: the endpoint is an in-memory read, and starting a
+ * timer only while running cannot show a run that another browser tab began, or one left going
+ * while this page was closed.
+ */
+function HistoryImport() {
+  const { data, error, reload } = usePoll<unknown>('OrcaEngine/Behavior/ImportHistory', 2000);
+  const progress = useMemo(() => toImport(data), [data]);
+  const [starting, setStarting] = useState(false);
+  const [problem, setProblem] = useState<string>();
+
+  const running = progress?.running ?? false;
+
+  const start = async () => {
+    setStarting(true);
+    setProblem(undefined);
+    try {
+      await post('OrcaEngine/Behavior/ImportHistory');
+      reload();
+    } catch (e) {
+      setProblem((e as Error).message);
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  return (
+    <Section
+      title="Watch history import"
+      subtitle={
+        'Live capture only ever sees what happens after the plugin was installed. This reads every '
+        + 'user\u2019s existing Jellyfin history \u2014 played, play count, favourite, rating \u2014 and '
+        + 'backfills the taste profiles from it. Run once at setup; safe to re-run.'
+      }
+      actions={
+        <button className="obs-btn obs-btn-primary" onClick={start} disabled={running || starting}>
+          {running ? 'Importing\u2026' : 'Import all watch history'}
+        </button>
+      }
+    >
+      {(problem ?? error) && <Problem error={(problem ?? error) as string} />}
+      {progress?.error && <Problem error={progress.error} />}
+
+      <Tiles>
+        <Tile label="Status" value={progress?.phase ?? 'idle'} tone={running ? 'warn' : undefined} />
+        <Tile label="Users" value={`${progress?.usersDone ?? 0} / ${progress?.usersTotal ?? 0}`} />
+        <Tile label="Events imported" value={n(progress?.eventsImported ?? 0)} />
+      </Tiles>
+
+      <Table
+        head={['User', 'Progress', 'Events', 'Unresolved', 'Confidence']}
+        empty={!progress?.users.length}
+      >
+        {progress?.users.map((u) => (
+          <tr key={u.userId}>
+            <td>
+              {u.userName}
+              <div className="obs-muted obs-small">{u.error ?? u.state}</div>
+            </td>
+            <td className="obs-progress-cell">
+              <Meter
+                value={u.state === 'done' ? u.itemsTotal : u.itemsScanned}
+                max={Math.max(1, u.itemsTotal)}
+                tone={u.state === 'failed' ? 'bad' : u.state === 'done' ? 'ok' : 'warn'}
+                caption={
+                  u.state === 'done'
+                    ? `${n(u.itemsTotal)} items scanned`
+                    : `${n(u.itemsScanned)} / ${n(u.itemsTotal)}`
+                }
+              />
+            </td>
+            <td>{n(u.eventsImported)}</td>
+            <td className={u.unresolved > 0 ? 'obs-warn' : undefined}>{n(u.unresolved)}</td>
+            <td className={u.confidence >= TARGET_CONFIDENCE ? 'obs-ok' : 'obs-bad'}>
+              {u.state === 'done' ? `${Math.round(u.confidence * 100)}%` : '\u2014'}
+            </td>
+          </tr>
+        ))}
+      </Table>
+    </Section>
+  );
+}
+
+interface ProbeResult {
+  provider: string;
+  ok: boolean;
+  outcome: string;
+  elapsedMs: number | null;
+  kind: string | null;
+  dimensions: number;
+  relatedScore: number;
+  unrelatedScore: number;
+  message: string;
+}
+
+function toProbe(raw: unknown): ProbeResult {
+  return {
+    provider: String(pick(raw, 'Provider') ?? '?'),
+    ok: !!pick(raw, 'Ok'),
+    outcome: String(pick(raw, 'Outcome') ?? 'unknown'),
+    elapsedMs: pick(raw, 'ElapsedMs') == null ? null : Number(pick(raw, 'ElapsedMs')),
+    kind: (pick<string>(raw, 'Kind') ?? null) as string | null,
+    dimensions: Number(pick(raw, 'Dimensions') ?? 0),
+    relatedScore: Number(pick(raw, 'RelatedScore') ?? 0),
+    unrelatedScore: Number(pick(raw, 'UnrelatedScore') ?? 0),
+    message: String(pick(raw, 'Message') ?? ''),
+  };
+}
+
+/**
+ * Embedding health.
+ *
+ * Everything else the dashboard knows about embeddings is a negative signal: an alert appears when
+ * something breaks, so a quiet page means "nothing failed since startup" — which includes "nothing
+ * was tried". The Test button is the positive check, and it calls the provider directly rather than
+ * through the fallback, so a dead provider cannot answer for a working one.
+ */
+export function Embeddings() {
+  const { data, error, reload } = usePoll<Record<string, unknown>>('OrcaEngine/Embedding/Diagnostics', 15_000);
+  const [probe, setProbe] = useState<ProbeResult>();
+  const [testing, setTesting] = useState(false);
+  const [problem, setProblem] = useState<string>();
+
+  const configured = String(pick(data, 'ConfiguredProvider') ?? '—');
+  const active = String(pick(data, 'ActiveProvider') ?? '—');
+  const usingFallback = !!pick(data, 'UsingFallback');
+  const batch = pick<Record<string, unknown>>(data, 'BatchSize') ?? {};
+  const index = pick<Record<string, unknown>>(data, 'Index') ?? null;
+  const providers = pick<Record<string, unknown>[]>(data, 'Providers') ?? [];
+  const metrics = pick<Record<string, number>>(data, 'Metrics') ?? {};
+  const staleBuilds = metrics['embedding.index.served_stale'] ?? 0;
+  const stored = Number(pick(data, 'StoredVectors') ?? 0);
+
+  const runTest = async () => {
+    setTesting(true);
+    setProblem(undefined);
+    try {
+      setProbe(toProbe(await postFor<unknown>('OrcaEngine/Embedding/Test')));
+      reload();
+    } catch (e) {
+      setProblem((e as Error).message);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <>
+      {(problem ?? error) && <Problem error={(problem ?? error) as string} />}
+
+      <Section
+        title="Provider"
+        subtitle="Which model is actually producing your content vectors — not which one is selected."
+        actions={
+          <button className="obs-btn obs-btn-primary" onClick={runTest} disabled={testing}>
+            {testing ? 'Testing\u2026' : 'Test provider'}
+          </button>
+        }
+      >
+        <Tiles>
+          <Tile label="Configured" value={configured} hint={String(pick(data, 'ActiveModel') ?? '')} />
+          <Tile
+            label="In use"
+            value={active}
+            tone={usingFallback ? 'bad' : 'ok'}
+            hint={usingFallback ? `'${configured}' could not be resolved` : 'Matches your selection'}
+          />
+          <Tile label="Batch size" value={String(pick(batch, 'Configured') ?? '—')} hint={`Allowed ${pick(batch, 'Min')}\u2013${pick(batch, 'Max')}`} />
+          <Tile label="Retries per batch" value={String(pick(data, 'RetryAttemptsPerBatch') ?? '—')} />
+        </Tiles>
+
+        {probe && (
+          <div className={`obs-probe obs-probe-${probe.ok && probe.outcome === 'healthy' ? 'ok' : probe.ok ? 'warn' : 'bad'}`}>
+            <div className="obs-probe-head">
+              <strong>{probe.provider}</strong>
+              <span className="obs-probe-verdict">{probe.ok ? probe.outcome : 'failed'}</span>
+            </div>
+            <p>{probe.message}</p>
+            {probe.ok && (
+              <Tiles>
+                <Tile label="Latency" value={fmtMs(probe.elapsedMs)} />
+                <Tile label="Vector kind" value={probe.kind ?? '—'} />
+                <Tile label="Dimensions" value={probe.dimensions} />
+                <Tile
+                  label="Related vs unrelated"
+                  value={`${probe.relatedScore.toFixed(3)} / ${probe.unrelatedScore.toFixed(3)}`}
+                  tone={probe.relatedScore > probe.unrelatedScore ? 'ok' : 'bad'}
+                  hint="Two near-identical texts should score above an unrelated one"
+                />
+              </Tiles>
+            )}
+          </div>
+        )}
+      </Section>
+
+      <Section
+        title="Vector index"
+        subtitle="Vectors are saved to the database, so a restart reuses them instead of re-embedding the catalog. Only new or edited titles cost a call."
+      >
+        {index === null ? (
+          <Empty>No index is loaded yet. It is assembled the first time a recommendation surface needs it — from stored vectors where they exist.</Empty>
+        ) : (
+          <Tiles>
+            <Tile label="Items indexed" value={String(pick(index, 'Count') ?? 0)} />
+            <Tile label="Built by" value={String(pick(index, 'ProviderName') ?? '—')} tone="ok" />
+            <Tile
+              label="Built"
+              value={pick(index, 'BuiltAtUtc') ? new Date(String(pick(index, 'BuiltAtUtc'))).toLocaleString() : '—'}
+            />
+            <Tile
+              label="Stale serves"
+              value={staleBuilds.toLocaleString()}
+              tone={staleBuilds > 0 ? 'bad' : undefined}
+              hint={staleBuilds > 0 ? 'A rebuild failed; this index is older than the catalog' : 'Every rebuild has succeeded'}
+            />
+          </Tiles>
+        )}
+
+        <Tiles>
+          <Tile
+            label="Saved to disk"
+            value={stored.toLocaleString()}
+            tone={stored > 0 ? 'ok' : undefined}
+            hint={stored > 0 ? 'Survives a restart' : 'Nothing stored yet'}
+          />
+          <Tile label="Reused from disk" value={(metrics['embedding.index.reused'] ?? 0).toLocaleString()} />
+          <Tile label="Newly embedded" value={(metrics['embedding.index.persisted'] ?? 0).toLocaleString()} />
+        </Tiles>
+      </Section>
+
+      <Section
+        title="Registered providers"
+        subtitle="No provider stands in for another: two models produce vectors of different dimensions, so a failed rebuild keeps the old index rather than mixing them."
+      >
+        <Table head={['Provider', 'Configured', 'Model', 'Provider max', 'Effective batch', 'State']} empty={!providers.length}>
+          {providers.map((p) => {
+            const name = String(pick(p, 'Name') ?? '?');
+            return (
+              <tr key={name}>
+                <td className="obs-mono">{name}</td>
+                <td className={pick(p, 'IsConfigured') ? undefined : 'obs-muted'}>
+                  {pick(p, 'IsConfigured') ? 'Yes' : 'No'}
+                </td>
+                <td className="obs-mono obs-muted">{String(pick(p, 'ModelId') || '—')}</td>
+                <td>{String(pick(p, 'MaxBatchSize'))}</td>
+                <td>{String(pick(p, 'EffectiveBatchSize'))}</td>
+                <td className={pick(p, 'IsActive') ? 'obs-ok' : undefined}>
+                  {pick(p, 'IsActive') ? 'In use' : pick(p, 'IsConfiguredChoice') ? 'Selected, unusable' : '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </Table>
+      </Section>
+
+      <Section title="Counters">
+        <Table head={['Counter', 'Value']} empty={!Object.keys(metrics).length}>
+          {Object.entries(metrics).map(([key, value]) => (
+            <tr key={key}>
+              <td className="obs-mono">{key}</td>
+              <td>{value.toLocaleString()}</td>
+            </tr>
+          ))}
+        </Table>
+      </Section>
     </>
   );
 }

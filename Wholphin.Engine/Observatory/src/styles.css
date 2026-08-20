@@ -645,3 +645,78 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/*
+ * Standing alerts. Deliberately loud and un-dismissible: the condition these were built for (a
+ * cloud embedding provider silently falling back to local TF-IDF) leaves the whole dashboard
+ * looking healthy, so anything quieter than this would be missed exactly when it matters.
+ */
+.obs-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.obs-alert {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: var(--obs-radius);
+  border: 1px solid;
+}
+
+.obs-alert-critical {
+  border-color: var(--obs-bad);
+  background: color-mix(in srgb, var(--obs-bad) 12%, var(--obs-panel));
+}
+
+.obs-alert-warn {
+  border-color: var(--obs-warn);
+  background: color-mix(in srgb, var(--obs-warn) 12%, var(--obs-panel));
+}
+
+.obs-alert-tag {
+  flex: none;
+  font: 600 11px/1.6 var(--obs-mono);
+  letter-spacing: 0.08em;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.obs-alert-critical .obs-alert-tag { background: var(--obs-bad); }
+.obs-alert-warn .obs-alert-tag { background: var(--obs-warn); }
+
+.obs-alert-body { min-width: 0; }
+.obs-alert-body strong { display: block; line-height: 1.45; }
+.obs-alert-body p { margin: 6px 0 0; color: var(--obs-muted); font-size: 13px; line-height: 1.5; }
+.obs-alert-meta { font-size: 12px !important; opacity: 0.8; }
+
+/* The import table's bar column: wide enough to read, and it owns its own row height. */
+.obs-progress-cell { min-width: 220px; }
+.obs-progress-cell .obs-meter { margin-top: 0; }
+
+/* The provider probe result. Its whole job is to be an unambiguous yes or no, so it states its
+   verdict in colour and in words rather than leaving the reader to interpret four numbers. */
+.obs-probe {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: var(--obs-radius);
+}
+
+.obs-probe-ok { border-color: var(--obs-ok); background: color-mix(in srgb, var(--obs-ok) 10%, var(--obs-panel)); }
+.obs-probe-warn { border-color: var(--obs-warn); background: color-mix(in srgb, var(--obs-warn) 10%, var(--obs-panel)); }
+.obs-probe-bad { border-color: var(--obs-bad); background: color-mix(in srgb, var(--obs-bad) 10%, var(--obs-panel)); }
+
+.obs-probe-head { display: flex; align-items: baseline; gap: 10px; }
+.obs-probe-verdict {
+  font: 600 11px/1.6 var(--obs-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--obs-muted);
+}
+.obs-probe p { margin: 6px 0 0; font-size: 13px; line-height: 1.55; }
+.obs-probe .obs-tiles { margin-top: 12px; }

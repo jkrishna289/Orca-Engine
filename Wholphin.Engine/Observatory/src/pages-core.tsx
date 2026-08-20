@@ -1,4 +1,4 @@
-import { usePoll, rate, series, pick, type Sample } from './api';
+import { usePoll, rate, series, pick, toAlert, type Sample, type EngineAlert } from './api';
 import {
   Section, Tiles, Tile, Badge, Table, Meter, Spark, Bars, Problem,
   fmtBytes, fmtMs, fmtUptime, timing, discover,
@@ -17,6 +17,8 @@ export interface Snapshot {
     recomputeQueueDepth: number;
   };
   integrations: { tmdbConfigured: boolean; arrConfigured: boolean; jellyseerrConfigured: boolean };
+  /** Conditions needing an operator, newest critical first. Drives the banner on every page. */
+  alerts: EngineAlert[];
   counters: Record<string, number>;
   lastSeq: number;
   /** Sources the server could not read this tick, each naming itself and why. */
@@ -61,6 +63,7 @@ export function toSnapshot(raw: unknown): Snapshot | undefined {
       arrConfigured: !!pick(integrations, 'ArrConfigured'),
       jellyseerrConfigured: !!pick(integrations, 'JellyseerrConfigured'),
     },
+    alerts: (pick<unknown[]>(raw, 'Alerts') ?? []).map(toAlert),
     // Metric keys are data, not property names — never re-cased.
     counters: (pick<Record<string, number>>(raw, 'Counters') ?? {}),
     lastSeq: num(raw, 'LastSeq'),

@@ -1,4 +1,4 @@
-using MediaBrowser.Controller;
+﻿using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 using Wholphin.Engine.Analytics;
@@ -38,6 +38,10 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IEngineEvents, EngineEvents>();
         serviceCollection.AddSingleton<IEngineMetrics, EngineMetrics>();
 
+        // Sticky "still broken right now" conditions. The event log is a ring — a silent embedding
+        // fallback at 3am is gone by morning unless something holds the state.
+        serviceCollection.AddSingleton<IEngineAlerts, EngineAlerts>();
+
         // Every outbound call the engine makes goes through this named client so it gets timed.
         // Deliberately NOT ConfigureAll — that would instrument the whole server's HTTP.
         serviceCollection.AddTransient<OrcaMetricsHandler>();
@@ -69,6 +73,9 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IBehaviorService, BehaviorService>();
         serviceCollection.AddHostedService<BehaviorEntryPoint>();
 
+        // One-time backfill of everything Jellyfin already knew before the plugin existed.
+        serviceCollection.AddSingleton<IWatchHistoryImporter, WatchHistoryImporter>();
+
         // Personalization: behavior log → per-user affinity vectors (weighted, decayed, confidence-scored).
         serviceCollection.AddSingleton<IPersonalizationService, PersonalizationService>();
 
@@ -89,7 +96,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
 
         // Pluggable embeddings: local TF-IDF (default) + optional hosted/local adapters, chosen by
         // admin config and resolved via IEmbeddingService (fails soft back to TF-IDF).
-        serviceCollection.AddSingleton<IEmbeddingProvider, TfIdfEmbeddingProvider>();
+        serviceCollection.AddSingleton<IEmbeddingProvider, OllamaEmbeddingProvider>();
         serviceCollection.AddSingleton<IEmbeddingProvider, OpenAiEmbeddingProvider>();
         serviceCollection.AddSingleton<IEmbeddingProvider, GeminiEmbeddingProvider>();
         serviceCollection.AddSingleton<IEmbeddingProvider, VoyageEmbeddingProvider>();
@@ -98,6 +105,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IEmbeddingService, EmbeddingService>();
 
         // Local-first AI: content-vector index over the catalog (thematic similarity; cached).
+        serviceCollection.AddSingleton<VectorStore>();
         serviceCollection.AddSingleton<IContentVectorIndex, ContentVectorIndex>();
 
         // Item similarity: content-based "More Like This" / "Because You Watched X" (on-demand + cached).
@@ -158,6 +166,11 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // Milestone 2: unified availability-aware catalog (Jellyseerr/TMDB).
         // Fail-soft port over Jellyseerr (requests + availability + discovery).
         serviceCollection.AddSingleton<IJellyseerrClient, JellyseerrClient>();
+        // The choke point every external metadata call passes through: circuit breaker, per-provider
+        // concurrency cap, throttle, timeout and health accounting. One broken provider degrades to
+        // null quickly instead of costing every request its full timeout.
+        serviceCollection.AddSingleton<Http.IProviderGate, Http.ProviderGate>();
+
         // Milestone 7: fail-soft port over TMDB (genre maps + metadata/artwork enrichment + direct discovery).
         serviceCollection.AddSingleton<Integrations.Tmdb.ITmdbClient, Integrations.Tmdb.TmdbClient>();
         // Studio/provider tag: caches TMDB watch-provider logos on disk + tags catalog rows with their brand.
@@ -184,6 +197,23 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<Discovery.IDiscoveryOrchestrator, Discovery.DiscoveryPipeline>();
         // Backfills genres + artwork + trailer onto requestable rows from TMDB (gated on a TMDB key).
         serviceCollection.AddSingleton<ICatalogEnricher, TmdbEnricher>();
+
+        // Multi-provider metadata. Providers declare which FIELDS they can supply, and the aggregator
+        // asks only those capable of filling what a row is actually missing — so adding a provider
+        // does not mean every request calls every provider. Each self-gates on its own API key, so
+        // this whole layer is dormant until one is configured. Same IEnumerable<T> port pattern as
+        // the embedding providers and discovery sources above.
+        serviceCollection.AddSingleton<Metadata.IMediaIdentityResolver, Metadata.MediaIdentityResolver>();
+        serviceCollection.AddSingleton<Metadata.IMetadataProvider, Metadata.Providers.TmdbMetadataProvider>();
+        serviceCollection.AddSingleton<Metadata.IMetadataProvider, Metadata.Providers.OmdbMetadataProvider>();
+        serviceCollection.AddSingleton<Metadata.IMetadataProvider, Metadata.Providers.FanartMetadataProvider>();
+        serviceCollection.AddSingleton<Metadata.IMetadataProvider, Metadata.Providers.TvdbMetadataProvider>();
+        serviceCollection.AddSingleton<Metadata.IMetadataAggregator, Metadata.MetadataAggregator>();
+
+        // A SECOND enricher beside TmdbEnricher rather than a replacement: their candidate queries
+        // differ (TMDB quota is effectively unlimited, OMDb's free tier is 1000/day), so one merged
+        // query would serve neither.
+        serviceCollection.AddSingleton<ICatalogEnricher, Metadata.MetadataEnricher>();
         // Advances in-flight (Requested/Downloading) items through the availability state machine.
         serviceCollection.AddSingleton<IAvailabilityReconciler, AvailabilityReconciler>();
         // Periodic maintenance: reconcile availability + TMDB enrichment + refresh discovery imports (gated, fail-soft).
@@ -196,6 +226,16 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         // swamp the host with concurrent yt-dlp/ffmpeg processes. Producers (controller, pre-buffer
         // worker, scheduled task) enqueue; the pool executes.
         serviceCollection.AddSingleton<Trailer.ITrailerStateStore, Trailer.TrailerStateStore>();
+
+        // Trailer sources, tried in the admin-configured TrailerSourceOrder until one answers. The
+        // `search` source is last and now SCORES its candidates instead of taking the first hit, which
+        // is what makes it safe to have on by default — it is the only source that can cover a title
+        // no metadata provider has a video for.
+        serviceCollection.AddSingleton<Trailer.ITrailerSource, Trailer.Sources.TmdbTrailerSource>();
+        serviceCollection.AddSingleton<Trailer.ITrailerSource, Trailer.Sources.JellyfinTrailerSource>();
+        serviceCollection.AddSingleton<Trailer.ITrailerSource, Trailer.Sources.StoredTrailerSource>();
+        serviceCollection.AddSingleton<Trailer.ITrailerSource, Trailer.Sources.TvdbTrailerSource>();
+        serviceCollection.AddSingleton<Trailer.ITrailerSource, Trailer.Sources.YtDlpSearchTrailerSource>();
         serviceCollection.AddSingleton<Trailer.ITrailerService, Trailer.TrailerService>();
         serviceCollection.AddSingleton<Trailer.TrailerQueueWorker>();
         serviceCollection.AddSingleton<Trailer.ITrailerQueue>(sp => sp.GetRequiredService<Trailer.TrailerQueueWorker>());

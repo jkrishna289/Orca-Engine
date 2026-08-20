@@ -20,7 +20,7 @@ namespace Wholphin.Engine.Data;
 public class DatabaseInitializer : IHostedService
 {
     /// <summary>The schema version this build expects.</summary>
-    public const int SchemaVersion = 10;
+    public const int SchemaVersion = 12;
 
     /// <summary>
     /// Idempotent migration steps keyed by the version they bring the schema TO. Each statement is
@@ -132,6 +132,22 @@ public class DatabaseInitializer : IHostedService
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_TrailerAssets_TmdbId_MediaType" ON "TrailerAssets" ("TmdbId", "MediaType");
             CREATE INDEX IF NOT EXISTS "IX_TrailerAssets_State" ON "TrailerAssets" ("State");
             """),
+        // v12 — persisted content vectors. Until this table existed the vector index lived only in
+        // memory, so every restart re-embedded the whole catalog; the provider/model/hash stamp is
+        // what makes a stored vector safe to reuse rather than merely present.
+        (12,
+            """
+            CREATE TABLE IF NOT EXISTS "CatalogItemVectors" (
+                "CatalogItemId" INTEGER NOT NULL CONSTRAINT "PK_CatalogItemVectors" PRIMARY KEY,
+                "Provider" TEXT NOT NULL,
+                "ModelId" TEXT NOT NULL,
+                "Dimensions" INTEGER NOT NULL,
+                "DocumentHash" TEXT NOT NULL,
+                "Vector" BLOB NOT NULL,
+                "UpdatedAt" TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_CatalogItemVectors_Provider_ModelId" ON "CatalogItemVectors" ("Provider", "ModelId");
+            """),
     };
 
     /// <summary>
@@ -165,6 +181,12 @@ public class DatabaseInitializer : IHostedService
         ("TrailerAssets", "Pinned", "INTEGER"),
         ("TrailerAssets", "DurationMs", "INTEGER"),
         ("TrailerAssets", "PreviewStartMs", "INTEGER"),
+        // v11 — multi-provider metadata: clear logo, external critic scores, per-field provenance,
+        // and the round-robin cursor the aggregating enricher pages through.
+        ("CatalogItems", "LogoImageUrl", "TEXT"),
+        ("CatalogItems", "RatingsJson", "TEXT"),
+        ("CatalogItems", "MetadataSourcesJson", "TEXT"),
+        ("CatalogItems", "MetadataSyncedAt", "TEXT"),
     };
 
     private readonly IWholphinDbContextFactory _factory;

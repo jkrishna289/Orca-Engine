@@ -50,12 +50,6 @@
                     <div class="fieldDescription">Time-zone id (e.g. "Asia/Kolkata", "America/New_York") for time-of-day recommendations. Leave blank to use the server's local time.</div>
                 </div>
 
-                <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="BehaviorRetentionDays">Behavior retention (days)</label>
-                    <input is="emby-input" type="number" id="BehaviorRetentionDays" min="0" max="3650" />
-                    <div class="fieldDescription">How long raw behavior events are kept (older ones are pruned; the taste profile already decays them). 0 = keep everything. Default 400.</div>
-                </div>
-
                 <div class="verticalSection">
                     <h3 class="sectionTitle">Features</h3>
                 </div>
@@ -332,7 +326,7 @@
                 <div class="selectContainer">
                     <label class="selectLabel" for="EmbeddingProvider">Embedding provider</label>
                     <select is="emby-select" id="EmbeddingProvider">
-                        <option value="tfidf">TF-IDF (local, default)</option>
+                        <option value="ollama">Ollama (local server, default)</option>
                         <option value="openai">OpenAI</option>
                         <option value="gemini">Google Gemini</option>
                         <option value="voyage">Voyage AI</option>
@@ -432,7 +426,6 @@
                         document.querySelector('#DefaultRowSize').value = config.DefaultRowSize;
                         document.querySelector('#SpotlightCount').value = config.SpotlightCount;
                         document.querySelector('#HouseholdTimeZone').value = config.HouseholdTimeZone || '';
-                        document.querySelector('#BehaviorRetentionDays').value = config.BehaviorRetentionDays != null ? config.BehaviorRetentionDays : 400;
                         document.querySelector('#FeaturePersonalization').checked = config.FeaturePersonalization;
                         document.querySelector('#FeatureSpotlight').checked = config.FeatureSpotlight;
                         document.querySelector('#FeatureContinueWatching').checked = config.FeatureContinueWatching;
@@ -480,7 +473,7 @@
                         document.querySelector('#LlmDiscoveryMaxPerMediaType').value = config.LlmDiscoveryMaxPerMediaType || 10;
                         document.querySelector('#GroqApiKey').value = config.GroqApiKey || '';
                         document.querySelector('#GroqModel').value = config.GroqModel || '';
-                        document.querySelector('#EmbeddingProvider').value = config.EmbeddingProvider || 'tfidf';
+                        document.querySelector('#EmbeddingProvider').value = config.EmbeddingProvider || 'ollama';
                         document.querySelector('#OpenAiApiKey').value = config.OpenAiApiKey || '';
                         document.querySelector('#OpenAiEmbeddingModel').value = config.OpenAiEmbeddingModel || '';
                         document.querySelector('#GeminiApiKey').value = config.GeminiApiKey || '';
@@ -507,7 +500,6 @@
                         config.DefaultRowSize = parseInt(document.querySelector('#DefaultRowSize').value, 10);
                         config.SpotlightCount = parseInt(document.querySelector('#SpotlightCount').value, 10);
                         config.HouseholdTimeZone = document.querySelector('#HouseholdTimeZone').value.trim();
-                        config.BehaviorRetentionDays = parseInt(document.querySelector('#BehaviorRetentionDays').value, 10) || 0;
                         config.FeaturePersonalization = document.querySelector('#FeaturePersonalization').checked;
                         config.FeatureSpotlight = document.querySelector('#FeatureSpotlight').checked;
                         config.FeatureContinueWatching = document.querySelector('#FeatureContinueWatching').checked;
