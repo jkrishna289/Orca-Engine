@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Fixes the watch history import, which failed immediately on Jellyfin 10.11.11 with a MissingMethodException. The way to list user accounts changed inside the 10.11 patch series - 10.11.0 exposes a Users property and 10.11.11 replaced it with a GetUsers method, and the two are mutually exclusive - so a plugin built against one crashes on the other. The engine now asks in a way that works on either, and falls back to reporting no users rather than throwing if a future version renames it again. Also fixes the Recompute queue tile on the Users page, which showed -1 because reading the queue length threw instead of returning a number. This is a beta release.",
+  "changelog": "Adds a scheduled task that re-reads every account's watch history and folds anything new into their taste profile. It appears under Dashboard, Scheduled Tasks as 'Import Jellyfin watch history', runs once a day by default, and the schedule is editable there or can be run on demand. Live capture already sees ordinary viewing, so this is reconciliation: it catches what was watched while the server or plugin was down, bulk mark-as-played edits, accounts added since the last scan, and ratings or favourites the engine did not see change. Repeating it is cheap because each run replaces its own previous rows rather than adding to them, so a daily schedule cannot inflate anyone's history. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "10.11.0.0",
   "framework": "net9.0",
-  "version": "1.2.2.0",
+  "version": "1.2.3.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
