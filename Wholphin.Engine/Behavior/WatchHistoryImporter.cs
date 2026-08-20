@@ -117,33 +117,48 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
             return false;
         }
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await RunAsync(CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Orca Engine: watch-history import failed.");
-                Update(p => p with
-                {
-                    Running = false,
-                    Phase = "failed",
-                    FinishedUtc = DateTime.UtcNow,
-                    Error = ex.GetType().Name + ": " + ex.Message,
-                });
-            }
-            finally
-            {
-                Interlocked.Exchange(ref _running, 0);
-            }
-        });
-
+        _ = Task.Run(() => GuardedRunAsync(CancellationToken.None));
         return true;
     }
 
-    private async Task RunAsync(CancellationToken ct)
+    /// <inheritdoc />
+    public async Task<bool> RunAsync(CancellationToken ct = default)
+    {
+        if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
+        {
+            return false;
+        }
+
+        await GuardedRunAsync(ct).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>Runs the import, recording any failure into the progress the dashboard polls.</summary>
+    /// <remarks>The gate is taken by the CALLER, so both entry points share one run.</remarks>
+    private async Task GuardedRunAsync(CancellationToken ct)
+    {
+        try
+        {
+            await ImportAllAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Orca Engine: watch-history import failed.");
+            Update(p => p with
+            {
+                Running = false,
+                Phase = "failed",
+                FinishedUtc = DateTime.UtcNow,
+                Error = ex.GetType().Name + ": " + ex.Message,
+            });
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _running, 0);
+        }
+    }
+
+    private async Task ImportAllAsync(CancellationToken ct)
     {
         var started = DateTime.UtcNow;
 

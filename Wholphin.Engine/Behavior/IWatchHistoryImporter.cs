@@ -76,5 +76,18 @@ public interface IWatchHistoryImporter
     /// Starts an import in the background, unless one is already running.
     /// </summary>
     /// <returns><c>true</c> when a run was started; <c>false</c> when one was already in flight.</returns>
+    /// <remarks>For the dashboard button, which must return immediately and then poll progress.</remarks>
     bool TryStart();
+
+    /// <summary>
+    /// Runs an import and waits for it, unless one is already running.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><c>true</c> when this call did the work; <c>false</c> when one was already in flight.</returns>
+    /// <remarks>
+    /// For the scheduled task, which has to stay alive for the duration or Jellyfin reports it
+    /// finished the moment it was kicked off. Shares the single-run gate with <see cref="TryStart"/>,
+    /// so a scheduled run and a button press can never overlap.
+    /// </remarks>
+    Task<bool> RunAsync(CancellationToken ct = default);
 }
