@@ -146,7 +146,13 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
     private async Task RunAsync(CancellationToken ct)
     {
         var started = DateTime.UtcNow;
-        var users = _users.Users.ToList();
+
+        // Not IUserManager.Users — that property does not exist on every 10.11 patch. See JellyfinUsers.
+        var users = JellyfinUsers.AllIds(_users)
+            .Select(id => _users.GetUserById(id))
+            .Where(u => u is not null)
+            .Select(u => u!)
+            .ToList();
 
         var items = _library.GetItemList(new InternalItemsQuery
         {
