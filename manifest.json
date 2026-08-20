@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.2.2.0",
+        "changelog": "Fixes the watch history import, which failed immediately on Jellyfin 10.11.11 with a MissingMethodException. The way to list user accounts changed inside the 10.11 patch series - 10.11.0 exposes a Users property and 10.11.11 replaced it with a GetUsers method, and the two are mutually exclusive - so a plugin built against one crashes on the other. The engine now asks in a way that works on either, and falls back to reporting no users rather than throwing if a future version renames it again. Also fixes the Recompute queue tile on the Users page, which showed -1 because reading the queue length threw instead of returning a number. This is a beta release.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.2.2.0-beta/orca-engine_1.2.2.0.zip",
+        "checksum": "957e1009dea46d4c647a8f7ec7e67cd9",
+        "timestamp": "2026-08-20T06:05:00Z"
+      },
+      {
         "version": "1.2.1.0",
         "changelog": "Adds a Taste Graph page, which answers in one place the question the dashboard could not previously answer: whether the engine has learned what each account likes, is learning it right now, or has nothing to go on yet. One row per account with its state, how much history sits behind it, how much of that was imported versus captured live, and the languages and genres learned so far. The button that scans every account's existing Jellyfin watch history now lives here rather than under Users, where nobody was going to look for it. This is a beta release.",
         "targetAbi": "10.11.0.0",
