@@ -1,0 +1,2138 @@
+{
+  ".claude/settings.local.json": {
+    "mtime": 1784283069.4115336,
+    "seen": 1787221452.8281612,
+    "ast_hash": "6bd9461bdeb3955f1dcb1dd53ebdcfd6",
+    "semantic_hash": "6bd9461bdeb3955f1dcb1dd53ebdcfd6"
+  },
+  "Wholphin.Engine.Tests/CandidateScorerTests.cs": {
+    "mtime": 1783159124.8435092,
+    "seen": 1787221452.8281665,
+    "ast_hash": "8b735eb61433f11d45f351fbbccac39b",
+    "semantic_hash": "8b735eb61433f11d45f351fbbccac39b"
+  },
+  "Wholphin.Engine.Tests/CatalogEnrichmentPreservationTests.cs": {
+    "mtime": 1786892156.1269927,
+    "seen": 1787221452.8281684,
+    "ast_hash": "0b58e938b1aa8e5780e1502190c5ec90",
+    "semantic_hash": "0b58e938b1aa8e5780e1502190c5ec90"
+  },
+  "Wholphin.Engine.Tests/CatalogFeaturesTests.cs": {
+    "mtime": 1783158848.2963705,
+    "seen": 1787221452.8281696,
+    "ast_hash": "ed7fac60ffef612c1d2d906bf0924775",
+    "semantic_hash": "ed7fac60ffef612c1d2d906bf0924775"
+  },
+  "Wholphin.Engine.Tests/CatalogSummaryTests.cs": {
+    "mtime": 1785863364.9749587,
+    "seen": 1787221452.8281703,
+    "ast_hash": "f3727cece5693737489749d8dbc51cc4",
+    "semantic_hash": "f3727cece5693737489749d8dbc51cc4"
+  },
+  "Wholphin.Engine.Tests/ComingSoonClassifierTests.cs": {
+    "mtime": 1783260323.4777787,
+    "seen": 1787221452.8281713,
+    "ast_hash": "1248c9da877b8e94d9d9b5ff07904000",
+    "semantic_hash": "1248c9da877b8e94d9d9b5ff07904000"
+  },
+  "Wholphin.Engine.Tests/ContentDocumentTests.cs": {
+    "mtime": 1787158479.303879,
+    "seen": 1787221452.828172,
+    "ast_hash": "b224bf8618caecc0f2f18c508946c7c2",
+    "semantic_hash": "b224bf8618caecc0f2f18c508946c7c2"
+  },
+  "Wholphin.Engine.Tests/ContentVectorIndexTests.cs": {
+    "mtime": 1787207499.4223635,
+    "seen": 1787221452.8281727,
+    "ast_hash": "908274b669afb0d1d3c73d71873cfd86",
+    "semantic_hash": "908274b669afb0d1d3c73d71873cfd86"
+  },
+  "Wholphin.Engine.Tests/ContentVectorTests.cs": {
+    "mtime": 1787206612.19111,
+    "seen": 1787221452.8281734,
+    "ast_hash": "57ec4da21eae91e6f13443f29db608ab",
+    "semantic_hash": "57ec4da21eae91e6f13443f29db608ab"
+  },
+  "Wholphin.Engine.Tests/CountryLanguagesTests.cs": {
+    "mtime": 1783158285.1158152,
+    "seen": 1787221452.8281739,
+    "ast_hash": "8bded27844e0089f9fd3efc4fb2281ec",
+    "semantic_hash": "8bded27844e0089f9fd3efc4fb2281ec"
+  },
+  "Wholphin.Engine.Tests/DaypartTests.cs": {
+    "mtime": 1783158281.5779614,
+    "seen": 1787221452.8281746,
+    "ast_hash": "7a9639a8b01d440d0284741ea2c98b5a",
+    "semantic_hash": "7a9639a8b01d440d0284741ea2c98b5a"
+  },
+  "Wholphin.Engine.Tests/DiversityStageTests.cs": {
+    "mtime": 1783159162.222812,
+    "seen": 1787221452.8281755,
+    "ast_hash": "dd2820b45ed23b09acdae8b11d9d55e4",
+    "semantic_hash": "dd2820b45ed23b09acdae8b11d9d55e4"
+  },
+  "Wholphin.Engine.Tests/EmbeddingBatchingTests.cs": {
+    "mtime": 1787207431.6081543,
+    "seen": 1787221452.828176,
+    "ast_hash": "1caceae9aec769b7e928abd2b6a7d2bc",
+    "semantic_hash": "1caceae9aec769b7e928abd2b6a7d2bc"
+  },
+  "Wholphin.Engine.Tests/EmbeddingProbeTests.cs": {
+    "mtime": 1787207640.7863126,
+    "seen": 1787221452.828177,
+    "ast_hash": "685b10ec163c3890811701fb5fbb2cba",
+    "semantic_hash": "685b10ec163c3890811701fb5fbb2cba"
+  },
+  "Wholphin.Engine.Tests/EngineEventsTests.cs": {
+    "mtime": 1785863364.9768932,
+    "seen": 1787221452.8281775,
+    "ast_hash": "780d1efc0b48bd0038fe7fa9d654b714",
+    "semantic_hash": "780d1efc0b48bd0038fe7fa9d654b714"
+  },
+  "Wholphin.Engine.Tests/ExplanationTemplatesTests.cs": {
+    "mtime": 1783158563.001446,
+    "seen": 1787221452.828178,
+    "ast_hash": "c64c41bf193a9db3795ce119f1770118",
+    "semantic_hash": "c64c41bf193a9db3795ce119f1770118"
+  },
+  "Wholphin.Engine.Tests/ExplorationScorerTests.cs": {
+    "mtime": 1783158247.7983732,
+    "seen": 1787221452.8281786,
+    "ast_hash": "7c7e5664e7fa4dbeab4f63a39c0dc57e",
+    "semantic_hash": "7c7e5664e7fa4dbeab4f63a39c0dc57e"
+  },
+  "Wholphin.Engine.Tests/GenreGraphTests.cs": {
+    "mtime": 1783158345.9511583,
+    "seen": 1787221452.8281791,
+    "ast_hash": "7073da6cb293040503fc8c4b9c86c3c1",
+    "semantic_hash": "7073da6cb293040503fc8c4b9c86c3c1"
+  },
+  "Wholphin.Engine.Tests/HouseholdClockTests.cs": {
+    "mtime": 1783159436.3271942,
+    "seen": 1787221452.82818,
+    "ast_hash": "b8d7eb4751edbf668a8a10f22faade67",
+    "semantic_hash": "b8d7eb4751edbf668a8a10f22faade67"
+  },
+  "Wholphin.Engine.Tests/IntentScorerTests.cs": {
+    "mtime": 1783260767.2869546,
+    "seen": 1787221452.8281806,
+    "ast_hash": "9fccbf756535d4c698844aea5ed64858",
+    "semantic_hash": "9fccbf756535d4c698844aea5ed64858"
+  },
+  "Wholphin.Engine.Tests/InterestModelTests.cs": {
+    "mtime": 1783158196.8041768,
+    "seen": 1787221452.8281813,
+    "ast_hash": "ae31fc14fe996bff276a1390de1f52ff",
+    "semantic_hash": "ae31fc14fe996bff276a1390de1f52ff"
+  },
+  "Wholphin.Engine.Tests/JellyfinUsersTests.cs": {
+    "mtime": 1787211983.3571997,
+    "seen": 1787221452.828182,
+    "ast_hash": "b0924e1967bae7941bf02a9e1510f13f",
+    "semantic_hash": "b0924e1967bae7941bf02a9e1510f13f"
+  },
+  "Wholphin.Engine.Tests/LargeFileStreamingTests.cs": {
+    "mtime": 1785927635.630809,
+    "seen": 1787221452.8281827,
+    "ast_hash": "4c5d317ebfda44f177d1c95869d4dd0f",
+    "semantic_hash": "4c5d317ebfda44f177d1c95869d4dd0f"
+  },
+  "Wholphin.Engine.Tests/LlmCandidateSourceTests.cs": {
+    "mtime": 1784281875.563778,
+    "seen": 1787221452.8281837,
+    "ast_hash": "1cc84c792a24a81ac108c03419cccb01",
+    "semantic_hash": "1cc84c792a24a81ac108c03419cccb01"
+  },
+  "Wholphin.Engine.Tests/LlmCurationParseTests.cs": {
+    "mtime": 1784302034.0875475,
+    "seen": 1787221452.8281844,
+    "ast_hash": "f9a8847eb6870367355f6a3af99d53b4",
+    "semantic_hash": "f9a8847eb6870367355f6a3af99d53b4"
+  },
+  "Wholphin.Engine.Tests/LlmDiscoveryPromptBuilderTests.cs": {
+    "mtime": 1784281836.1188836,
+    "seen": 1787221452.8281848,
+    "ast_hash": "17bbada1812965d6fdc1375c532a87b9",
+    "semantic_hash": "17bbada1812965d6fdc1375c532a87b9"
+  },
+  "Wholphin.Engine.Tests/LlmJsonParserTests.cs": {
+    "mtime": 1784281815.4518385,
+    "seen": 1787221452.8281853,
+    "ast_hash": "aac014a3209433830797103902de1a1e",
+    "semantic_hash": "aac014a3209433830797103902de1a1e"
+  },
+  "Wholphin.Engine.Tests/MediaIdentityTests.cs": {
+    "mtime": 1786891985.6489046,
+    "seen": 1787221452.828186,
+    "ast_hash": "ccf5bfc3d742e6bdf71182c8e7d7a004",
+    "semantic_hash": "ccf5bfc3d742e6bdf71182c8e7d7a004"
+  },
+  "Wholphin.Engine.Tests/MediaProbeTests.cs": {
+    "mtime": 1785958107.8253775,
+    "seen": 1787221452.8281865,
+    "ast_hash": "a61e28b43bee7f4e6f2c745aaba9850e",
+    "semantic_hash": "a61e28b43bee7f4e6f2c745aaba9850e"
+  },
+  "Wholphin.Engine.Tests/MetadataAggregatorTests.cs": {
+    "mtime": 1786911153.657366,
+    "seen": 1787221452.8281872,
+    "ast_hash": "48dc13819c5a9586f5fd09fa3a5e1450",
+    "semantic_hash": "48dc13819c5a9586f5fd09fa3a5e1450"
+  },
+  "Wholphin.Engine.Tests/MetadataMergeTests.cs": {
+    "mtime": 1787158528.8561301,
+    "seen": 1787221452.828188,
+    "ast_hash": "711d3bf5c9c7df985746e4faa3032b1c",
+    "semantic_hash": "711d3bf5c9c7df985746e4faa3032b1c"
+  },
+  "Wholphin.Engine.Tests/MetadataProviderTests.cs": {
+    "mtime": 1786911435.0208757,
+    "seen": 1787221452.8281884,
+    "ast_hash": "b43c451ddfaabbba132eedb20c2de082",
+    "semantic_hash": "b43c451ddfaabbba132eedb20c2de082"
+  },
+  "Wholphin.Engine.Tests/NegativeSignalsTests.cs": {
+    "mtime": 1783158211.5756595,
+    "seen": 1787221452.828189,
+    "ast_hash": "0bea8206232327cbde0867b5b40c6dca",
+    "semantic_hash": "0bea8206232327cbde0867b5b40c6dca"
+  },
+  "Wholphin.Engine.Tests/OpenAiCompatibleProviderTests.cs": {
+    "mtime": 1784281923.83701,
+    "seen": 1787221452.8281894,
+    "ast_hash": "1b16c1511ff785f2d3847688f570cc7b",
+    "semantic_hash": "1b16c1511ff785f2d3847688f570cc7b"
+  },
+  "Wholphin.Engine.Tests/OrcaMetricsHandlerTests.cs": {
+    "mtime": 1786891911.9870625,
+    "seen": 1787221452.8281903,
+    "ast_hash": "6394ba1b7304af8d890ed2bc32ebb8f9",
+    "semantic_hash": "6394ba1b7304af8d890ed2bc32ebb8f9"
+  },
+  "Wholphin.Engine.Tests/ProviderGateTests.cs": {
+    "mtime": 1786892005.541831,
+    "seen": 1787221452.8281908,
+    "ast_hash": "54a30ec3fe0f1453b5e5bd11146b4fdd",
+    "semantic_hash": "54a30ec3fe0f1453b5e5bd11146b4fdd"
+  },
+  "Wholphin.Engine.Tests/RateLimitRetryTests.cs": {
+    "mtime": 1784303584.9959693,
+    "seen": 1787221452.8281913,
+    "ast_hash": "6b1a951481a71359429b7d9533beee0c",
+    "semantic_hash": "6b1a951481a71359429b7d9533beee0c"
+  },
+  "Wholphin.Engine.Tests/RowBudgetTests.cs": {
+    "mtime": 1785863364.981476,
+    "seen": 1787221452.828192,
+    "ast_hash": "6d090d1babf658185fab33ca63f930af",
+    "semantic_hash": "6d090d1babf658185fab33ca63f930af"
+  },
+  "Wholphin.Engine.Tests/ScoringPolicyTests.cs": {
+    "mtime": 1783159140.8910484,
+    "seen": 1787221452.8281925,
+    "ast_hash": "964303e60aaf4147b87e25c053d8f441",
+    "semantic_hash": "964303e60aaf4147b87e25c053d8f441"
+  },
+  "Wholphin.Engine.Tests/SelectionStageLlmTests.cs": {
+    "mtime": 1784281906.186801,
+    "seen": 1787221452.8281932,
+    "ast_hash": "3b6d46521b1e1d4c5aec1da35b147053",
+    "semantic_hash": "3b6d46521b1e1d4c5aec1da35b147053"
+  },
+  "Wholphin.Engine.Tests/SeriesStateCalculatorTests.cs": {
+    "mtime": 1783259494.8794966,
+    "seen": 1787221452.828194,
+    "ast_hash": "8a12e61534f7daf51eccb9793a1abf42",
+    "semantic_hash": "8a12e61534f7daf51eccb9793a1abf42"
+  },
+  "Wholphin.Engine.Tests/SignalWeightsTests.cs": {
+    "mtime": 1783158205.824163,
+    "seen": 1787221452.8281946,
+    "ast_hash": "0131b71d2f0718d196e50f3cdabe6522",
+    "semantic_hash": "0131b71d2f0718d196e50f3cdabe6522"
+  },
+  "Wholphin.Engine.Tests/SimilarityScorerTests.cs": {
+    "mtime": 1783158241.257205,
+    "seen": 1787221452.828195,
+    "ast_hash": "f584ba7aa8f810e3eddc8bb74ca2418a",
+    "semantic_hash": "f584ba7aa8f810e3eddc8bb74ca2418a"
+  },
+  "Wholphin.Engine.Tests/SingleFlightTests.cs": {
+    "mtime": 1786891972.6852558,
+    "seen": 1787221452.8281963,
+    "ast_hash": "e446ab90e6eea4006031a0e2622c24f7",
+    "semantic_hash": "e446ab90e6eea4006031a0e2622c24f7"
+  },
+  "Wholphin.Engine.Tests/SourceRankerTests.cs": {
+    "mtime": 1786023192.1266856,
+    "seen": 1787221452.828197,
+    "ast_hash": "1dc1e31f8bdace76d343b70e64551dd5",
+    "semantic_hash": "1dc1e31f8bdace76d343b70e64551dd5"
+  },
+  "Wholphin.Engine.Tests/StreamCacheTrimTests.cs": {
+    "mtime": 1786512971.0506446,
+    "seen": 1787221452.8281977,
+    "ast_hash": "80cce765e58dbd7d4add51cdf614dcc8",
+    "semantic_hash": "80cce765e58dbd7d4add51cdf614dcc8"
+  },
+  "Wholphin.Engine.Tests/StreamDiagnosticsTests.cs": {
+    "mtime": 1786886347.929222,
+    "seen": 1787221452.8281984,
+    "ast_hash": "2c9547e64dee16129a1e6db5db78c4dd",
+    "semantic_hash": "2c9547e64dee16129a1e6db5db78c4dd"
+  },
+  "Wholphin.Engine.Tests/StreamSettingsTests.cs": {
+    "mtime": 1786885241.1133795,
+    "seen": 1787221452.8281991,
+    "ast_hash": "a2428d82ddf3c9699bd11a530e341cca",
+    "semantic_hash": "a2428d82ddf3c9699bd11a530e341cca"
+  },
+  "Wholphin.Engine.Tests/SwarmScraperTests.cs": {
+    "mtime": 1786624824.822791,
+    "seen": 1787221452.8281996,
+    "ast_hash": "8a31eda8fab5be71f4dd8b9194afa449",
+    "semantic_hash": "8a31eda8fab5be71f4dd8b9194afa449"
+  },
+  "Wholphin.Engine.Tests/TasteDiscoverLanguageTests.cs": {
+    "mtime": 1787158914.1120439,
+    "seen": 1787221452.8282003,
+    "ast_hash": "3e5cf8c2de70e8027fdc2c1424cb8a21",
+    "semantic_hash": "3e5cf8c2de70e8027fdc2c1424cb8a21"
+  },
+  "Wholphin.Engine.Tests/TestData.cs": {
+    "mtime": 1783158232.756013,
+    "seen": 1787221452.8282013,
+    "ast_hash": "0c81537bc7c1f150c8ce4b90212a9200",
+    "semantic_hash": "0c81537bc7c1f150c8ce4b90212a9200"
+  },
+  "Wholphin.Engine.Tests/TestDoubles.cs": {
+    "mtime": 1786891902.983531,
+    "seen": 1787221452.8282018,
+    "ast_hash": "6050a19efa05538a07e3103a9e93f3fd",
+    "semantic_hash": "6050a19efa05538a07e3103a9e93f3fd"
+  },
+  "Wholphin.Engine.Tests/TrackerListTests.cs": {
+    "mtime": 1786559883.503457,
+    "seen": 1787221452.8282027,
+    "ast_hash": "b4704645abe2b7cbe33b3f2a94bdb62f",
+    "semantic_hash": "b4704645abe2b7cbe33b3f2a94bdb62f"
+  },
+  "Wholphin.Engine.Tests/TrailerPickTests.cs": {
+    "mtime": 1785921220.3281982,
+    "seen": 1787221452.8282032,
+    "ast_hash": "233d3fd339e5f29efe9b87b3ee4cd3f7",
+    "semantic_hash": "233d3fd339e5f29efe9b87b3ee4cd3f7"
+  },
+  "Wholphin.Engine.Tests/TrailerSearchScoreTests.cs": {
+    "mtime": 1786910863.2061303,
+    "seen": 1787221452.8282044,
+    "ast_hash": "9157faab582580aa87bca3490db3b4a7",
+    "semantic_hash": "9157faab582580aa87bca3490db3b4a7"
+  },
+  "Wholphin.Engine.Tests/VideoFileSelectorTests.cs": {
+    "mtime": 1785925429.6567924,
+    "seen": 1787221452.8282049,
+    "ast_hash": "31fee73bedbccbf327eb3e728520011d",
+    "semantic_hash": "31fee73bedbccbf327eb3e728520011d"
+  },
+  "Wholphin.Engine.Tests/WatchHistoryImportTests.cs": {
+    "mtime": 1787157755.0926595,
+    "seen": 1787221452.8282053,
+    "ast_hash": "48859f2e547931598d6d737a57365ef5",
+    "semantic_hash": "48859f2e547931598d6d737a57365ef5"
+  },
+  "Wholphin.Engine.Tests/Wholphin.Engine.Tests.csproj": {
+    "mtime": 1785926223.257852,
+    "seen": 1787221452.828206,
+    "ast_hash": "017df0b58c66546759da7bd60df87834",
+    "semantic_hash": "017df0b58c66546759da7bd60df87834"
+  },
+  "Wholphin.Engine.sln": {
+    "mtime": 1783158125.9953916,
+    "seen": 1787221452.8282065,
+    "ast_hash": "407ead473725a599944822c5e9cddc96",
+    "semantic_hash": "407ead473725a599944822c5e9cddc96"
+  },
+  "Wholphin.Engine/Analytics/CommunityRatingMath.cs": {
+    "mtime": 1782409850.889016,
+    "seen": 1787221452.828207,
+    "ast_hash": "ade1a4cee5051feccb9f189bc64ce98d",
+    "semantic_hash": "ade1a4cee5051feccb9f189bc64ce98d"
+  },
+  "Wholphin.Engine/Analytics/CommunityRatingService.cs": {
+    "mtime": 1782707273.6618762,
+    "seen": 1787221452.828208,
+    "ast_hash": "b94c4fcdceca727c0e31daaaa4ba9c1a",
+    "semantic_hash": "b94c4fcdceca727c0e31daaaa4ba9c1a"
+  },
+  "Wholphin.Engine/Analytics/FunnelAnalytics.cs": {
+    "mtime": 1782195034.755029,
+    "seen": 1787221452.8282084,
+    "ast_hash": "1614bffb132797c431925403df903f8a",
+    "semantic_hash": "1614bffb132797c431925403df903f8a"
+  },
+  "Wholphin.Engine/Analytics/ICommunityRatingService.cs": {
+    "mtime": 1782409858.3600173,
+    "seen": 1787221452.8282092,
+    "ast_hash": "6097672c2cf96b868752fc111f8c7511",
+    "semantic_hash": "6097672c2cf96b868752fc111f8c7511"
+  },
+  "Wholphin.Engine/Analytics/IFunnelAnalytics.cs": {
+    "mtime": 1782195008.3414721,
+    "seen": 1787221452.8282096,
+    "ast_hash": "7788479dc8f579a27febaa7bf6c8c9d8",
+    "semantic_hash": "7788479dc8f579a27febaa7bf6c8c9d8"
+  },
+  "Wholphin.Engine/Analytics/IPopularityService.cs": {
+    "mtime": 1782410628.935809,
+    "seen": 1787221452.82821,
+    "ast_hash": "27aa996c724e0e305fb1ff3b95fd1ad3",
+    "semantic_hash": "27aa996c724e0e305fb1ff3b95fd1ad3"
+  },
+  "Wholphin.Engine/Analytics/PopularityService.cs": {
+    "mtime": 1782410647.954112,
+    "seen": 1787221452.8282108,
+    "ast_hash": "42f51a1b34599662171224a942ef981a",
+    "semantic_hash": "42f51a1b34599662171224a942ef981a"
+  },
+  "Wholphin.Engine/Behavior/BehaviorEntryPoint.cs": {
+    "mtime": 1783159288.8151736,
+    "seen": 1787221452.8282118,
+    "ast_hash": "12a79c391bd1122832ad9c3fa8aa3a8f",
+    "semantic_hash": "12a79c391bd1122832ad9c3fa8aa3a8f"
+  },
+  "Wholphin.Engine/Behavior/BehaviorService.cs": {
+    "mtime": 1782707273.6971843,
+    "seen": 1787221452.8282123,
+    "ast_hash": "e6252ef5ed79b4b92fc6f37fd094d5f5",
+    "semantic_hash": "e6252ef5ed79b4b92fc6f37fd094d5f5"
+  },
+  "Wholphin.Engine/Behavior/IBehaviorService.cs": {
+    "mtime": 1781987054.2548227,
+    "seen": 1787221452.8282127,
+    "ast_hash": "220f97dba6223416bfb1789b582900f2",
+    "semantic_hash": "220f97dba6223416bfb1789b582900f2"
+  },
+  "Wholphin.Engine/Behavior/IWatchHistoryImporter.cs": {
+    "mtime": 1787213197.8057003,
+    "seen": 1787221452.8282135,
+    "ast_hash": "68a930741db2588227b02bad42870908",
+    "semantic_hash": "68a930741db2588227b02bad42870908"
+  },
+  "Wholphin.Engine/Behavior/ImportWatchHistoryTask.cs": {
+    "mtime": 1787213234.3085127,
+    "seen": 1787221452.828214,
+    "ast_hash": "c7605a7aff103bc190bdef203000059f",
+    "semantic_hash": "c7605a7aff103bc190bdef203000059f"
+  },
+  "Wholphin.Engine/Behavior/JellyfinUsers.cs": {
+    "mtime": 1787211930.1874037,
+    "seen": 1787221452.8282146,
+    "ast_hash": "748c96ce0d3fa18d79b8b3a2d005a5e2",
+    "semantic_hash": "748c96ce0d3fa18d79b8b3a2d005a5e2"
+  },
+  "Wholphin.Engine/Behavior/NegativeSignals.cs": {
+    "mtime": 1782198608.8274808,
+    "seen": 1787221452.8282151,
+    "ast_hash": "5ff669f75d7636c1d7ca2c872d292294",
+    "semantic_hash": "5ff669f75d7636c1d7ca2c872d292294"
+  },
+  "Wholphin.Engine/Behavior/SignalWeights.cs": {
+    "mtime": 1783103557.2005675,
+    "seen": 1787221452.8282158,
+    "ast_hash": "cf2b805177417f3df284e50ec6c726a2",
+    "semantic_hash": "cf2b805177417f3df284e50ec6c726a2"
+  },
+  "Wholphin.Engine/Behavior/WatchHistoryImporter.cs": {
+    "mtime": 1787213197.8066719,
+    "seen": 1787221452.8282163,
+    "ast_hash": "10358d4e2e3624a8c8255714c2faf6f0",
+    "semantic_hash": "10358d4e2e3624a8c8255714c2faf6f0"
+  },
+  "Wholphin.Engine/Caching/ICache.cs": {
+    "mtime": 1781890065.3879325,
+    "seen": 1787221452.828217,
+    "ast_hash": "9453ee27b62ef8dc88d455b696b4f4eb",
+    "semantic_hash": "9453ee27b62ef8dc88d455b696b4f4eb"
+  },
+  "Wholphin.Engine/Caching/InMemoryCache.cs": {
+    "mtime": 1785863364.984497,
+    "seen": 1787221452.8282175,
+    "ast_hash": "4f27511f713b0271a45754a97977532a",
+    "semantic_hash": "4f27511f713b0271a45754a97977532a"
+  },
+  "Wholphin.Engine/Caching/SingleFlight.cs": {
+    "mtime": 1786891721.9774785,
+    "seen": 1787221452.8282182,
+    "ast_hash": "176a32d8c10727e83ec2979fadd1559e",
+    "semantic_hash": "176a32d8c10727e83ec2979fadd1559e"
+  },
+  "Wholphin.Engine/Catalog/AvailabilityReconciler.cs": {
+    "mtime": 1782707273.7123568,
+    "seen": 1787221452.828219,
+    "ast_hash": "cc6f285364daac8683abf3d77d760e25",
+    "semantic_hash": "cc6f285364daac8683abf3d77d760e25"
+  },
+  "Wholphin.Engine/Catalog/ComingSoonClassifier.cs": {
+    "mtime": 1783260183.2219841,
+    "seen": 1787221452.8282194,
+    "ast_hash": "71f49dcc314e45b693f59dcd73db1ede",
+    "semantic_hash": "71f49dcc314e45b693f59dcd73db1ede"
+  },
+  "Wholphin.Engine/Catalog/IAvailabilityReconciler.cs": {
+    "mtime": 1782154367.4009886,
+    "seen": 1787221452.8282201,
+    "ast_hash": "02cc7c09e0ac00bdf7c5c77e69768235",
+    "semantic_hash": "02cc7c09e0ac00bdf7c5c77e69768235"
+  },
+  "Wholphin.Engine/Catalog/ICatalogEnricher.cs": {
+    "mtime": 1782406927.2445703,
+    "seen": 1787221452.8282208,
+    "ast_hash": "9bc736d8fe867af8fa2e4efb86e54906",
+    "semantic_hash": "9bc736d8fe867af8fa2e4efb86e54906"
+  },
+  "Wholphin.Engine/Catalog/IUpcomingProvider.cs": {
+    "mtime": 1783260196.281688,
+    "seen": 1787221452.8282213,
+    "ast_hash": "2dbb3313dac140f148c1c516b03fcef2",
+    "semantic_hash": "2dbb3313dac140f148c1c516b03fcef2"
+  },
+  "Wholphin.Engine/Catalog/IWatchProviderEnricher.cs": {
+    "mtime": 1782914424.8058596,
+    "seen": 1787221452.8282223,
+    "ast_hash": "9296d2d4ccbb55fef958cd8aab385458",
+    "semantic_hash": "9296d2d4ccbb55fef958cd8aab385458"
+  },
+  "Wholphin.Engine/Catalog/JellyseerrMaintenanceWorker.cs": {
+    "mtime": 1787158087.0806987,
+    "seen": 1787221452.8282228,
+    "ast_hash": "09bcd9488e787b32e338a4889a377a08",
+    "semantic_hash": "09bcd9488e787b32e338a4889a377a08"
+  },
+  "Wholphin.Engine/Catalog/TmdbEnricher.cs": {
+    "mtime": 1787158425.603442,
+    "seen": 1787221452.8282232,
+    "ast_hash": "33be4923eace8b356480a049a3ae4a81",
+    "semantic_hash": "33be4923eace8b356480a049a3ae4a81"
+  },
+  "Wholphin.Engine/Catalog/UpcomingProvider.cs": {
+    "mtime": 1784301938.15294,
+    "seen": 1787221452.8282247,
+    "ast_hash": "3eeeef7794fee72bf3d69af197a099e3",
+    "semantic_hash": "3eeeef7794fee72bf3d69af197a099e3"
+  },
+  "Wholphin.Engine/Catalog/WatchProviderEnricher.cs": {
+    "mtime": 1782914440.428193,
+    "seen": 1787221452.8282254,
+    "ast_hash": "e0ac912709c09570250c5cb87efad4e7",
+    "semantic_hash": "e0ac912709c09570250c5cb87efad4e7"
+  },
+  "Wholphin.Engine/Configuration/PluginConfiguration.cs": {
+    "mtime": 1787206173.6736495,
+    "seen": 1787221452.828226,
+    "ast_hash": "956678505ec96e7d38adcfa67373c347",
+    "semantic_hash": "956678505ec96e7d38adcfa67373c347"
+  },
+  "Wholphin.Engine/Contracts/CardEnums.cs": {
+    "mtime": 1784453915.414721,
+    "seen": 1787221452.8282266,
+    "ast_hash": "f3a646a8c9ff6ab3b1d2805d794d507c",
+    "semantic_hash": "f3a646a8c9ff6ab3b1d2805d794d507c"
+  },
+  "Wholphin.Engine/Contracts/Dtos.cs": {
+    "mtime": 1782914645.8436964,
+    "seen": 1787221452.828227,
+    "ast_hash": "b9c800d9f0c969838c60b1c3a869123f",
+    "semantic_hash": "b9c800d9f0c969838c60b1c3a869123f"
+  },
+  "Wholphin.Engine/Contracts/MediaIdMapper.cs": {
+    "mtime": 1781891597.6975908,
+    "seen": 1787221452.8282278,
+    "ast_hash": "0bac93a73adec3707d175556b7b3679e",
+    "semantic_hash": "0bac93a73adec3707d175556b7b3679e"
+  },
+  "Wholphin.Engine/Controllers/AdminController.cs": {
+    "mtime": 1787158087.0824642,
+    "seen": 1787221452.8282282,
+    "ast_hash": "00122876612b73c7ca909f9ba60856bf",
+    "semantic_hash": "00122876612b73c7ca909f9ba60856bf"
+  },
+  "Wholphin.Engine/Controllers/AnalyticsController.cs": {
+    "mtime": 1785863364.9954586,
+    "seen": 1787221452.8282292,
+    "ast_hash": "1c61adad36fa7cd03db242558a5ac70c",
+    "semantic_hash": "1c61adad36fa7cd03db242558a5ac70c"
+  },
+  "Wholphin.Engine/Controllers/BehaviorController.cs": {
+    "mtime": 1787157294.7056055,
+    "seen": 1787221452.8282297,
+    "ast_hash": "69e6364c83e8f449662ad2d857a8890a",
+    "semantic_hash": "69e6364c83e8f449662ad2d857a8890a"
+  },
+  "Wholphin.Engine/Controllers/CardsController.cs": {
+    "mtime": 1782707164.157994,
+    "seen": 1787221452.8282301,
+    "ast_hash": "445cadee5f6153c616d35e27f64bb59e",
+    "semantic_hash": "445cadee5f6153c616d35e27f64bb59e"
+  },
+  "Wholphin.Engine/Controllers/CatalogController.cs": {
+    "mtime": 1786892583.9655159,
+    "seen": 1787221452.8282309,
+    "ast_hash": "f314e66f0aabbe18f3e981af73d16cd9",
+    "semantic_hash": "f314e66f0aabbe18f3e981af73d16cd9"
+  },
+  "Wholphin.Engine/Controllers/DiscoveryController.cs": {
+    "mtime": 1785863365.000419,
+    "seen": 1787221452.8282313,
+    "ast_hash": "41be273f66fa950cfd9613005e503c85",
+    "semantic_hash": "41be273f66fa950cfd9613005e503c85"
+  },
+  "Wholphin.Engine/Controllers/EmbeddingController.cs": {
+    "mtime": 1787207552.6228735,
+    "seen": 1787221452.828232,
+    "ast_hash": "7faabd86418f9442324f28e431875835",
+    "semantic_hash": "7faabd86418f9442324f28e431875835"
+  },
+  "Wholphin.Engine/Controllers/GenresController.cs": {
+    "mtime": 1782707164.1939943,
+    "seen": 1787221452.8282325,
+    "ast_hash": "78853f813f1c4f0b7e66b8aa2f335fb7",
+    "semantic_hash": "78853f813f1c4f0b7e66b8aa2f335fb7"
+  },
+  "Wholphin.Engine/Controllers/HealthController.cs": {
+    "mtime": 1782707244.9509017,
+    "seen": 1787221452.8282332,
+    "ast_hash": "3800fddaa45d1bf63f1873d9884d9efc",
+    "semantic_hash": "3800fddaa45d1bf63f1873d9884d9efc"
+  },
+  "Wholphin.Engine/Controllers/HomeController.cs": {
+    "mtime": 1782707164.222816,
+    "seen": 1787221452.8282337,
+    "ast_hash": "b97a3b0ab4bd1468e4857678ec8a354f",
+    "semantic_hash": "b97a3b0ab4bd1468e4857678ec8a354f"
+  },
+  "Wholphin.Engine/Controllers/ImagesController.cs": {
+    "mtime": 1785957100.3313015,
+    "seen": 1787221452.8282342,
+    "ast_hash": "995b6e6736c433c4dfe9f42954ea92ff",
+    "semantic_hash": "995b6e6736c433c4dfe9f42954ea92ff"
+  },
+  "Wholphin.Engine/Controllers/MetadataController.cs": {
+    "mtime": 1786910645.938414,
+    "seen": 1787221452.8282347,
+    "ast_hash": "d9af857a8777c44c03e9f5e778a01380",
+    "semantic_hash": "d9af857a8777c44c03e9f5e778a01380"
+  },
+  "Wholphin.Engine/Controllers/ObservatoryController.cs": {
+    "mtime": 1787157340.5518904,
+    "seen": 1787221452.8282356,
+    "ast_hash": "5bd827a482980b02768eade99ac5d583",
+    "semantic_hash": "5bd827a482980b02768eade99ac5d583"
+  },
+  "Wholphin.Engine/Controllers/PersonalizationController.cs": {
+    "mtime": 1783139977.4739454,
+    "seen": 1787221452.828236,
+    "ast_hash": "0c5542f2798b7d5ac18f7d3423899eb7",
+    "semantic_hash": "0c5542f2798b7d5ac18f7d3423899eb7"
+  },
+  "Wholphin.Engine/Controllers/RecommendationsController.cs": {
+    "mtime": 1782707164.268374,
+    "seen": 1787221452.8282366,
+    "ast_hash": "983659fc7d6f2925906ac1268642e2d7",
+    "semantic_hash": "983659fc7d6f2925906ac1268642e2d7"
+  },
+  "Wholphin.Engine/Controllers/RequestsController.cs": {
+    "mtime": 1782707164.2833807,
+    "seen": 1787221452.8282373,
+    "ast_hash": "1ef7025b6796bb2a6a3fbbfb4a8e56b5",
+    "semantic_hash": "1ef7025b6796bb2a6a3fbbfb4a8e56b5"
+  },
+  "Wholphin.Engine/Controllers/SettingsController.cs": {
+    "mtime": 1782707164.2987347,
+    "seen": 1787221452.8282378,
+    "ast_hash": "bec531004d2ccb2c0c006a8e023ab2ce",
+    "semantic_hash": "bec531004d2ccb2c0c006a8e023ab2ce"
+  },
+  "Wholphin.Engine/Controllers/SimilarController.cs": {
+    "mtime": 1782707164.3147979,
+    "seen": 1787221452.8282382,
+    "ast_hash": "ec3913044e6a52f8a99e57fb5e14f9d6",
+    "semantic_hash": "ec3913044e6a52f8a99e57fb5e14f9d6"
+  },
+  "Wholphin.Engine/Controllers/SourcesController.cs": {
+    "mtime": 1786810020.367825,
+    "seen": 1787221452.8282392,
+    "ast_hash": "9b773571481d73d196f1a4495f0fc8c3",
+    "semantic_hash": "9b773571481d73d196f1a4495f0fc8c3"
+  },
+  "Wholphin.Engine/Controllers/StreamController.cs": {
+    "mtime": 1786883962.3550665,
+    "seen": 1787221452.82824,
+    "ast_hash": "f09022409c109c50dccefd6ffa179cb6",
+    "semantic_hash": "f09022409c109c50dccefd6ffa179cb6"
+  },
+  "Wholphin.Engine/Controllers/TasteGraphController.cs": {
+    "mtime": 1787211942.470291,
+    "seen": 1787221452.8282404,
+    "ast_hash": "331f98252e483aef29b03319ddeb4896",
+    "semantic_hash": "331f98252e483aef29b03319ddeb4896"
+  },
+  "Wholphin.Engine/Controllers/TrailerController.cs": {
+    "mtime": 1785863365.0061378,
+    "seen": 1787221452.8282409,
+    "ast_hash": "883974b3a4ff549cd8450b9e8d340d13",
+    "semantic_hash": "883974b3a4ff549cd8450b9e8d340d13"
+  },
+  "Wholphin.Engine/Controllers/UpdateController.cs": {
+    "mtime": 1783054267.1326263,
+    "seen": 1787221452.8282413,
+    "ast_hash": "fd3f3e4e3befeb966e88098ff339c058",
+    "semantic_hash": "fd3f3e4e3befeb966e88098ff339c058"
+  },
+  "Wholphin.Engine/Data/DatabaseInitializer.cs": {
+    "mtime": 1787207313.2213442,
+    "seen": 1787221452.8282418,
+    "ast_hash": "df8d4af277df16cf1400d8b98b519778",
+    "semantic_hash": "df8d4af277df16cf1400d8b98b519778"
+  },
+  "Wholphin.Engine/Data/Entities/BehaviorEvent.cs": {
+    "mtime": 1781890035.8291225,
+    "seen": 1787221452.8282428,
+    "ast_hash": "075c4b92367cb0f7ec20ff7d225f5ebe",
+    "semantic_hash": "075c4b92367cb0f7ec20ff7d225f5ebe"
+  },
+  "Wholphin.Engine/Data/Entities/CatalogItem.cs": {
+    "mtime": 1786892128.6072478,
+    "seen": 1787221452.8282433,
+    "ast_hash": "b15eb17493aa36d253f5c749eb79a089",
+    "semantic_hash": "b15eb17493aa36d253f5c749eb79a089"
+  },
+  "Wholphin.Engine/Data/Entities/CatalogItemVector.cs": {
+    "mtime": 1787207201.8593843,
+    "seen": 1787221452.8282437,
+    "ast_hash": "e4e8ed2a763a9c2bcb94157d69091275",
+    "semantic_hash": "e4e8ed2a763a9c2bcb94157d69091275"
+  },
+  "Wholphin.Engine/Data/Entities/DiscoveryRun.cs": {
+    "mtime": 1783103494.5922685,
+    "seen": 1787221452.8282444,
+    "ast_hash": "bfee315bd378f8c509f36aa78b0b563b",
+    "semantic_hash": "bfee315bd378f8c509f36aa78b0b563b"
+  },
+  "Wholphin.Engine/Data/Entities/MediaRequest.cs": {
+    "mtime": 1782186729.8467374,
+    "seen": 1787221452.828245,
+    "ast_hash": "b98924c4bfebec7b0e0dc83cc5018e4c",
+    "semantic_hash": "b98924c4bfebec7b0e0dc83cc5018e4c"
+  },
+  "Wholphin.Engine/Data/Entities/SyncState.cs": {
+    "mtime": 1781890041.784191,
+    "seen": 1787221452.8282454,
+    "ast_hash": "cf30bfbb495fdf65d0a01ac0c85bc265",
+    "semantic_hash": "cf30bfbb495fdf65d0a01ac0c85bc265"
+  },
+  "Wholphin.Engine/Data/Entities/TrailerAsset.cs": {
+    "mtime": 1783230001.0157464,
+    "seen": 1787221452.8282464,
+    "ast_hash": "0eb845314859a70511bf02e1e0ed0c04",
+    "semantic_hash": "0eb845314859a70511bf02e1e0ed0c04"
+  },
+  "Wholphin.Engine/Data/Entities/UserDiscoveryPick.cs": {
+    "mtime": 1783103492.4215837,
+    "seen": 1787221452.8282468,
+    "ast_hash": "66a9ab4ac938460dd05e94989e07ae40",
+    "semantic_hash": "66a9ab4ac938460dd05e94989e07ae40"
+  },
+  "Wholphin.Engine/Data/Entities/UserItemMemory.cs": {
+    "mtime": 1783103492.5897968,
+    "seen": 1787221452.8282473,
+    "ast_hash": "0029f0625be6b295f453a3aa40422bcc",
+    "semantic_hash": "0029f0625be6b295f453a3aa40422bcc"
+  },
+  "Wholphin.Engine/Data/Entities/UserProfile.cs": {
+    "mtime": 1781890031.384925,
+    "seen": 1787221452.828248,
+    "ast_hash": "4a06e391cbbb84e18cecf456eef48b7d",
+    "semantic_hash": "4a06e391cbbb84e18cecf456eef48b7d"
+  },
+  "Wholphin.Engine/Data/Entities/UserSetting.cs": {
+    "mtime": 1781890038.9383626,
+    "seen": 1787221452.8282485,
+    "ast_hash": "2afae7248c23a236f2346fedd199b592",
+    "semantic_hash": "2afae7248c23a236f2346fedd199b592"
+  },
+  "Wholphin.Engine/Data/Enums/AvailabilityState.cs": {
+    "mtime": 1781891626.9293475,
+    "seen": 1787221452.828249,
+    "ast_hash": "65fd087e07a69ddc8d4491d564c4670d",
+    "semantic_hash": "65fd087e07a69ddc8d4491d564c4670d"
+  },
+  "Wholphin.Engine/Data/Enums/BehaviorEventType.cs": {
+    "mtime": 1783103554.9137304,
+    "seen": 1787221452.82825,
+    "ast_hash": "85883aad599b825df6fa8901fddd7e1b",
+    "semantic_hash": "85883aad599b825df6fa8901fddd7e1b"
+  },
+  "Wholphin.Engine/Data/Enums/DiscoveryPickKind.cs": {
+    "mtime": 1784281494.4963334,
+    "seen": 1787221452.8282504,
+    "ast_hash": "2eedb2042762e8229078ad01b9a09849",
+    "semantic_hash": "2eedb2042762e8229078ad01b9a09849"
+  },
+  "Wholphin.Engine/Data/Enums/MediaType.cs": {
+    "mtime": 1781891623.22067,
+    "seen": 1787221452.828251,
+    "ast_hash": "647bdc8e84ad9644d54e68b6762fef1f",
+    "semantic_hash": "647bdc8e84ad9644d54e68b6762fef1f"
+  },
+  "Wholphin.Engine/Data/Enums/TrailerState.cs": {
+    "mtime": 1783227435.3666544,
+    "seen": 1787221452.8282514,
+    "ast_hash": "1639ad2a0854a0e095101bf4e3bc0e08",
+    "semantic_hash": "1639ad2a0854a0e095101bf4e3bc0e08"
+  },
+  "Wholphin.Engine/Data/IWholphinDbContextFactory.cs": {
+    "mtime": 1785863365.0081477,
+    "seen": 1787221452.828252,
+    "ast_hash": "ae57bd3c12edf2dde6d77424420bc4fa",
+    "semantic_hash": "ae57bd3c12edf2dde6d77424420bc4fa"
+  },
+  "Wholphin.Engine/Data/WholphinDbContext.cs": {
+    "mtime": 1787207313.220338,
+    "seen": 1787221452.8282526,
+    "ast_hash": "db16ed8d740990425b8390d2806e45b2",
+    "semantic_hash": "db16ed8d740990425b8390d2806e45b2"
+  },
+  "Wholphin.Engine/Data/WholphinDbContextFactory.cs": {
+    "mtime": 1785863365.0101483,
+    "seen": 1787221452.8282533,
+    "ast_hash": "1c97302679152b0a4069ce549478d6ae",
+    "semantic_hash": "1c97302679152b0a4069ce549478d6ae"
+  },
+  "Wholphin.Engine/Diagnostics/EngineAlerts.cs": {
+    "mtime": 1787157048.6615622,
+    "seen": 1787221452.828254,
+    "ast_hash": "051e7b94dcf7cc4ce65b94f956cff3b0",
+    "semantic_hash": "051e7b94dcf7cc4ce65b94f956cff3b0"
+  },
+  "Wholphin.Engine/Diagnostics/EngineEvents.cs": {
+    "mtime": 1785863365.0116282,
+    "seen": 1787221452.8282545,
+    "ast_hash": "c68759cd29e8461c95005a37023d2337",
+    "semantic_hash": "c68759cd29e8461c95005a37023d2337"
+  },
+  "Wholphin.Engine/Diagnostics/EngineMetrics.cs": {
+    "mtime": 1785863365.0134518,
+    "seen": 1787221452.8282552,
+    "ast_hash": "79f30f641a2a25e86b15b79ef4eedfe0",
+    "semantic_hash": "79f30f641a2a25e86b15b79ef4eedfe0"
+  },
+  "Wholphin.Engine/Diagnostics/IEngineAlerts.cs": {
+    "mtime": 1787157035.4369779,
+    "seen": 1787221452.8282557,
+    "ast_hash": "de78aa388c5bf743b2945388c53a4df1",
+    "semantic_hash": "de78aa388c5bf743b2945388c53a4df1"
+  },
+  "Wholphin.Engine/Diagnostics/IEngineEvents.cs": {
+    "mtime": 1785863365.0154984,
+    "seen": 1787221452.8282566,
+    "ast_hash": "ee836a17a8c677aa07813d7773ee03c3",
+    "semantic_hash": "ee836a17a8c677aa07813d7773ee03c3"
+  },
+  "Wholphin.Engine/Diagnostics/IEngineMetrics.cs": {
+    "mtime": 1785863365.0174656,
+    "seen": 1787221452.828257,
+    "ast_hash": "50f0801e7c01671335f632fb0160cd56",
+    "semantic_hash": "50f0801e7c01671335f632fb0160cd56"
+  },
+  "Wholphin.Engine/Diagnostics/OrcaMetricsHandler.cs": {
+    "mtime": 1785863365.0194583,
+    "seen": 1787221452.8282576,
+    "ast_hash": "f753ef5749e5d2f13f6f8d45424599e5",
+    "semantic_hash": "f753ef5749e5d2f13f6f8d45424599e5"
+  },
+  "Wholphin.Engine/Discovery/CandidateScorer.cs": {
+    "mtime": 1783159056.9563463,
+    "seen": 1787221452.8282583,
+    "ast_hash": "b1f406613cd02c67e166a1fcc16ae71c",
+    "semantic_hash": "b1f406613cd02c67e166a1fcc16ae71c"
+  },
+  "Wholphin.Engine/Discovery/CountryLanguages.cs": {
+    "mtime": 1783140631.2834103,
+    "seen": 1787221452.8282588,
+    "ast_hash": "74246930d6ef9d2c4e6f6479b4f61ca1",
+    "semantic_hash": "74246930d6ef9d2c4e6f6479b4f61ca1"
+  },
+  "Wholphin.Engine/Discovery/DiscoveryCandidate.cs": {
+    "mtime": 1784281497.7316275,
+    "seen": 1787221452.8282595,
+    "ast_hash": "74520e1102fe27cb2ed882f38e9c4618",
+    "semantic_hash": "74520e1102fe27cb2ed882f38e9c4618"
+  },
+  "Wholphin.Engine/Discovery/DiscoveryContext.cs": {
+    "mtime": 1784281501.0865266,
+    "seen": 1787221452.8282602,
+    "ast_hash": "88ea821be8a0b51a5130e50aea2aba5c",
+    "semantic_hash": "88ea821be8a0b51a5130e50aea2aba5c"
+  },
+  "Wholphin.Engine/Discovery/DiscoveryPipeline.cs": {
+    "mtime": 1784281986.6329825,
+    "seen": 1787221452.8282607,
+    "ast_hash": "7def6c82e84ae28b03113fdc365dc44b",
+    "semantic_hash": "7def6c82e84ae28b03113fdc365dc44b"
+  },
+  "Wholphin.Engine/Discovery/DiscoveryRunReport.cs": {
+    "mtime": 1783140908.6540864,
+    "seen": 1787221452.8282614,
+    "ast_hash": "29469597e9d537e8d4999a3f313e120f",
+    "semantic_hash": "29469597e9d537e8d4999a3f313e120f"
+  },
+  "Wholphin.Engine/Discovery/DiscoveryScore.cs": {
+    "mtime": 1783140574.4259715,
+    "seen": 1787221452.8282619,
+    "ast_hash": "c9d8ae7c8d6add4dbeadbd868d722da4",
+    "semantic_hash": "c9d8ae7c8d6add4dbeadbd868d722da4"
+  },
+  "Wholphin.Engine/Discovery/DiscoveryTuning.cs": {
+    "mtime": 1784281507.7224345,
+    "seen": 1787221452.8282626,
+    "ast_hash": "dff5d971840a695cc177dde42d69d858",
+    "semantic_hash": "dff5d971840a695cc177dde42d69d858"
+  },
+  "Wholphin.Engine/Discovery/DiversityStage.cs": {
+    "mtime": 1783159068.6984537,
+    "seen": 1787221452.8282635,
+    "ast_hash": "5242421e14193149d8f82f44a08d50bc",
+    "semantic_hash": "5242421e14193149d8f82f44a08d50bc"
+  },
+  "Wholphin.Engine/Discovery/EligibilityFilter.cs": {
+    "mtime": 1783140712.0271072,
+    "seen": 1787221452.828264,
+    "ast_hash": "e86bdeaa7691470f80aa7aadfba454e4",
+    "semantic_hash": "e86bdeaa7691470f80aa7aadfba454e4"
+  },
+  "Wholphin.Engine/Discovery/FilterReason.cs": {
+    "mtime": 1783140578.7096825,
+    "seen": 1787221452.8282645,
+    "ast_hash": "d9765151a7a80d2225f9cf19dd1d7f25",
+    "semantic_hash": "d9765151a7a80d2225f9cf19dd1d7f25"
+  },
+  "Wholphin.Engine/Discovery/IDiscoveryOrchestrator.cs": {
+    "mtime": 1783141004.2655175,
+    "seen": 1787221452.8282654,
+    "ast_hash": "a270c0cc012b8c8be921bcd48e11e6e6",
+    "semantic_hash": "a270c0cc012b8c8be921bcd48e11e6e6"
+  },
+  "Wholphin.Engine/Discovery/IDiscoverySource.cs": {
+    "mtime": 1783140596.2127204,
+    "seen": 1787221452.8282661,
+    "ast_hash": "6d972e709d34dcf686ffa651305726ab",
+    "semantic_hash": "6d972e709d34dcf686ffa651305726ab"
+  },
+  "Wholphin.Engine/Discovery/InterestModel.cs": {
+    "mtime": 1783141463.7691605,
+    "seen": 1787221452.8282669,
+    "ast_hash": "617db8945e0e806057f775e13c1a9590",
+    "semantic_hash": "617db8945e0e806057f775e13c1a9590"
+  },
+  "Wholphin.Engine/Discovery/PickPersistence.cs": {
+    "mtime": 1784281566.26818,
+    "seen": 1787221452.8282676,
+    "ast_hash": "7353b5f7d37f3df2ad09f078c875e47f",
+    "semantic_hash": "7353b5f7d37f3df2ad09f078c875e47f"
+  },
+  "Wholphin.Engine/Discovery/ScoredCandidate.cs": {
+    "mtime": 1783140732.0441253,
+    "seen": 1787221452.828268,
+    "ast_hash": "8c680e50551e55eebfcd0bc740ed5cc6",
+    "semantic_hash": "8c680e50551e55eebfcd0bc740ed5cc6"
+  },
+  "Wholphin.Engine/Discovery/SelectionStage.cs": {
+    "mtime": 1784281548.4771502,
+    "seen": 1787221452.8282685,
+    "ast_hash": "485fc3fce590927d36dcbe960dfe297f",
+    "semantic_hash": "485fc3fce590927d36dcbe960dfe297f"
+  },
+  "Wholphin.Engine/Discovery/Sources/CountrySource.cs": {
+    "mtime": 1783140680.6888418,
+    "seen": 1787221452.8282692,
+    "ast_hash": "472524e92ca4d6df6db2196a11f18f02",
+    "semantic_hash": "472524e92ca4d6df6db2196a11f18f02"
+  },
+  "Wholphin.Engine/Discovery/Sources/LlmCandidateSource.cs": {
+    "mtime": 1784281530.1526706,
+    "seen": 1787221452.8282697,
+    "ast_hash": "f618ef15d1f3ff42ce8990701765dcd2",
+    "semantic_hash": "f618ef15d1f3ff42ce8990701765dcd2"
+  },
+  "Wholphin.Engine/Discovery/Sources/SeedRelatedSource.cs": {
+    "mtime": 1783140651.315863,
+    "seen": 1787221452.8282707,
+    "ast_hash": "59408e0dc75c6732f53fee12a3da16a7",
+    "semantic_hash": "59408e0dc75c6732f53fee12a3da16a7"
+  },
+  "Wholphin.Engine/Discovery/Sources/TasteDiscoverSource.cs": {
+    "mtime": 1787158887.397257,
+    "seen": 1787221452.8282712,
+    "ast_hash": "ba849dc663f3ad73b1728a600807eef6",
+    "semantic_hash": "ba849dc663f3ad73b1728a600807eef6"
+  },
+  "Wholphin.Engine/Discovery/Sources/TrendingSource.cs": {
+    "mtime": 1783140670.5426927,
+    "seen": 1787221452.8282719,
+    "ast_hash": "26e787ff206dbc66832137efde9eab9a",
+    "semantic_hash": "26e787ff206dbc66832137efde9eab9a"
+  },
+  "Wholphin.Engine/Embedding/ContentDocument.cs": {
+    "mtime": 1787158425.5994408,
+    "seen": 1787221452.8282723,
+    "ast_hash": "e9b110016371173b5928be885f460836",
+    "semantic_hash": "e9b110016371173b5928be885f460836"
+  },
+  "Wholphin.Engine/Embedding/ContentVector.cs": {
+    "mtime": 1787206211.9346316,
+    "seen": 1787221452.8282728,
+    "ast_hash": "b8ab177302cc8aa17b26373d9729d722",
+    "semantic_hash": "b8ab177302cc8aa17b26373d9729d722"
+  },
+  "Wholphin.Engine/Embedding/EmbeddingRun.cs": {
+    "mtime": 1787206505.7837217,
+    "seen": 1787221452.8282738,
+    "ast_hash": "f4807e51823333ae4d56122e2f7ce8d3",
+    "semantic_hash": "f4807e51823333ae4d56122e2f7ce8d3"
+  },
+  "Wholphin.Engine/Embedding/EmbeddingService.cs": {
+    "mtime": 1787207368.330274,
+    "seen": 1787221452.8282743,
+    "ast_hash": "9ae6f888a4cdd05b584bca43236028e3",
+    "semantic_hash": "9ae6f888a4cdd05b584bca43236028e3"
+  },
+  "Wholphin.Engine/Embedding/GeminiEmbeddingProvider.cs": {
+    "mtime": 1787207313.21822,
+    "seen": 1787221452.8282747,
+    "ast_hash": "ce9e9ba2d35dc338392502260dcd907f",
+    "semantic_hash": "ce9e9ba2d35dc338392502260dcd907f"
+  },
+  "Wholphin.Engine/Embedding/IEmbeddingProvider.cs": {
+    "mtime": 1787207313.0110102,
+    "seen": 1787221452.8282754,
+    "ast_hash": "0b096cbe90f966bd027ece9cfaf4d48c",
+    "semantic_hash": "0b096cbe90f966bd027ece9cfaf4d48c"
+  },
+  "Wholphin.Engine/Embedding/IEmbeddingService.cs": {
+    "mtime": 1787207401.7277095,
+    "seen": 1787221452.828276,
+    "ast_hash": "20db7a0a1e7fea11ba308ebb011de99e",
+    "semantic_hash": "20db7a0a1e7fea11ba308ebb011de99e"
+  },
+  "Wholphin.Engine/Embedding/OllamaEmbeddingProvider.cs": {
+    "mtime": 1787206193.7697227,
+    "seen": 1787221452.828278,
+    "ast_hash": "f8e6a1fc94c65848ebb0a510552be1b0",
+    "semantic_hash": "f8e6a1fc94c65848ebb0a510552be1b0"
+  },
+  "Wholphin.Engine/Embedding/OnnxEmbeddingProvider.cs": {
+    "mtime": 1787207313.2192237,
+    "seen": 1787221452.8282785,
+    "ast_hash": "2cf89ae4966a78c100743f143500d1af",
+    "semantic_hash": "2cf89ae4966a78c100743f143500d1af"
+  },
+  "Wholphin.Engine/Embedding/OpenAiCompatibleEmbeddingProvider.cs": {
+    "mtime": 1787207283.8996534,
+    "seen": 1787221452.8282793,
+    "ast_hash": "90e277d4f2b0d67186d422e4b1134551",
+    "semantic_hash": "90e277d4f2b0d67186d422e4b1134551"
+  },
+  "Wholphin.Engine/Explanation/ExplanationService.cs": {
+    "mtime": 1783158503.9373424,
+    "seen": 1787221452.8282797,
+    "ast_hash": "499a321667fa14c65e4a423a188f24f9",
+    "semantic_hash": "499a321667fa14c65e4a423a188f24f9"
+  },
+  "Wholphin.Engine/Explanation/ExplanationTemplates.cs": {
+    "mtime": 1783158495.8824484,
+    "seen": 1787221452.8282807,
+    "ast_hash": "4df531908df3dfac086d642e762b9b3d",
+    "semantic_hash": "4df531908df3dfac086d642e762b9b3d"
+  },
+  "Wholphin.Engine/Explanation/IExplanationService.cs": {
+    "mtime": 1783158500.4238825,
+    "seen": 1787221452.8282812,
+    "ast_hash": "1ee6051581218ab2cac27b2411b50203",
+    "semantic_hash": "1ee6051581218ab2cac27b2411b50203"
+  },
+  "Wholphin.Engine/Home/ContinueTheStoryRowProvider.cs": {
+    "mtime": 1783260664.4270537,
+    "seen": 1787221452.8282819,
+    "ast_hash": "2baab10adac0de69986d59011599efdd",
+    "semantic_hash": "2baab10adac0de69986d59011599efdd"
+  },
+  "Wholphin.Engine/Home/DiscoveryRowProvider.cs": {
+    "mtime": 1784281703.7648516,
+    "seen": 1787221452.8282826,
+    "ast_hash": "3142e61ba2d77637b7aa8622227265f1",
+    "semantic_hash": "3142e61ba2d77637b7aa8622227265f1"
+  },
+  "Wholphin.Engine/Home/HomeService.cs": {
+    "mtime": 1785863365.0264554,
+    "seen": 1787221452.828283,
+    "ast_hash": "3b23cae5445b2e7799f3fd637b070176",
+    "semantic_hash": "3b23cae5445b2e7799f3fd637b070176"
+  },
+  "Wholphin.Engine/Home/INewSinceProvider.cs": {
+    "mtime": 1783259309.483019,
+    "seen": 1787221452.8282838,
+    "ast_hash": "a24513f9d7d4e1e869efb65b53052b41",
+    "semantic_hash": "a24513f9d7d4e1e869efb65b53052b41"
+  },
+  "Wholphin.Engine/Home/IResumeProvider.cs": {
+    "mtime": 1782131307.242541,
+    "seen": 1787221452.8282845,
+    "ast_hash": "74ce80bccc5854aced9a2ba738ae20f6",
+    "semantic_hash": "74ce80bccc5854aced9a2ba738ae20f6"
+  },
+  "Wholphin.Engine/Home/IRowProvider.cs": {
+    "mtime": 1783141311.1195087,
+    "seen": 1787221452.8282852,
+    "ast_hash": "d79c7ce6a409d8b63c17cbc4273d0b09",
+    "semantic_hash": "d79c7ce6a409d8b63c17cbc4273d0b09"
+  },
+  "Wholphin.Engine/Home/JellyfinResumeProvider.cs": {
+    "mtime": 1782131327.69052,
+    "seen": 1787221452.8282857,
+    "ast_hash": "53a75d34ebee4e0f4df4a1a230d692ff",
+    "semantic_hash": "53a75d34ebee4e0f4df4a1a230d692ff"
+  },
+  "Wholphin.Engine/Home/NewSinceProvider.cs": {
+    "mtime": 1783260850.277437,
+    "seen": 1787221452.8282864,
+    "ast_hash": "00bf997c48d8c99e336651a71eb6953a",
+    "semantic_hash": "00bf997c48d8c99e336651a71eb6953a"
+  },
+  "Wholphin.Engine/Home/RowBudget.cs": {
+    "mtime": 1785863365.0277233,
+    "seen": 1787221452.828287,
+    "ast_hash": "dafc484a760ffd894c936d78d1b4d60b",
+    "semantic_hash": "dafc484a760ffd894c936d78d1b4d60b"
+  },
+  "Wholphin.Engine/Http/ExternalProcess.cs": {
+    "mtime": 1785941259.913717,
+    "seen": 1787221452.8282876,
+    "ast_hash": "db6904dfdda5879e6c5e8614cb23a97a",
+    "semantic_hash": "db6904dfdda5879e6c5e8614cb23a97a"
+  },
+  "Wholphin.Engine/Http/IProviderGate.cs": {
+    "mtime": 1786891749.7195973,
+    "seen": 1787221452.8282883,
+    "ast_hash": "31ae90b58df44652f7edeaead3334a5c",
+    "semantic_hash": "31ae90b58df44652f7edeaead3334a5c"
+  },
+  "Wholphin.Engine/Http/ProviderGate.cs": {
+    "mtime": 1786891792.1622872,
+    "seen": 1787221452.8282888,
+    "ast_hash": "f07fa876c5d200f8c0a6612ea3f3dec4",
+    "semantic_hash": "f07fa876c5d200f8c0a6612ea3f3dec4"
+  },
+  "Wholphin.Engine/Http/ProviderHealth.cs": {
+    "mtime": 1786891733.811206,
+    "seen": 1787221452.8282893,
+    "ast_hash": "0c349323cff57a1cb223f2ef7cb8f141",
+    "semantic_hash": "0c349323cff57a1cb223f2ef7cb8f141"
+  },
+  "Wholphin.Engine/Http/ProviderHttp.cs": {
+    "mtime": 1786911320.2898552,
+    "seen": 1787221452.82829,
+    "ast_hash": "b1b38124ac01acc0a963f8f8a235aa18",
+    "semantic_hash": "b1b38124ac01acc0a963f8f8a235aa18"
+  },
+  "Wholphin.Engine/Http/ProviderRateLimitedException.cs": {
+    "mtime": 1786891739.9319158,
+    "seen": 1787221452.8282905,
+    "ast_hash": "9d7aa1af3205ad6f1911c25ffaccca66",
+    "semantic_hash": "9d7aa1af3205ad6f1911c25ffaccca66"
+  },
+  "Wholphin.Engine/Http/RateLimitRetry.cs": {
+    "mtime": 1784303469.8050616,
+    "seen": 1787221452.8282912,
+    "ast_hash": "bc61898b97dc70406d2d678682fcfbf8",
+    "semantic_hash": "bc61898b97dc70406d2d678682fcfbf8"
+  },
+  "Wholphin.Engine/Integrations/Arr/ArrClient.cs": {
+    "mtime": 1785863365.0297322,
+    "seen": 1787221452.8282917,
+    "ast_hash": "aeb0752533fb481b74f95310fac86c48",
+    "semantic_hash": "aeb0752533fb481b74f95310fac86c48"
+  },
+  "Wholphin.Engine/Integrations/Arr/ArrModels.cs": {
+    "mtime": 1783260125.2306943,
+    "seen": 1787221452.8282924,
+    "ast_hash": "d4d7d26e814d75ff5b11b3da2418587c",
+    "semantic_hash": "d4d7d26e814d75ff5b11b3da2418587c"
+  },
+  "Wholphin.Engine/Integrations/Arr/IArrClient.cs": {
+    "mtime": 1783260136.7670486,
+    "seen": 1787221452.8282928,
+    "ast_hash": "5c5ac25c8286d4045ee169fd36db3c04",
+    "semantic_hash": "5c5ac25c8286d4045ee169fd36db3c04"
+  },
+  "Wholphin.Engine/Integrations/Jellyseerr/IJellyseerrClient.cs": {
+    "mtime": 1782212849.619335,
+    "seen": 1787221452.8282936,
+    "ast_hash": "ae339c0128f47b8aedd236987d932e13",
+    "semantic_hash": "ae339c0128f47b8aedd236987d932e13"
+  },
+  "Wholphin.Engine/Integrations/Jellyseerr/JellyseerrClient.cs": {
+    "mtime": 1785863365.0332503,
+    "seen": 1787221452.8282945,
+    "ast_hash": "4a57e537ae485c7c3a442060fd59212b",
+    "semantic_hash": "4a57e537ae485c7c3a442060fd59212b"
+  },
+  "Wholphin.Engine/Integrations/Jellyseerr/JellyseerrModels.cs": {
+    "mtime": 1783103720.609365,
+    "seen": 1787221452.828295,
+    "ast_hash": "e50a44ef4c18bdc1a40d57cf538e870e",
+    "semantic_hash": "e50a44ef4c18bdc1a40d57cf538e870e"
+  },
+  "Wholphin.Engine/Integrations/Prowlarr/ProwlarrClient.cs": {
+    "mtime": 1786872326.8482664,
+    "seen": 1787221452.8282955,
+    "ast_hash": "8607ebd88b134ec87c49196b994fda71",
+    "semantic_hash": "8607ebd88b134ec87c49196b994fda71"
+  },
+  "Wholphin.Engine/Integrations/Tmdb/IProviderLogoCache.cs": {
+    "mtime": 1782914356.9428995,
+    "seen": 1787221452.8282962,
+    "ast_hash": "69d1f66e37d0f4455ec9aff911e0195f",
+    "semantic_hash": "69d1f66e37d0f4455ec9aff911e0195f"
+  },
+  "Wholphin.Engine/Integrations/Tmdb/ITmdbClient.cs": {
+    "mtime": 1784281252.7418852,
+    "seen": 1787221452.8282967,
+    "ast_hash": "3380023340bedd9bff954b5b0b31ceb1",
+    "semantic_hash": "3380023340bedd9bff954b5b0b31ceb1"
+  },
+  "Wholphin.Engine/Integrations/Tmdb/ProviderLogoCache.cs": {
+    "mtime": 1785863365.0348253,
+    "seen": 1787221452.8282971,
+    "ast_hash": "f212ab3217fdf3f8597e682c33b23fe2",
+    "semantic_hash": "f212ab3217fdf3f8597e682c33b23fe2"
+  },
+  "Wholphin.Engine/Integrations/Tmdb/TmdbClient.cs": {
+    "mtime": 1786892111.7334857,
+    "seen": 1787221452.828298,
+    "ast_hash": "f2449229e42e100c63f65b439ceadf18",
+    "semantic_hash": "f2449229e42e100c63f65b439ceadf18"
+  },
+  "Wholphin.Engine/Integrations/Tmdb/TmdbModels.cs": {
+    "mtime": 1786892031.0641713,
+    "seen": 1787221452.8282986,
+    "ast_hash": "7928cfffbf8a592e4e45df2bcd10562a",
+    "semantic_hash": "7928cfffbf8a592e4e45df2bcd10562a"
+  },
+  "Wholphin.Engine/Intelligence/ISeriesIntelligenceEngine.cs": {
+    "mtime": 1783260621.5879107,
+    "seen": 1787221452.828299,
+    "ast_hash": "02c5f054044aaa33c1d4dc4f26e4671a",
+    "semantic_hash": "02c5f054044aaa33c1d4dc4f26e4671a"
+  },
+  "Wholphin.Engine/Intelligence/ISeriesUserStateService.cs": {
+    "mtime": 1783260577.9857266,
+    "seen": 1787221452.8282998,
+    "ast_hash": "aeb106b9b6825eb209a4bbf9c16a8b7e",
+    "semantic_hash": "aeb106b9b6825eb209a4bbf9c16a8b7e"
+  },
+  "Wholphin.Engine/Intelligence/IntentScorer.cs": {
+    "mtime": 1783260605.8983223,
+    "seen": 1787221452.8283002,
+    "ast_hash": "a9a31bbb2cb1d61274a472363b08d0b3",
+    "semantic_hash": "a9a31bbb2cb1d61274a472363b08d0b3"
+  },
+  "Wholphin.Engine/Intelligence/SeriesIntelligenceEngine.cs": {
+    "mtime": 1783260635.5882032,
+    "seen": 1787221452.828301,
+    "ast_hash": "53ebea3cb0dba0412878842ca72ef37d",
+    "semantic_hash": "53ebea3cb0dba0412878842ca72ef37d"
+  },
+  "Wholphin.Engine/Intelligence/SeriesUserState.cs": {
+    "mtime": 1783259167.3252132,
+    "seen": 1787221452.8283017,
+    "ast_hash": "179b47b58f4afc259e6a9a6737f34b3f",
+    "semantic_hash": "179b47b58f4afc259e6a9a6737f34b3f"
+  },
+  "Wholphin.Engine/Intelligence/SeriesUserStateService.cs": {
+    "mtime": 1783260590.2446814,
+    "seen": 1787221452.8283021,
+    "ast_hash": "5df5eff7a67ea33bce62e05793a1281a",
+    "semantic_hash": "5df5eff7a67ea33bce62e05793a1281a"
+  },
+  "Wholphin.Engine/Llm/ILlmCandidateGenerator.cs": {
+    "mtime": 1784281441.4776578,
+    "seen": 1787221452.8283026,
+    "ast_hash": "8772fb651228b6f2f8834712d916654f",
+    "semantic_hash": "8772fb651228b6f2f8834712d916654f"
+  },
+  "Wholphin.Engine/Llm/ILlmProvider.cs": {
+    "mtime": 1784280891.1631093,
+    "seen": 1787221452.8283033,
+    "ast_hash": "cb7c2a174db674ba094361ca30e22f0d",
+    "semantic_hash": "cb7c2a174db674ba094361ca30e22f0d"
+  },
+  "Wholphin.Engine/Llm/ILlmReRanker.cs": {
+    "mtime": 1784301702.768754,
+    "seen": 1787221452.8283038,
+    "ast_hash": "d7aea20a3242db3d6839c1fc0deafdf6",
+    "semantic_hash": "d7aea20a3242db3d6839c1fc0deafdf6"
+  },
+  "Wholphin.Engine/Llm/LlmCandidateGenerator.cs": {
+    "mtime": 1784281483.0199506,
+    "seen": 1787221452.8283045,
+    "ast_hash": "f7e58c9973d239bdec590a2000895b01",
+    "semantic_hash": "f7e58c9973d239bdec590a2000895b01"
+  },
+  "Wholphin.Engine/Llm/LlmDiscoveryPromptBuilder.cs": {
+    "mtime": 1784281403.3147855,
+    "seen": 1787221452.8283052,
+    "ast_hash": "20da50994dbb12770d199838e8b63e76",
+    "semantic_hash": "20da50994dbb12770d199838e8b63e76"
+  },
+  "Wholphin.Engine/Llm/LlmJsonParser.cs": {
+    "mtime": 1784280967.2912471,
+    "seen": 1787221452.8283057,
+    "ast_hash": "201b9a2f99ee8100280b9a9155d6e071",
+    "semantic_hash": "201b9a2f99ee8100280b9a9155d6e071"
+  },
+  "Wholphin.Engine/Llm/LlmReRanker.cs": {
+    "mtime": 1784301949.1482701,
+    "seen": 1787221452.8283062,
+    "ast_hash": "8f33dd967516e494cb413d8798d5bc87",
+    "semantic_hash": "8f33dd967516e494cb413d8798d5bc87"
+  },
+  "Wholphin.Engine/Llm/OpenAiCompatibleLlmProvider.cs": {
+    "mtime": 1785863365.0398324,
+    "seen": 1787221452.828307,
+    "ast_hash": "a56ef0303a7728433e1b583c1463c7a7",
+    "semantic_hash": "a56ef0303a7728433e1b583c1463c7a7"
+  },
+  "Wholphin.Engine/Metadata/ContentWarningEnricher.cs": {
+    "mtime": 1782931616.0656674,
+    "seen": 1787221452.8283074,
+    "ast_hash": "0211fff0fa6a30b6814e4a7ab83b8923",
+    "semantic_hash": "0211fff0fa6a30b6814e4a7ab83b8923"
+  },
+  "Wholphin.Engine/Metadata/ContentWarningProvider.cs": {
+    "mtime": 1782921509.882205,
+    "seen": 1787221452.828308,
+    "ast_hash": "7da01ee744773c3f9f1f9e9ae9777e17",
+    "semantic_hash": "7da01ee744773c3f9f1f9e9ae9777e17"
+  },
+  "Wholphin.Engine/Metadata/IContentWarningEnricher.cs": {
+    "mtime": 1782931275.364533,
+    "seen": 1787221452.8283088,
+    "ast_hash": "2e3d37b94d5a30bbd9205afb91d5ae71",
+    "semantic_hash": "2e3d37b94d5a30bbd9205afb91d5ae71"
+  },
+  "Wholphin.Engine/Metadata/IContentWarningProvider.cs": {
+    "mtime": 1782921467.9932206,
+    "seen": 1787221452.8283095,
+    "ast_hash": "402910e2a1fdc9e29aa550adc43b3d87",
+    "semantic_hash": "402910e2a1fdc9e29aa550adc43b3d87"
+  },
+  "Wholphin.Engine/Metadata/IMediaIdentityResolver.cs": {
+    "mtime": 1786892189.7481718,
+    "seen": 1787221452.82831,
+    "ast_hash": "5b0a6dacabeb6eb861059f11c09dabf7",
+    "semantic_hash": "5b0a6dacabeb6eb861059f11c09dabf7"
+  },
+  "Wholphin.Engine/Metadata/IMetadataAggregator.cs": {
+    "mtime": 1786892464.5164118,
+    "seen": 1787221452.8283105,
+    "ast_hash": "864987bdbf757d19c752b10c6c80354b",
+    "semantic_hash": "864987bdbf757d19c752b10c6c80354b"
+  },
+  "Wholphin.Engine/Metadata/IMetadataProvider.cs": {
+    "mtime": 1786891678.1809447,
+    "seen": 1787221452.8283112,
+    "ast_hash": "44be1475e60c29d67a9c24ea248e22a5",
+    "semantic_hash": "44be1475e60c29d67a9c24ea248e22a5"
+  },
+  "Wholphin.Engine/Metadata/ITriviaProvider.cs": {
+    "mtime": 1782410431.281708,
+    "seen": 1787221452.828312,
+    "ast_hash": "b8154497bfad8b8178951b613e64231a",
+    "semantic_hash": "b8154497bfad8b8178951b613e64231a"
+  },
+  "Wholphin.Engine/Metadata/MediaIdentity.cs": {
+    "mtime": 1786891650.6311004,
+    "seen": 1787221452.8283126,
+    "ast_hash": "98c98bb9fd509cd2f04bd64ce55b19db",
+    "semantic_hash": "98c98bb9fd509cd2f04bd64ce55b19db"
+  },
+  "Wholphin.Engine/Metadata/MediaIdentityResolver.cs": {
+    "mtime": 1786892198.9406693,
+    "seen": 1787221452.828313,
+    "ast_hash": "43efec7f904969f9cb5a4a01ea1a8403",
+    "semantic_hash": "43efec7f904969f9cb5a4a01ea1a8403"
+  },
+  "Wholphin.Engine/Metadata/MetadataAggregator.cs": {
+    "mtime": 1786892491.129416,
+    "seen": 1787221452.8283136,
+    "ast_hash": "1a8d9bcf7514a8e212ddac1d75cdfdc4",
+    "semantic_hash": "1a8d9bcf7514a8e212ddac1d75cdfdc4"
+  },
+  "Wholphin.Engine/Metadata/MetadataCapability.cs": {
+    "mtime": 1786891656.2399995,
+    "seen": 1787221452.8283143,
+    "ast_hash": "620b06380cb30af90ee1c46a2caf22af",
+    "semantic_hash": "620b06380cb30af90ee1c46a2caf22af"
+  },
+  "Wholphin.Engine/Metadata/MetadataEnricher.cs": {
+    "mtime": 1787158425.601447,
+    "seen": 1787221452.8283148,
+    "ast_hash": "0c82c723969ae37cacbe6bdc36c0e2b6",
+    "semantic_hash": "0c82c723969ae37cacbe6bdc36c0e2b6"
+  },
+  "Wholphin.Engine/Metadata/MetadataFragment.cs": {
+    "mtime": 1786891671.052692,
+    "seen": 1787221452.8283155,
+    "ast_hash": "23c185039b41fb7325d89fc41c4dd2b1",
+    "semantic_hash": "23c185039b41fb7325d89fc41c4dd2b1"
+  },
+  "Wholphin.Engine/Metadata/MetadataMerge.cs": {
+    "mtime": 1786892448.5432696,
+    "seen": 1787221452.8283162,
+    "ast_hash": "62367f1912f947eeda07604b823a667d",
+    "semantic_hash": "62367f1912f947eeda07604b823a667d"
+  },
+  "Wholphin.Engine/Metadata/MetadataPriority.cs": {
+    "mtime": 1786892420.9309852,
+    "seen": 1787221452.8283167,
+    "ast_hash": "c67d82908db1f6215b4b6388f9ccef84",
+    "semantic_hash": "c67d82908db1f6215b4b6388f9ccef84"
+  },
+  "Wholphin.Engine/Metadata/Providers/FanartMetadataProvider.cs": {
+    "mtime": 1786892312.8590865,
+    "seen": 1787221452.8283174,
+    "ast_hash": "f6178bcd2b35f32b0671467195938408",
+    "semantic_hash": "f6178bcd2b35f32b0671467195938408"
+  },
+  "Wholphin.Engine/Metadata/Providers/OmdbMetadataProvider.cs": {
+    "mtime": 1786910994.1749916,
+    "seen": 1787221452.8283179,
+    "ast_hash": "3ce6e174a8dc0cc565bb31dfbfa66293",
+    "semantic_hash": "3ce6e174a8dc0cc565bb31dfbfa66293"
+  },
+  "Wholphin.Engine/Metadata/Providers/TmdbMetadataProvider.cs": {
+    "mtime": 1786892182.0352297,
+    "seen": 1787221452.8283188,
+    "ast_hash": "cbb50a1f0645d5e59d86b3b72afe2bad",
+    "semantic_hash": "cbb50a1f0645d5e59d86b3b72afe2bad"
+  },
+  "Wholphin.Engine/Metadata/Providers/TvdbMetadataProvider.cs": {
+    "mtime": 1786892382.9364905,
+    "seen": 1787221452.8283193,
+    "ast_hash": "e11d8d024860903eb8443b1403658bb6",
+    "semantic_hash": "e11d8d024860903eb8443b1403658bb6"
+  },
+  "Wholphin.Engine/Metadata/TriviaProvider.cs": {
+    "mtime": 1782707273.9771826,
+    "seen": 1787221452.8283198,
+    "ast_hash": "886d62ab5bca1a050d406787fccadfa5",
+    "semantic_hash": "886d62ab5bca1a050d406787fccadfa5"
+  },
+  "Wholphin.Engine/Observatory/build-html.mjs": {
+    "mtime": 1785903652.1285968,
+    "seen": 1787221452.8283205,
+    "ast_hash": "26c8294c8a061dfeaf5dd27d2713d4fd",
+    "semantic_hash": "26c8294c8a061dfeaf5dd27d2713d4fd"
+  },
+  "Wholphin.Engine/Observatory/package.json": {
+    "mtime": 1785863365.0443501,
+    "seen": 1787221452.828321,
+    "ast_hash": "87822b4f3c6cc1e42233e32cedd8fc1f",
+    "semantic_hash": "87822b4f3c6cc1e42233e32cedd8fc1f"
+  },
+  "Wholphin.Engine/Observatory/src/App.tsx": {
+    "mtime": 1787209711.3146577,
+    "seen": 1787221452.8283215,
+    "ast_hash": "5976a3187bbe818123ad92e8512b5c63",
+    "semantic_hash": "5976a3187bbe818123ad92e8512b5c63"
+  },
+  "Wholphin.Engine/Observatory/src/Login.tsx": {
+    "mtime": 1785903652.1305943,
+    "seen": 1787221452.8283224,
+    "ast_hash": "37b03e07b364363c63850eb2ef16541a",
+    "semantic_hash": "37b03e07b364363c63850eb2ef16541a"
+  },
+  "Wholphin.Engine/Observatory/src/api.ts": {
+    "mtime": 1787205608.0632856,
+    "seen": 1787221452.828323,
+    "ast_hash": "73e0ffb354c48d33351b80c6fe512a19",
+    "semantic_hash": "73e0ffb354c48d33351b80c6fe512a19"
+  },
+  "Wholphin.Engine/Observatory/src/main.tsx": {
+    "mtime": 1785903652.131596,
+    "seen": 1787221452.8283234,
+    "ast_hash": "5fd5dc3a300b443b606b80872ab70bf6",
+    "semantic_hash": "5fd5dc3a300b443b606b80872ab70bf6"
+  },
+  "Wholphin.Engine/Observatory/src/pages-core.tsx": {
+    "mtime": 1787157574.741839,
+    "seen": 1787221452.828324,
+    "ast_hash": "f2610b64f689e8c0ded41bc80962bc4a",
+    "semantic_hash": "f2610b64f689e8c0ded41bc80962bc4a"
+  },
+  "Wholphin.Engine/Observatory/src/pages-detail.tsx": {
+    "mtime": 1787214002.4807024,
+    "seen": 1787221452.8283246,
+    "ast_hash": "aa10d7eaae2c51df7632a6462ff46c7c",
+    "semantic_hash": "aa10d7eaae2c51df7632a6462ff46c7c"
+  },
+  "Wholphin.Engine/Observatory/src/pages-settings.tsx": {
+    "mtime": 1787214038.6736982,
+    "seen": 1787221452.8283253,
+    "ast_hash": "da9b821a93b77499eca36098e4717e0e",
+    "semantic_hash": "da9b821a93b77499eca36098e4717e0e"
+  },
+  "Wholphin.Engine/Observatory/src/pages-streaming.tsx": {
+    "mtime": 1787214038.6746645,
+    "seen": 1787221452.828326,
+    "ast_hash": "c0682d083305382fe447e83ea593160c",
+    "semantic_hash": "c0682d083305382fe447e83ea593160c"
+  },
+  "Wholphin.Engine/Observatory/src/session.ts": {
+    "mtime": 1785903652.1335974,
+    "seen": 1787221452.8283265,
+    "ast_hash": "e272ea43ef57446a71238de76b0978c2",
+    "semantic_hash": "e272ea43ef57446a71238de76b0978c2"
+  },
+  "Wholphin.Engine/Observatory/src/settings-schema.ts": {
+    "mtime": 1787213951.20674,
+    "seen": 1787221452.8283272,
+    "ast_hash": "a106dd8238d97d6a22c671daa26bca5e",
+    "semantic_hash": "a106dd8238d97d6a22c671daa26bca5e"
+  },
+  "Wholphin.Engine/Observatory/src/ui.tsx": {
+    "mtime": 1787157493.9061656,
+    "seen": 1787221452.8283277,
+    "ast_hash": "e5f76a4d8e2e0fd9c4907765651c8446",
+    "semantic_hash": "e5f76a4d8e2e0fd9c4907765651c8446"
+  },
+  "Wholphin.Engine/Observatory/src/vite-env.d.ts": {
+    "mtime": 1785863365.056867,
+    "seen": 1787221452.8283284,
+    "ast_hash": "4a626d47cf54fd07d052a0da053cb4a0",
+    "semantic_hash": "4a626d47cf54fd07d052a0da053cb4a0"
+  },
+  "Wholphin.Engine/Observatory/tsconfig.json": {
+    "mtime": 1785863365.0578668,
+    "seen": 1787221452.8283288,
+    "ast_hash": "c8ccea5ed1696d0445e06155f0503424",
+    "semantic_hash": "c8ccea5ed1696d0445e06155f0503424"
+  },
+  "Wholphin.Engine/Observatory/vite.config.ts": {
+    "mtime": 1785901933.985918,
+    "seen": 1787221452.8283296,
+    "ast_hash": "ffefb0d4f2165a0b06e6df7111a078eb",
+    "semantic_hash": "ffefb0d4f2165a0b06e6df7111a078eb"
+  },
+  "Wholphin.Engine/Personalization/AffinityVector.cs": {
+    "mtime": 1783158688.6678512,
+    "seen": 1787221452.8283343,
+    "ast_hash": "e8e112420b66551fb3424f9f94362430",
+    "semantic_hash": "e8e112420b66551fb3424f9f94362430"
+  },
+  "Wholphin.Engine/Personalization/CatalogFeatures.cs": {
+    "mtime": 1783158710.3118548,
+    "seen": 1787221452.828335,
+    "ast_hash": "5dfb25bad5aaabdffc73c06e0a811bd1",
+    "semantic_hash": "5dfb25bad5aaabdffc73c06e0a811bd1"
+  },
+  "Wholphin.Engine/Personalization/Daypart.cs": {
+    "mtime": 1783159270.774418,
+    "seen": 1787221452.8283355,
+    "ast_hash": "8c019f9fd772d07b5bbe6fa9a52238ec",
+    "semantic_hash": "8c019f9fd772d07b5bbe6fa9a52238ec"
+  },
+  "Wholphin.Engine/Personalization/HouseholdClock.cs": {
+    "mtime": 1783159264.4902413,
+    "seen": 1787221452.8283365,
+    "ast_hash": "f11290305fafebc3cc5f9d21b9484d93",
+    "semantic_hash": "f11290305fafebc3cc5f9d21b9484d93"
+  },
+  "Wholphin.Engine/Personalization/IPersonalizationService.cs": {
+    "mtime": 1782155722.072523,
+    "seen": 1787221452.828337,
+    "ast_hash": "480f075c5edcd8c297cf1d6196fe9537",
+    "semantic_hash": "480f075c5edcd8c297cf1d6196fe9537"
+  },
+  "Wholphin.Engine/Personalization/IProfileRecomputeQueue.cs": {
+    "mtime": 1785863365.0615735,
+    "seen": 1787221452.8283374,
+    "ast_hash": "9512a2e5b65f96756f1254b81f010957",
+    "semantic_hash": "9512a2e5b65f96756f1254b81f010957"
+  },
+  "Wholphin.Engine/Personalization/ITasteProfileService.cs": {
+    "mtime": 1783139896.76009,
+    "seen": 1787221452.8283381,
+    "ast_hash": "5273e5c4f17abb132afd8ee26d97cbe3",
+    "semantic_hash": "5273e5c4f17abb132afd8ee26d97cbe3"
+  },
+  "Wholphin.Engine/Personalization/PersonalizationService.cs": {
+    "mtime": 1787158087.0764904,
+    "seen": 1787221452.8283386,
+    "ast_hash": "15d21fc829585de6c22953fa9df1520d",
+    "semantic_hash": "15d21fc829585de6c22953fa9df1520d"
+  },
+  "Wholphin.Engine/Personalization/ProfileRecomputeWorker.cs": {
+    "mtime": 1787212053.7077951,
+    "seen": 1787221452.8283393,
+    "ast_hash": "16da9e61a7787aaea02895844df09f39",
+    "semantic_hash": "16da9e61a7787aaea02895844df09f39"
+  },
+  "Wholphin.Engine/Personalization/TasteProfileService.cs": {
+    "mtime": 1787206173.6836448,
+    "seen": 1787221452.8283403,
+    "ast_hash": "277f17af381e3956f61956b3dd1da9fd",
+    "semantic_hash": "277f17af381e3956f61956b3dd1da9fd"
+  },
+  "Wholphin.Engine/Personalization/UserTasteProfile.cs": {
+    "mtime": 1787206173.6816697,
+    "seen": 1787221452.8283408,
+    "ast_hash": "966530926d8a71724cf7532678dc4082",
+    "semantic_hash": "966530926d8a71724cf7532678dc4082"
+  },
+  "Wholphin.Engine/Plugin.cs": {
+    "mtime": 1786910606.4412308,
+    "seen": 1787221452.8283412,
+    "ast_hash": "6fbcd9b54c9bb6112b4459b78aef9b63",
+    "semantic_hash": "6fbcd9b54c9bb6112b4459b78aef9b63"
+  },
+  "Wholphin.Engine/PluginServiceRegistrator.cs": {
+    "mtime": 1787207313.2213442,
+    "seen": 1787221452.8283417,
+    "ast_hash": "c2d150b52beb6fa2a452d8b397266cb9",
+    "semantic_hash": "c2d150b52beb6fa2a452d8b397266cb9"
+  },
+  "Wholphin.Engine/Presentation/DefaultCardSelector.cs": {
+    "mtime": 1784473827.2799194,
+    "seen": 1787221452.8283422,
+    "ast_hash": "c5201c0bc32af7f688a9d7233c535066",
+    "semantic_hash": "c5201c0bc32af7f688a9d7233c535066"
+  },
+  "Wholphin.Engine/Presentation/ICardSelector.cs": {
+    "mtime": 1781891602.9180894,
+    "seen": 1787221452.8283432,
+    "ast_hash": "1649a21010b4cb1d1a59fe6d3752fb9e",
+    "semantic_hash": "1649a21010b4cb1d1a59fe6d3752fb9e"
+  },
+  "Wholphin.Engine/Ranking/Calibration.cs": {
+    "mtime": 1783159006.9874785,
+    "seen": 1787221452.8283436,
+    "ast_hash": "f28b8a3e2f50fb40132d7fa1e55c2461",
+    "semantic_hash": "f28b8a3e2f50fb40132d7fa1e55c2461"
+  },
+  "Wholphin.Engine/Ranking/IScoringPolicy.cs": {
+    "mtime": 1783159015.7105873,
+    "seen": 1787221452.8283443,
+    "ast_hash": "78993d65cd80fdbfb54ce66b2af54e35",
+    "semantic_hash": "78993d65cd80fdbfb54ce66b2af54e35"
+  },
+  "Wholphin.Engine/Ranking/RecommendationSignals.cs": {
+    "mtime": 1783159002.4781241,
+    "seen": 1787221452.8283448,
+    "ast_hash": "368319ce124882b8ac928b031dfdbba5",
+    "semantic_hash": "368319ce124882b8ac928b031dfdbba5"
+  },
+  "Wholphin.Engine/Ranking/ScoringPolicy.cs": {
+    "mtime": 1783159023.80162,
+    "seen": 1787221452.8283455,
+    "ast_hash": "52657123c2382625b14291659312e051",
+    "semantic_hash": "52657123c2382625b14291659312e051"
+  },
+  "Wholphin.Engine/Ranking/ScoringWeights.cs": {
+    "mtime": 1783158991.9026797,
+    "seen": 1787221452.828346,
+    "ast_hash": "cec78845f4310b6eec71e96e29bf1f31",
+    "semantic_hash": "cec78845f4310b6eec71e96e29bf1f31"
+  },
+  "Wholphin.Engine/Recommendation/ContentRecommender.cs": {
+    "mtime": 1783159101.381288,
+    "seen": 1787221452.8283467,
+    "ast_hash": "f7d9459489c002fed38fe8f7b50391c2",
+    "semantic_hash": "f7d9459489c002fed38fe8f7b50391c2"
+  },
+  "Wholphin.Engine/Recommendation/ContentVectorIndex.cs": {
+    "mtime": 1787207356.7229726,
+    "seen": 1787221452.8283474,
+    "ast_hash": "69b1048f82852456780f11660f4f1085",
+    "semantic_hash": "69b1048f82852456780f11660f4f1085"
+  },
+  "Wholphin.Engine/Recommendation/ExplorationScorer.cs": {
+    "mtime": 1782209451.04401,
+    "seen": 1787221452.828348,
+    "ast_hash": "d1e831768a4832663459a05bcaf328ea",
+    "semantic_hash": "d1e831768a4832663459a05bcaf328ea"
+  },
+  "Wholphin.Engine/Recommendation/GenreGraph.cs": {
+    "mtime": 1782156193.6560547,
+    "seen": 1787221452.8283486,
+    "ast_hash": "0a061a2a9eb5e78a4f36d3b6a3ac91d1",
+    "semantic_hash": "0a061a2a9eb5e78a4f36d3b6a3ac91d1"
+  },
+  "Wholphin.Engine/Recommendation/GenreGraphService.cs": {
+    "mtime": 1782156216.7471654,
+    "seen": 1787221452.828349,
+    "ast_hash": "880f3099235a7b390cf2a63292011981",
+    "semantic_hash": "880f3099235a7b390cf2a63292011981"
+  },
+  "Wholphin.Engine/Recommendation/IContentVectorIndex.cs": {
+    "mtime": 1787206478.0185208,
+    "seen": 1787221452.8283496,
+    "ast_hash": "5b96ae52a96222726686112fca0f8343",
+    "semantic_hash": "5b96ae52a96222726686112fca0f8343"
+  },
+  "Wholphin.Engine/Recommendation/IGenreGraphService.cs": {
+    "mtime": 1782156202.5761063,
+    "seen": 1787221452.8283503,
+    "ast_hash": "8414ed5818137b7ee8718838f0712997",
+    "semantic_hash": "8414ed5818137b7ee8718838f0712997"
+  },
+  "Wholphin.Engine/Recommendation/IMoodCollectionService.cs": {
+    "mtime": 1782410311.3933609,
+    "seen": 1787221452.828351,
+    "ast_hash": "2dac59cc01f2eab4940835d2c312dbf3",
+    "semantic_hash": "2dac59cc01f2eab4940835d2c312dbf3"
+  },
+  "Wholphin.Engine/Recommendation/IRecommender.cs": {
+    "mtime": 1782014882.0692675,
+    "seen": 1787221452.8283517,
+    "ast_hash": "c1853e0776ef37caec2d53adc0467fb2",
+    "semantic_hash": "c1853e0776ef37caec2d53adc0467fb2"
+  },
+  "Wholphin.Engine/Recommendation/ISimilarityService.cs": {
+    "mtime": 1782153822.6717968,
+    "seen": 1787221452.8283522,
+    "ast_hash": "e42b1faa7f6b6527931c5ef5d8ee6f44",
+    "semantic_hash": "e42b1faa7f6b6527931c5ef5d8ee6f44"
+  },
+  "Wholphin.Engine/Recommendation/MoodCollectionService.cs": {
+    "mtime": 1784301875.1664343,
+    "seen": 1787221452.828353,
+    "ast_hash": "601a05963af262fa12f6dd5d1789db5e",
+    "semantic_hash": "601a05963af262fa12f6dd5d1789db5e"
+  },
+  "Wholphin.Engine/Recommendation/MoodCollections.cs": {
+    "mtime": 1782410301.6795413,
+    "seen": 1787221452.8283536,
+    "ast_hash": "d4d3636f6d2574fc0706a94c445385c7",
+    "semantic_hash": "d4d3636f6d2574fc0706a94c445385c7"
+  },
+  "Wholphin.Engine/Recommendation/RecommendationResult.cs": {
+    "mtime": 1782014875.2913034,
+    "seen": 1787221452.8283544,
+    "ast_hash": "4065582f0ec4b856b58a578c86b36384",
+    "semantic_hash": "4065582f0ec4b856b58a578c86b36384"
+  },
+  "Wholphin.Engine/Recommendation/SimilarityScorer.cs": {
+    "mtime": 1782156000.3019488,
+    "seen": 1787221452.8283548,
+    "ast_hash": "139afe76dbbc6830e3c2444f4cd30335",
+    "semantic_hash": "139afe76dbbc6830e3c2444f4cd30335"
+  },
+  "Wholphin.Engine/Recommendation/SimilarityService.cs": {
+    "mtime": 1784301909.1822624,
+    "seen": 1787221452.8283556,
+    "ast_hash": "4a5b40d595013becf9bbbd826a3a1c9b",
+    "semantic_hash": "4a5b40d595013becf9bbbd826a3a1c9b"
+  },
+  "Wholphin.Engine/Recommendation/VectorStore.cs": {
+    "mtime": 1787207233.5793042,
+    "seen": 1787221452.828356,
+    "ast_hash": "9c8b63f4d4f44e61916d348657722c04",
+    "semantic_hash": "9c8b63f4d4f44e61916d348657722c04"
+  },
+  "Wholphin.Engine/Requests/IRequestService.cs": {
+    "mtime": 1782150991.0207028,
+    "seen": 1787221452.828357,
+    "ast_hash": "647e104c71178d3c34e47bfc04f77393",
+    "semantic_hash": "647e104c71178d3c34e47bfc04f77393"
+  },
+  "Wholphin.Engine/Requests/RequestService.cs": {
+    "mtime": 1783141556.9531145,
+    "seen": 1787221452.8283575,
+    "ast_hash": "862a0373194fb6c965fad220621a6286",
+    "semantic_hash": "862a0373194fb6c965fad220621a6286"
+  },
+  "Wholphin.Engine/Settings/EngineSettings.cs": {
+    "mtime": 1784453983.8227575,
+    "seen": 1787221452.828358,
+    "ast_hash": "c03f8feac18800a955bdc5acb9377266",
+    "semantic_hash": "c03f8feac18800a955bdc5acb9377266"
+  },
+  "Wholphin.Engine/Settings/FeatureFlags.cs": {
+    "mtime": 1786512650.5516138,
+    "seen": 1787221452.8283587,
+    "ast_hash": "92a3fa5edfe62a9a11ed109fb5e4c630",
+    "semantic_hash": "92a3fa5edfe62a9a11ed109fb5e4c630"
+  },
+  "Wholphin.Engine/Settings/ISettingsService.cs": {
+    "mtime": 1782149857.8142984,
+    "seen": 1787221452.8283594,
+    "ast_hash": "91aa8bd48e3a214101f99f08f757e53c",
+    "semantic_hash": "91aa8bd48e3a214101f99f08f757e53c"
+  },
+  "Wholphin.Engine/Settings/IUserSettingsStore.cs": {
+    "mtime": 1782149834.4893034,
+    "seen": 1787221452.8283598,
+    "ast_hash": "06a6fea805951f9f921388faa727ecaf",
+    "semantic_hash": "06a6fea805951f9f921388faa727ecaf"
+  },
+  "Wholphin.Engine/Settings/SettingsService.cs": {
+    "mtime": 1786512655.6663482,
+    "seen": 1787221452.8283606,
+    "ast_hash": "209882294afc3bac69d5a45b6bb9dba3",
+    "semantic_hash": "209882294afc3bac69d5a45b6bb9dba3"
+  },
+  "Wholphin.Engine/Settings/UserSettingsStore.cs": {
+    "mtime": 1782149850.411738,
+    "seen": 1787221452.8283613,
+    "ast_hash": "f0e83b6b22f5acd407373ca0114f2548",
+    "semantic_hash": "f0e83b6b22f5acd407373ca0114f2548"
+  },
+  "Wholphin.Engine/Stores/IMetadataIndex.cs": {
+    "mtime": 1781890081.3649352,
+    "seen": 1787221452.8283617,
+    "ast_hash": "5519615a9a1699775b9e2986143289e4",
+    "semantic_hash": "5519615a9a1699775b9e2986143289e4"
+  },
+  "Wholphin.Engine/Stores/IProfileStore.cs": {
+    "mtime": 1781890072.4505358,
+    "seen": 1787221452.8283622,
+    "ast_hash": "b972694b1b9f9cea5543c10b64cdbfe3",
+    "semantic_hash": "b972694b1b9f9cea5543c10b64cdbfe3"
+  },
+  "Wholphin.Engine/Stores/MetadataIndex.cs": {
+    "mtime": 1785957001.2121992,
+    "seen": 1787221452.828363,
+    "ast_hash": "424a886510bd5a92329b2ab5b9fe9e56",
+    "semantic_hash": "424a886510bd5a92329b2ab5b9fe9e56"
+  },
+  "Wholphin.Engine/Stores/ProfileStore.cs": {
+    "mtime": 1781890077.614986,
+    "seen": 1787221452.8283634,
+    "ast_hash": "6aeeb200d4f731b7c26008c8afaf5e62",
+    "semantic_hash": "6aeeb200d4f731b7c26008c8afaf5e62"
+  },
+  "Wholphin.Engine/Streaming/MediaProbe.cs": {
+    "mtime": 1785958074.617056,
+    "seen": 1787221452.8283644,
+    "ast_hash": "fdb4ee7442e385da6133091a4be1f214",
+    "semantic_hash": "fdb4ee7442e385da6133091a4be1f214"
+  },
+  "Wholphin.Engine/Streaming/SourceRanker.cs": {
+    "mtime": 1786022664.301824,
+    "seen": 1787221452.8283648,
+    "ast_hash": "93e71e76b40dbfb9fc3c812d59699f41",
+    "semantic_hash": "93e71e76b40dbfb9fc3c812d59699f41"
+  },
+  "Wholphin.Engine/Streaming/StreamDiagnosis.cs": {
+    "mtime": 1786872932.9937935,
+    "seen": 1787221452.8283656,
+    "ast_hash": "8787bb1b58fe0fe17d960fda251faf4c",
+    "semantic_hash": "8787bb1b58fe0fe17d960fda251faf4c"
+  },
+  "Wholphin.Engine/Streaming/StreamMediaInfo.cs": {
+    "mtime": 1785957830.9752293,
+    "seen": 1787221452.828366,
+    "ast_hash": "d9df7531e41b314c3bcf7118c754b30e",
+    "semantic_hash": "d9df7531e41b314c3bcf7118c754b30e"
+  },
+  "Wholphin.Engine/Streaming/SwarmScraper.cs": {
+    "mtime": 1786872345.1384585,
+    "seen": 1787221452.8283668,
+    "ast_hash": "e6308bb62411274bcdfeb1784842d71f",
+    "semantic_hash": "e6308bb62411274bcdfeb1784842d71f"
+  },
+  "Wholphin.Engine/Streaming/TorrentEngineWarmup.cs": {
+    "mtime": 1786883457.364954,
+    "seen": 1787221452.8283675,
+    "ast_hash": "290a937ea52f230c2d48e8b773c9821f",
+    "semantic_hash": "290a937ea52f230c2d48e8b773c9821f"
+  },
+  "Wholphin.Engine/Streaming/TorrentSource.cs": {
+    "mtime": 1786624755.1425474,
+    "seen": 1787221452.8283682,
+    "ast_hash": "1a1ce188df8af3ab5aaaacbf8316e961",
+    "semantic_hash": "1a1ce188df8af3ab5aaaacbf8316e961"
+  },
+  "Wholphin.Engine/Streaming/TorrentStreamService.cs": {
+    "mtime": 1786886338.7773626,
+    "seen": 1787221452.8283687,
+    "ast_hash": "edeeeaaf983c2317818dcd3a02a0cd6b",
+    "semantic_hash": "edeeeaaf983c2317818dcd3a02a0cd6b"
+  },
+  "Wholphin.Engine/Streaming/TrackerList.cs": {
+    "mtime": 1786559663.7755885,
+    "seen": 1787221452.8283694,
+    "ast_hash": "fbba0c9938cefcaa4faf2035b798a7cc",
+    "semantic_hash": "fbba0c9938cefcaa4faf2035b798a7cc"
+  },
+  "Wholphin.Engine/Streaming/VideoFileSelector.cs": {
+    "mtime": 1785925404.1738818,
+    "seen": 1787221452.8283699,
+    "ast_hash": "532bef108a8f67df40e6c7795bd3752b",
+    "semantic_hash": "532bef108a8f67df40e6c7795bd3752b"
+  },
+  "Wholphin.Engine/Sync/CatalogMapper.cs": {
+    "mtime": 1786892141.7845569,
+    "seen": 1787221452.8283706,
+    "ast_hash": "6d8546adf010f6ca1c968beba7341bb7",
+    "semantic_hash": "6d8546adf010f6ca1c968beba7341bb7"
+  },
+  "Wholphin.Engine/Sync/ILibrarySyncService.cs": {
+    "mtime": 1781935602.7841668,
+    "seen": 1787221452.8283713,
+    "ast_hash": "a972b9f6760bb9d0fcad5a6de41f7a11",
+    "semantic_hash": "a972b9f6760bb9d0fcad5a6de41f7a11"
+  },
+  "Wholphin.Engine/Sync/LibrarySyncEntryPoint.cs": {
+    "mtime": 1782707274.0631807,
+    "seen": 1787221452.8283718,
+    "ast_hash": "8c8553059331c6d94f27d89daa01416a",
+    "semantic_hash": "8c8553059331c6d94f27d89daa01416a"
+  },
+  "Wholphin.Engine/Sync/LibrarySyncService.cs": {
+    "mtime": 1785957011.409432,
+    "seen": 1787221452.8283725,
+    "ast_hash": "b9c72d5b8d46e7fa74b5b6d086678eca",
+    "semantic_hash": "b9c72d5b8d46e7fa74b5b6d086678eca"
+  },
+  "Wholphin.Engine/Trailer/ITrailerPredictionService.cs": {
+    "mtime": 1783230179.7480016,
+    "seen": 1787221452.828373,
+    "ast_hash": "ac288349ae0c32cd681479584b47a8af",
+    "semantic_hash": "ac288349ae0c32cd681479584b47a8af"
+  },
+  "Wholphin.Engine/Trailer/ITrailerQueue.cs": {
+    "mtime": 1784265467.5021074,
+    "seen": 1787221452.8283737,
+    "ast_hash": "a51a21e0dc513248abbb1cec20018463",
+    "semantic_hash": "a51a21e0dc513248abbb1cec20018463"
+  },
+  "Wholphin.Engine/Trailer/ITrailerService.cs": {
+    "mtime": 1784265392.248914,
+    "seen": 1787221452.8283744,
+    "ast_hash": "c4717cd2602959fffd45327f88ed5172",
+    "semantic_hash": "c4717cd2602959fffd45327f88ed5172"
+  },
+  "Wholphin.Engine/Trailer/ITrailerSource.cs": {
+    "mtime": 1786892665.9800808,
+    "seen": 1787221452.8283749,
+    "ast_hash": "d601e4ff815a58ea20288b34f9b35f5c",
+    "semantic_hash": "d601e4ff815a58ea20288b34f9b35f5c"
+  },
+  "Wholphin.Engine/Trailer/ITrailerStateStore.cs": {
+    "mtime": 1783230998.1494045,
+    "seen": 1787221452.8283756,
+    "ast_hash": "2ac871e7a961d55adaf0c831c68608e1",
+    "semantic_hash": "2ac871e7a961d55adaf0c831c68608e1"
+  },
+  "Wholphin.Engine/Trailer/Sources/JellyfinTrailerSource.cs": {
+    "mtime": 1786892681.042823,
+    "seen": 1787221452.8283763,
+    "ast_hash": "31471611025484ed4b1b38be0fbfee11",
+    "semantic_hash": "31471611025484ed4b1b38be0fbfee11"
+  },
+  "Wholphin.Engine/Trailer/Sources/StoredTrailerSource.cs": {
+    "mtime": 1786892685.6325514,
+    "seen": 1787221452.8283768,
+    "ast_hash": "bc8bbd9006f31a78f09d772f6926e27f",
+    "semantic_hash": "bc8bbd9006f31a78f09d772f6926e27f"
+  },
+  "Wholphin.Engine/Trailer/Sources/TmdbTrailerSource.cs": {
+    "mtime": 1786892671.6018174,
+    "seen": 1787221452.8283775,
+    "ast_hash": "d08a1ce11a6559c3ddb005c39984c1e2",
+    "semantic_hash": "d08a1ce11a6559c3ddb005c39984c1e2"
+  },
+  "Wholphin.Engine/Trailer/Sources/TvdbTrailerSource.cs": {
+    "mtime": 1786892693.2732294,
+    "seen": 1787221452.8283782,
+    "ast_hash": "f0209049c7a3ccbeda729413686b31a5",
+    "semantic_hash": "f0209049c7a3ccbeda729413686b31a5"
+  },
+  "Wholphin.Engine/Trailer/Sources/YtDlpSearchTrailerSource.cs": {
+    "mtime": 1786892717.4271345,
+    "seen": 1787221452.8283787,
+    "ast_hash": "c893f605f7af9fce4778430cf564e045",
+    "semantic_hash": "c893f605f7af9fce4778430cf564e045"
+  },
+  "Wholphin.Engine/Trailer/TrailerCacheManager.cs": {
+    "mtime": 1783230121.7291284,
+    "seen": 1787221452.8283794,
+    "ast_hash": "efcd0984ea1199d32e6706ee54530b86",
+    "semantic_hash": "efcd0984ea1199d32e6706ee54530b86"
+  },
+  "Wholphin.Engine/Trailer/TrailerCandidateScorer.cs": {
+    "mtime": 1786892657.113744,
+    "seen": 1787221452.8283799,
+    "ast_hash": "ba8cf2b3ae6b04ea87c1ac22f15bc55d",
+    "semantic_hash": "ba8cf2b3ae6b04ea87c1ac22f15bc55d"
+  },
+  "Wholphin.Engine/Trailer/TrailerPrebufferWorker.cs": {
+    "mtime": 1783230251.5615582,
+    "seen": 1787221452.8283806,
+    "ast_hash": "a0359457eb5196ee3db1089486868f5b",
+    "semantic_hash": "a0359457eb5196ee3db1089486868f5b"
+  },
+  "Wholphin.Engine/Trailer/TrailerPredictionService.cs": {
+    "mtime": 1783230223.273857,
+    "seen": 1787221452.8283813,
+    "ast_hash": "1a856b2ab9f152f0bd6564210627c3db",
+    "semantic_hash": "1a856b2ab9f152f0bd6564210627c3db"
+  },
+  "Wholphin.Engine/Trailer/TrailerPriority.cs": {
+    "mtime": 1783227446.9094646,
+    "seen": 1787221452.8283818,
+    "ast_hash": "beb516e0ced7e1435566fdc9c630d8ab",
+    "semantic_hash": "beb516e0ced7e1435566fdc9c630d8ab"
+  },
+  "Wholphin.Engine/Trailer/TrailerQueueWorker.cs": {
+    "mtime": 1784265493.4334722,
+    "seen": 1787221452.8283825,
+    "ast_hash": "b0f121f2f5c217a2ead3006260e3c554",
+    "semantic_hash": "b0f121f2f5c217a2ead3006260e3c554"
+  },
+  "Wholphin.Engine/Trailer/TrailerService.cs": {
+    "mtime": 1786910511.356603,
+    "seen": 1787221452.8283832,
+    "ast_hash": "62b982f04e03ca49a1a574cae81b604d",
+    "semantic_hash": "62b982f04e03ca49a1a574cae81b604d"
+  },
+  "Wholphin.Engine/Trailer/TrailerStateStore.cs": {
+    "mtime": 1783231011.2612598,
+    "seen": 1787221452.8283837,
+    "ast_hash": "1912b7a00580759909053daea7ada527",
+    "semantic_hash": "1912b7a00580759909053daea7ada527"
+  },
+  "Wholphin.Engine/Trailer/WarmTrailersTask.cs": {
+    "mtime": 1783230611.8585627,
+    "seen": 1787221452.8283844,
+    "ast_hash": "6c7cf6e75d1cb5db568f890c5b735018",
+    "semantic_hash": "6c7cf6e75d1cb5db568f890c5b735018"
+  },
+  "Wholphin.Engine/Update/AppUpdateService.cs": {
+    "mtime": 1785863365.0716808,
+    "seen": 1787221452.828385,
+    "ast_hash": "632b2b9a99e5a2b951ef97faa17b7e5f",
+    "semantic_hash": "632b2b9a99e5a2b951ef97faa17b7e5f"
+  },
+  "Wholphin.Engine/Update/IAppUpdateService.cs": {
+    "mtime": 1783054210.7938492,
+    "seen": 1787221452.8283858,
+    "ast_hash": "8f7d9565662bc482c7a6608cba1b70c5",
+    "semantic_hash": "8f7d9565662bc482c7a6608cba1b70c5"
+  },
+  "Wholphin.Engine/Wholphin.Engine.csproj": {
+    "mtime": 1787214117.171249,
+    "seen": 1787221452.8283863,
+    "ast_hash": "85cc65ded76db4b4ce2389de45c07b9d",
+    "semantic_hash": "85cc65ded76db4b4ce2389de45c07b9d"
+  },
+  "artifact/Wholphin.Engine.deps.json": {
+    "mtime": 1781890143.5464272,
+    "seen": 1787221452.828387,
+    "ast_hash": "db523bfa43083ffcef1d979c5efa9389",
+    "semantic_hash": "db523bfa43083ffcef1d979c5efa9389"
+  },
+  "manifest.json": {
+    "mtime": 1787214195.2873607,
+    "seen": 1787221452.8283875,
+    "ast_hash": "80186eba97b0110dba630dd13242c358",
+    "semantic_hash": "80186eba97b0110dba630dd13242c358"
+  },
+  "meta.json": {
+    "mtime": 1787214117.1516845,
+    "seen": 1787221452.8283908,
+    "ast_hash": "e7fdc0a463eb9a6cd08afc40d3c3544e",
+    "semantic_hash": "e7fdc0a463eb9a6cd08afc40d3c3544e"
+  },
+  "scripts/orca-engine-deploy.sh": {
+    "mtime": 1786883688.1601408,
+    "seen": 1787221452.8283918,
+    "ast_hash": "6c7756c15763b29801b9cd0ff796516a",
+    "semantic_hash": "6c7756c15763b29801b9cd0ff796516a"
+  },
+  "README.md": {
+    "mtime": 1785863364.97291,
+    "seen": 1787221452.8283923,
+    "ast_hash": "b5bbff79495f7a3ff5a18f31c7bec38b",
+    "semantic_hash": "b5bbff79495f7a3ff5a18f31c7bec38b"
+  },
+  "Wholphin.Engine/Configuration/config.html": {
+    "mtime": 1787206173.677642,
+    "seen": 1787221452.8283927,
+    "ast_hash": "698895e93152f4e4438810914edf240b",
+    "semantic_hash": "698895e93152f4e4438810914edf240b"
+  },
+  "Wholphin.Engine/Configuration/observatory-app.html": {
+    "mtime": 1787214095.6731682,
+    "seen": 1787221452.8283935,
+    "ast_hash": "98605f70f5ed4ce7be6a68cd45c1005a",
+    "semantic_hash": "98605f70f5ed4ce7be6a68cd45c1005a"
+  },
+  "Wholphin.Engine/Configuration/observatory-link.html": {
+    "mtime": 1785905114.929629,
+    "seen": 1787221452.828394,
+    "ast_hash": "1817ea04a42bcb8750bf306efb0065a5",
+    "semantic_hash": "1817ea04a42bcb8750bf306efb0065a5"
+  },
+  "build.yaml": {
+    "mtime": 1787214117.167236,
+    "seen": 1787221452.8283947,
+    "ast_hash": "52735188e50423eea9e9b7cd21e83c41",
+    "semantic_hash": "52735188e50423eea9e9b7cd21e83c41"
+  },
+  "docs/RECOMMENDATION_ROADMAP.md": {
+    "mtime": 1782446712.2349415,
+    "seen": 1787221452.8283954,
+    "ast_hash": "0dc9c6f8228b9df70260f746675baa1c",
+    "semantic_hash": "0dc9c6f8228b9df70260f746675baa1c"
+  },
+  "docs/hybrid-streaming-api.md": {
+    "mtime": 1786133818.9937105,
+    "seen": 1787221452.8283958,
+    "ast_hash": "4819e33ddae6ec8ff27d300bba926802",
+    "semantic_hash": "4819e33ddae6ec8ff27d300bba926802"
+  },
+  "docs/streaming-cold-start-findings.md": {
+    "mtime": 1786870481.576319,
+    "seen": 1787221452.8283966,
+    "ast_hash": "60a1a056249abdccf8e7e9c5d83bbbe5",
+    "semantic_hash": "60a1a056249abdccf8e7e9c5d83bbbe5"
+  },
+  "docs/taste-language-gap-findings.md": {
+    "mtime": 1787208144.4535723,
+    "seen": 1787221452.828397,
+    "ast_hash": "b62356fd17348acdae9a46ed03304556",
+    "semantic_hash": "b62356fd17348acdae9a46ed03304556"
+  },
+  "docs/assets/architecture.svg": {
+    "mtime": 1784561394.639266,
+    "seen": 1787221452.8283978,
+    "ast_hash": "757d21e5f63376397365acbbbeff56f4",
+    "semantic_hash": "757d21e5f63376397365acbbbeff56f4"
+  },
+  "docs/assets/availability.svg": {
+    "mtime": 1784561394.6412692,
+    "seen": 1787221452.8283982,
+    "ast_hash": "100f1f854b12dece7d7bcf38f328f138",
+    "semantic_hash": "100f1f854b12dece7d7bcf38f328f138"
+  },
+  "docs/assets/engine-banner.svg": {
+    "mtime": 1784561394.6482592,
+    "seen": 1787221452.828399,
+    "ast_hash": "6e4df5ccb38103101144bc4d239f321e",
+    "semantic_hash": "6e4df5ccb38103101144bc4d239f321e"
+  }
+}
