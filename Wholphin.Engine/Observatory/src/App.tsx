@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePoll, useHistory } from './api';
 import { Problem, Boundary, AlertBanner } from './ui';
 import { Overview, EngineHealth, Performance, Cache, toSnapshot, type Snapshot } from './pages-core';
-import { Metadata, TrailerResolver, Recommendations, Embeddings, LiveLogs, Timeline, Users } from './pages-detail';
+import { Metadata, TrailerResolver, Recommendations, Embeddings, TasteGraph, LiveLogs, Timeline, Users } from './pages-detail';
 import { Settings } from './pages-settings';
 import { TorrentStreaming } from './pages-streaming';
 import Login from './Login';
 import { currentSession, signOut, SESSION_EXPIRED_EVENT, type Session } from './session';
 
 const PAGES = [
-  'Overview', 'Engine Health', 'Performance', 'Metadata', 'Trailer Resolver',
+  'Overview', 'Taste Graph', 'Engine Health', 'Performance', 'Metadata', 'Trailer Resolver',
   'Recommendation Engine', 'Embeddings', 'Torrent Streaming', 'Cache', 'Live Logs', 'Timeline', 'Users', 'Settings',
 ] as const;
 
@@ -87,6 +87,7 @@ function Dashboard({ session, onSignOut }: { session: Session; onSignOut: () => 
             navigate away. A dashboard that goes blank tells you nothing about the engine. */}
         <Boundary key={page}>
           {page === 'Overview' && <Overview snap={snap} samples={samples} snapshots={snapshots} />}
+          {page === 'Taste Graph' && <TasteGraph />}
           {page === 'Engine Health' && <EngineHealth snap={snap} samples={samples} />}
           {page === 'Performance' && <Performance snap={snap} />}
           {page === 'Metadata' && <Metadata snap={snap} />}
