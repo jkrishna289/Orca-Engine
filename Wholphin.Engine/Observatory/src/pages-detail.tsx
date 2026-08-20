@@ -500,7 +500,6 @@ export function Users({ snap }: { snap: Snapshot | undefined }) {
   return (
     <>
       {status.error && <Problem error={status.error} />}
-      <HistoryImport />
       <Section title="Audience">
         <Tiles>
           <Tile label="Profiles" value={String(pick(status.data, 'Profiles') ?? 0)} />
@@ -851,6 +850,184 @@ export function Embeddings() {
           ))}
         </Table>
       </Section>
+    </>
+  );
+}
+
+interface GraphUser {
+  userId: string;
+  userName: string;
+  state: string;
+  events: number;
+  importedEvents: number;
+  liveEvents: number;
+  seeds: number;
+  confidence: number;
+  topGenres: string[];
+  topLanguages: string[];
+  hasVector: boolean;
+  builtAtUtc: string | null;
+  provider: string | null;
+}
+
+const STATE_LABEL: Record<string, { label: string; tone: 'ok' | 'warn' | 'bad'; note: string }> = {
+  ready: { label: 'Built', tone: 'ok', note: 'Enough history to personalise confidently' },
+  thin: { label: 'Thin', tone: 'warn', note: 'A profile exists but there is little history behind it' },
+  building: { label: 'Building\u2026', tone: 'warn', note: 'Scanning this account right now' },
+  pending: { label: 'Not built yet', tone: 'warn', note: 'History captured; the profile has not been computed yet' },
+  empty: { label: 'No history', tone: 'bad', note: 'Nothing captured or imported for this account' },
+};
+
+function toGraphUser(raw: unknown): GraphUser {
+  const num = (key: string) => Number(pick(raw, key) ?? 0);
+  return {
+    userId: String(pick(raw, 'UserId') ?? ''),
+    userName: String(pick(raw, 'UserName') ?? '?'),
+    state: String(pick(raw, 'State') ?? 'empty'),
+    events: num('Events'),
+    importedEvents: num('ImportedEvents'),
+    liveEvents: num('LiveEvents'),
+    seeds: num('Seeds'),
+    confidence: num('Confidence'),
+    topGenres: (pick<string[]>(raw, 'TopGenres') ?? []) as string[],
+    topLanguages: (pick<string[]>(raw, 'TopLanguages') ?? []) as string[],
+    hasVector: !!pick(raw, 'HasVector'),
+    builtAtUtc: (pick<string>(raw, 'BuiltAtUtc') ?? null) as string | null,
+    provider: (pick<string>(raw, 'Provider') ?? null) as string | null,
+  };
+}
+
+/**
+ * Whether each account's taste has actually been learned.
+ *
+ * This screen exists because the answer was previously spread across a behavior-event count, an
+ * affinity row, a profile file on disk and an in-memory vector index — so the only honest way to
+ * check was to read JSON over SSH. "Is it built?" is one question and now has one place to ask it.
+ */
+export function TasteGraph() {
+  const { data, error, reload } = usePoll<Record<string, unknown>>('OrcaEngine/TasteGraph', 3000);
+  const [starting, setStarting] = useState(false);
+  const [problem, setProblem] = useState<string>();
+
+  const imp = pick<Record<string, unknown>>(data, 'Import') ?? {};
+  const index = pick<Record<string, unknown>>(data, 'VectorIndex') ?? null;
+  const users = ((pick<unknown[]>(data, 'Users') ?? []) as unknown[]).map(toGraphUser);
+  const running = !!pick(imp, 'Running');
+  const built = users.filter((u) => u.state === 'ready').length;
+
+  const start = async () => {
+    setStarting(true);
+    setProblem(undefined);
+    try {
+      await post('OrcaEngine/Behavior/ImportHistory');
+      reload();
+    } catch (e) {
+      setProblem((e as Error).message);
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  return (
+    <>
+      {(problem ?? error) && <Problem error={(problem ?? error) as string} />}
+
+      <Section
+        title="Taste graph"
+        subtitle={
+          'One row per account: whether the engine has learned what they like, is learning it now, '
+          + 'or has nothing to go on yet.'
+        }
+        actions={
+          <button className="obs-btn obs-btn-primary" onClick={start} disabled={running || starting}>
+            {running ? 'Scanning\u2026' : 'Scan all watch history'}
+          </button>
+        }
+      >
+        <Tiles>
+          <Tile
+            label="Profiles built"
+            value={`${built} / ${users.length}`}
+            tone={users.length > 0 && built === users.length ? 'ok' : built === 0 ? 'bad' : 'warn'}
+          />
+          <Tile
+            label="Scan"
+            value={running ? String(pick(imp, 'Phase') ?? 'running') : 'Idle'}
+            tone={running ? 'warn' : undefined}
+            hint={
+              running
+                ? `${pick(imp, 'UsersDone')} of ${pick(imp, 'UsersTotal')} accounts`
+                : pick(imp, 'FinishedUtc')
+                  ? `Last run ${new Date(String(pick(imp, 'FinishedUtc'))).toLocaleString()}`
+                  : 'Never run on this server'
+            }
+          />
+          <Tile label="Events imported" value={Number(pick(imp, 'EventsImported') ?? 0).toLocaleString()} />
+          <Tile
+            label="Vector index"
+            value={index === null ? 'Not loaded' : `${Number(pick(index, 'Count') ?? 0).toLocaleString()} items`}
+            tone={index === null ? 'warn' : 'ok'}
+            hint={index === null ? 'Built when a recommendation surface first needs it' : String(pick(index, 'ProviderName') ?? '')}
+          />
+        </Tiles>
+
+        {!running && !pick(imp, 'FinishedUtc') && (
+          <Empty>
+            Nothing has been scanned yet. The engine only sees what people watch after it was installed \u2014
+            press <b>Scan all watch history</b> to backfill every account from the play history Jellyfin
+            already had. It is safe to run more than once.
+          </Empty>
+        )}
+      </Section>
+
+      <Section title="Per account">
+        <Table
+          head={['Account', 'State', 'History', 'Seeds', 'Confidence', 'Learned so far']}
+          empty={!users.length}
+        >
+          {users.map((u) => {
+            const s = STATE_LABEL[u.state] ?? STATE_LABEL.empty;
+            return (
+              <tr key={u.userId}>
+                <td>{u.userName}</td>
+                <td className={`obs-${s.tone}`}>
+                  {s.label}
+                  <div className="obs-muted obs-small">{s.note}</div>
+                </td>
+                <td>
+                  {u.events.toLocaleString()}
+                  <div className="obs-muted obs-small">
+                    {u.importedEvents.toLocaleString()} imported / {u.liveEvents.toLocaleString()} live
+                  </div>
+                </td>
+                <td>{u.seeds.toLocaleString()}</td>
+                <td className={u.confidence >= 0.8 ? 'obs-ok' : u.confidence > 0 ? 'obs-warn' : 'obs-muted'}>
+                  {u.events > 0 ? `${Math.round(u.confidence * 100)}%` : '\u2014'}
+                </td>
+                <td>
+                  {u.topLanguages.length > 0 && (
+                    <div>
+                      <span className="obs-muted obs-small">Languages: </span>
+                      {u.topLanguages.join(', ')}
+                    </div>
+                  )}
+                  {u.topGenres.length > 0 && (
+                    <div>
+                      <span className="obs-muted obs-small">Genres: </span>
+                      {u.topGenres.join(', ')}
+                    </div>
+                  )}
+                  {u.topLanguages.length === 0 && u.topGenres.length === 0 && (
+                    <span className="obs-muted">\u2014</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </Table>
+      </Section>
+
+      <HistoryImport />
     </>
   );
 }
