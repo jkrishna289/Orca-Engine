@@ -35,6 +35,7 @@ public class TasteProfileService : ITasteProfileService
 
     private const int MaxTopGenres = 5;
     private const int MaxTopKeywords = 8;
+    private const int MaxTopLanguages = 2;
 
     private static readonly JsonSerializerOptions FileJson = new() { WriteIndented = true };
 
@@ -101,6 +102,7 @@ public class TasteProfileService : ITasteProfileService
             EventCount = affinity.EventCount,
             TopGenres = TopFeatures(affinity.Genre, MaxTopGenres),
             TopKeywords = TopFeatures(affinity.Tag, MaxTopKeywords),
+            TopLanguages = TopFeatures(affinity.Language, MaxTopLanguages),
             AvoidGenres = affinity.Genre
                 .Where(kv => kv.Value < AvoidGenreThreshold)
                 .OrderBy(kv => kv.Value)
@@ -115,7 +117,6 @@ public class TasteProfileService : ITasteProfileService
         var snapshot = await _vectorIndex.GetAsync(ct).ConfigureAwait(false);
         profile.Provider = snapshot.ProviderName;
         var vector = VectorInSnapshotSpace(profile, snapshot);
-        profile.SparseVector = vector.SparseWeights?.ToDictionary(kv => kv.Key, kv => kv.Value);
         profile.DenseVector = vector.DenseValues?.ToArray();
 
         await PersistAsync(profile, ct).ConfigureAwait(false);
@@ -149,9 +150,8 @@ public class TasteProfileService : ITasteProfileService
     private async Task<List<TasteSeed>> BuildSeedsAsync(Guid userId, CancellationToken ct)
     {
         await using var db = _factory.Create();
-        var cutoff = PersonalizationService.RetentionCutoff();
         var events = await db.BehaviorEvents.AsNoTracking()
-            .Where(e => e.UserId == userId && e.Timestamp >= cutoff)
+            .Where(e => e.UserId == userId)
             .ToListAsync(ct)
             .ConfigureAwait(false);
         if (events.Count == 0)

@@ -34,13 +34,6 @@ public class PluginConfiguration : BasePluginConfiguration
     public int SpotlightShowcaseCount { get; set; } = 2;
 
     /// <summary>
-    /// Gets or sets how many days of raw behavior events to retain (older ones are pruned; the
-    /// affinity vector already decays them to near-zero). Bounds recompute cost as history grows.
-    /// 0 = keep everything (no pruning).
-    /// </summary>
-    public int BehaviorRetentionDays { get; set; } = 400;
-
-    /// <summary>
     /// Gets or sets the household IANA/Windows time-zone id used for daypart bucketing (morning/
     /// evening/…). Empty = the server's local time zone. Applied consistently to signal capture and
     /// selection so a signal is scored under the daypart it was learned in.
@@ -182,11 +175,12 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     /// <remarks>
     /// Removing a token disables that source; reordering changes preference. Unrecognised tokens are
-    /// ignored, so a typo costs a source rather than breaking resolution. <c>search</c> is off by
-    /// default deliberately — a text search can return a fan edit or a review rather than the real
-    /// trailer, which is worse than showing none.
+    /// ignored, so a typo costs a source rather than breaking resolution. <c>search</c> sits LAST: it
+    /// is the only source that can cover a title TMDB has no video for, but it guesses from free text,
+    /// so it must never pre-empt a source that knows the answer. It is safe to enable only because
+    /// candidates are scored and a weak best match is declined — see <see cref="TrailerSearchMinScore"/>.
     /// </remarks>
-    public string TrailerSourceOrder { get; set; } = "tmdb,jellyfin,stored";
+    public string TrailerSourceOrder { get; set; } = "tmdb,jellyfin,stored,tvdb,search";
 
     /// <summary>
     /// Gets or sets a value indicating whether a teaser may be used when no full trailer exists.
@@ -204,6 +198,136 @@ public class PluginConfiguration : BasePluginConfiguration
     /// fetch them, but they are rarer and less consistently the real trailer.
     /// </summary>
     public bool TrailerAllowNonYouTube { get; set; }
+
+    // --- Trailer search scoring (the `search` source) ---------------------------------------
+    // A YouTube search returns free text, so candidates are SCORED rather than taken in order.
+    // Defaults are tuned so a real official trailer clears the bar and a review/reaction/fan edit
+    // does not. Every weight is additive; the total is compared against TrailerSearchMinScore.
+
+    /// <summary>Gets or sets how many YouTube candidates the search source fetches before scoring.</summary>
+    public int TrailerSearchCandidates { get; set; } = 8;
+
+    /// <summary>
+    /// Gets or sets the score a candidate must reach to be used at all. Below this the source
+    /// declines rather than guessing — a confidently wrong trailer is worse than none.
+    /// </summary>
+    public int TrailerSearchMinScore { get; set; } = 40;
+
+    /// <summary>Gets or sets the score added when the video title contains the media title.</summary>
+    public int TrailerScoreTitleMatch { get; set; } = 40;
+
+    /// <summary>Gets or sets the score added when the release year matches.</summary>
+    public int TrailerScoreYearMatch { get; set; } = 20;
+
+    /// <summary>Gets or sets the score added when the channel looks like an official studio/distributor.</summary>
+    public int TrailerScoreOfficialChannel { get; set; } = 20;
+
+    /// <summary>Gets or sets the score added when the video title says "official trailer".</summary>
+    public int TrailerScoreOfficialTrailer { get; set; } = 10;
+
+    /// <summary>Gets or sets the score added when the video title merely says "trailer".</summary>
+    public int TrailerScoreTrailer { get; set; } = 5;
+
+    /// <summary>Gets or sets the penalty (positive number, subtracted) when the video title does not contain the media title.</summary>
+    public int TrailerScoreUnrelated { get; set; } = 30;
+
+    /// <summary>Gets or sets the penalty for fan-made/concept/parody videos.</summary>
+    public int TrailerScoreFanMade { get; set; } = 20;
+
+    /// <summary>Gets or sets the penalty for clips, scenes, reactions, reviews and explainers.</summary>
+    public int TrailerScoreClip { get; set; } = 20;
+
+    /// <summary>Gets or sets the penalty when the video title carries a year two or more years off.</summary>
+    public int TrailerScoreWrongYear { get; set; } = 50;
+
+    // --- Metadata providers (multi-provider aggregation) ------------------------------------
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the multi-provider metadata enricher runs. Harmless
+    /// when on with no keys set: every provider self-gates on its own key and the enricher exits
+    /// immediately when nothing beyond TMDB is configured.
+    /// </summary>
+    public bool FeatureMetadataProviders { get; set; } = true;
+
+    /// <summary>Gets or sets the OMDb API key (free tier, 1000 requests/day). Empty disables OMDb ratings.</summary>
+    public string OmdbApiKey { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the Fanart.tv personal API key. Empty disables clear logos and Fanart artwork.</summary>
+    public string FanartApiKey { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the TheTVDB v4 API key. Empty disables TVDB. Legacy v1-v3 keys do not work.</summary>
+    public string TvdbApiKey { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the TheTVDB subscriber PIN. Required only for user-supported keys; leave empty for a company key.</summary>
+    public string TvdbPin { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the ISO 639-1 language preferred when picking artwork with burned-in text.</summary>
+    public string MetadataLanguage { get; set; } = "en";
+
+    // Field-level provider priority. Same comma-token idiom as TrailerSourceOrder: removing a token
+    // disables that provider for that field, reordering changes preference, unknown tokens are
+    // ignored. Priority is per FIELD GROUP because provider strengths genuinely differ — Fanart has
+    // the best artwork, OMDb has the only real critic scores, TMDB has the best core data.
+
+    /// <summary>Gets or sets the provider order for overview, genres, keywords, people, runtime and language.</summary>
+    public string MetadataPriorityCore { get; set; } = "tmdb,tvdb";
+
+    /// <summary>Gets or sets the provider order for posters and backdrops.</summary>
+    public string MetadataPriorityArtwork { get; set; } = "fanart,tmdb,tvdb";
+
+    /// <summary>Gets or sets the provider order for clear logos.</summary>
+    public string MetadataPriorityLogo { get; set; } = "fanart,tvdb";
+
+    /// <summary>Gets or sets the provider order for ratings.</summary>
+    public string MetadataPriorityRatings { get; set; } = "omdb,tmdb";
+
+    /// <summary>Gets or sets the provider order for per-episode series data.</summary>
+    public string MetadataPriorityEpisodes { get; set; } = "tvdb,tmdb";
+
+    // Resilience. One shared set rather than per-provider knobs: all four are the same kind of
+    // free-tier JSON API. Per-provider overrides can be added if one measurably needs different
+    // numbers.
+
+    /// <summary>Gets or sets how many calls one provider may have in flight at once.</summary>
+    public int MetadataProviderMaxConcurrency { get; set; } = 2;
+
+    /// <summary>Gets or sets the minimum gap between two calls to the same provider, in milliseconds. 0 disables throttling.</summary>
+    public int MetadataProviderMinIntervalMs { get; set; }
+
+    /// <summary>Gets or sets how many consecutive failures open a provider's circuit breaker.</summary>
+    public int MetadataProviderBreakerThreshold { get; set; } = 5;
+
+    /// <summary>Gets or sets the base breaker cooldown in seconds; it doubles per consecutive trip, capped at 15 minutes.</summary>
+    public int MetadataProviderBreakerCooldownSeconds { get; set; } = 60;
+
+    /// <summary>Gets or sets the per-call timeout for a metadata provider, in seconds.</summary>
+    public int MetadataProviderTimeoutSeconds { get; set; } = 10;
+
+    /// <summary>Gets or sets how long a provider's answer is cached, in days.</summary>
+    public int MetadataCacheDays { get; set; } = 14;
+
+    /// <summary>Gets or sets how long a catalog row is left alone after a metadata pass, in days.</summary>
+    public int MetadataRefreshDays { get; set; } = 30;
+
+    /// <summary>
+    /// Gets or sets how many titles the multi-provider pass may process per maintenance tick.
+    /// </summary>
+    /// <remarks>
+    /// Sized against the STRICTEST free tier rather than the loop's appetite. Maintenance ticks every
+    /// 15 minutes (96 times a day), so the default 10 costs at most ~960 provider calls a day — just
+    /// inside OMDb's 1000/day allowance. Raising this without a paid key will exhaust the quota, at
+    /// which point the provider's circuit opens and the pass stops until the allowance resets.
+    /// </remarks>
+    public int MetadataItemsPerPass { get; set; } = 10;
+
+    /// <summary>Gets or sets how long a resolved trailer URL is cached, in days.</summary>
+    public int TrailerUrlCacheDays { get; set; } = 7;
+
+    /// <summary>
+    /// Gets or sets how long a failed trailer lookup is remembered, in hours. Shorter than a positive
+    /// result on purpose: a trailer that does not exist today may be published tomorrow.
+    /// </summary>
+    public int TrailerMissCacheHours { get; set; } = 12;
 
     /// <summary>Gets or sets the Sonarr base URL (e.g., http://localhost:8989). Empty disables the Sonarr calendar. (Milestone 8.)</summary>
     public string SonarrUrl { get; set; } = string.Empty;
@@ -460,11 +584,36 @@ public class PluginConfiguration : BasePluginConfiguration
     // --- Embeddings (pluggable content vectors; default local TF-IDF) ----------------------
 
     /// <summary>
-    /// Gets or sets the active embedding provider: <c>tfidf</c> (default, local), <c>openai</c>,
-    /// <c>gemini</c>, <c>voyage</c>, <c>jina</c>, or <c>onnx</c>. Falls back to TF-IDF when the chosen
-    /// provider is unconfigured or fails.
+    /// Gets or sets the active embedding provider: <c>ollama</c> (default, local server),
+    /// <c>openai</c>, <c>gemini</c>, <c>voyage</c>, <c>jina</c>, or <c>onnx</c>.
     /// </summary>
-    public string EmbeddingProvider { get; set; } = "tfidf";
+    /// <remarks>
+    /// There is no built-in fallback provider. If the selected one cannot answer, the engine keeps
+    /// the last index it built successfully and raises a critical alert rather than quietly
+    /// substituting something weaker.
+    /// </remarks>
+    public string EmbeddingProvider { get; set; } = "ollama";
+
+    /// <summary>
+    /// Gets or sets the base URL of the Ollama server, without a trailing path
+    /// (e.g. <c>http://localhost:11434</c>). Empty disables the provider.
+    /// </summary>
+    public string OllamaBaseUrl { get; set; } = "http://localhost:11434";
+
+    /// <summary>Gets or sets the Ollama embedding model, which must already be pulled on that server.</summary>
+    public string OllamaEmbeddingModel { get; set; } = "nomic-embed-text";
+
+    /// <summary>
+    /// Gets or sets how many documents are sent to the embedding provider per call when rebuilding
+    /// the content-vector index. Clamped to [8, 512] and to whatever the active provider accepts;
+    /// the local TF-IDF provider ignores it entirely, because its weights are fit over the batch it
+    /// receives and splitting the corpus would make the vectors incomparable.
+    /// </summary>
+    /// <remarks>
+    /// Lower it if a hosted provider rejects requests on body size or times out. The ceiling exists
+    /// so a mistyped value cannot recreate the original bug: one request carrying the whole catalog.
+    /// </remarks>
+    public int EmbeddingBatchSize { get; set; } = 96;
 
     /// <summary>Gets or sets the OpenAI API key (for the OpenAI embedding provider).</summary>
     public string OpenAiApiKey { get; set; } = string.Empty;

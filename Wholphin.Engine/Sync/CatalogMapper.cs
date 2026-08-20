@@ -94,6 +94,14 @@ public static class CatalogMapper
         mapped.BackdropImageUrl = existing.BackdropImageUrl;
         mapped.TrailerUrl = existing.TrailerUrl;
 
+        // Multi-provider metadata (schema v11). Jellyfin supplies none of these, and MetadataSyncedAt
+        // is the "already done" stamp the aggregating enricher filters on — clearing it would re-spend
+        // OMDb's 1000/day allowance on titles that were already enriched.
+        mapped.LogoImageUrl = existing.LogoImageUrl;
+        mapped.RatingsJson = existing.RatingsJson;
+        mapped.MetadataSourcesJson = existing.MetadataSourcesJson;
+        mapped.MetadataSyncedAt = existing.MetadataSyncedAt;
+
         // Locally computed, from behavior signals rather than any provider.
         mapped.WholphinRating = existing.WholphinRating;
         mapped.WholphinVotes = existing.WholphinVotes;

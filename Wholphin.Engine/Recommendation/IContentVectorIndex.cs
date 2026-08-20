@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,12 @@ namespace Wholphin.Engine.Recommendation;
 /// catalog item, produced by the active <see cref="IEmbeddingProvider"/>. Cheap repeated cosine
 /// lookups without re-embedding.
 /// </summary>
+/// <remarks>
+/// Every vector in a snapshot comes from ONE provider and therefore lives in one comparable space.
+/// That invariant is what makes <see cref="ContentVector.Cosine"/> meaningful across the whole index,
+/// and it is why a failed rebuild keeps the previous snapshot whole rather than patching the gap
+/// with another provider's output.
+/// </remarks>
 public sealed class ContentVectorSnapshot
 {
     private readonly IReadOnlyDictionary<long, ContentVector> _vectors;
@@ -21,6 +28,7 @@ public sealed class ContentVectorSnapshot
     {
         _vectors = vectors;
         ProviderName = providerName;
+        BuiltAtUtc = DateTime.UtcNow;
     }
 
     /// <summary>Gets the number of indexed items.</summary>
@@ -28,6 +36,15 @@ public sealed class ContentVectorSnapshot
 
     /// <summary>Gets the embedding provider that produced this snapshot.</summary>
     public string ProviderName { get; }
+
+    /// <summary>Gets when this snapshot was built (UTC).</summary>
+    public DateTime BuiltAtUtc { get; }
+
+    /// <summary>An index with nothing in it — every lookup returns <see cref="ContentVector.Empty"/>.</summary>
+    /// <param name="providerName">The active provider.</param>
+    /// <returns>The empty snapshot.</returns>
+    public static ContentVectorSnapshot Empty(string providerName) =>
+        new(new Dictionary<long, ContentVector>(), providerName);
 
     /// <summary>Returns the vector for an indexed item, or <see cref="ContentVector.Empty"/> if absent.</summary>
     /// <param name="catalogItemId">The catalog item id.</param>
@@ -45,6 +62,19 @@ public interface IContentVectorIndex
 {
     /// <summary>Gets the current content-vector snapshot (cached; rebuilt on a TTL or provider change).</summary>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The snapshot.</returns>
+    /// <returns>
+    /// The snapshot. Never null: a rebuild that fails outright yields the last known-good index, or
+    /// an empty one when there has never been a good index to keep.
+    /// </returns>
     Task<ContentVectorSnapshot> GetAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets the index as it stands right now, without building one.
+    /// </summary>
+    /// <returns>The last index that built cleanly, or null if none ever has.</returns>
+    /// <remarks>
+    /// For diagnostics, which must be able to report "there is no index yet" rather than causing
+    /// one. <see cref="GetAsync"/> would embed the entire catalog to answer the question.
+    /// </remarks>
+    ContentVectorSnapshot? Current { get; }
 }

@@ -47,6 +47,9 @@ public class WholphinDbContext : DbContext
     /// <summary>Gets the per-title trailer state-machine records (schema v9).</summary>
     public DbSet<TrailerAsset> TrailerAssets => Set<TrailerAsset>();
 
+    /// <summary>Gets the persisted catalog content vectors (schema v12).</summary>
+    public DbSet<CatalogItemVector> CatalogItemVectors => Set<CatalogItemVector>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -66,6 +69,15 @@ public class WholphinDbContext : DbContext
         modelBuilder.Entity<UserProfile>(e =>
         {
             e.HasKey(x => x.UserId);
+        });
+
+        modelBuilder.Entity<CatalogItemVector>(e =>
+        {
+            e.HasKey(x => x.CatalogItemId);
+
+            // Every load filters on the pair, because a vector from another provider or model can
+            // never be reused and is deleted on sight.
+            e.HasIndex(x => new { x.Provider, x.ModelId });
         });
 
         modelBuilder.Entity<BehaviorEvent>(e =>

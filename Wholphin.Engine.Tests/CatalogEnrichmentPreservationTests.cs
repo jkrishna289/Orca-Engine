@@ -37,6 +37,10 @@ public class CatalogEnrichmentPreservationTests
         ProvidersSyncedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
         ContentWarningsJson = "[\"flashing lights\"]",
         ContentWarningsSyncedAt = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc),
+        LogoImageUrl = "https://assets.fanart.tv/logo.png",
+        RatingsJson = "{\"imdb\":86,\"rt\":73}",
+        MetadataSourcesJson = "{\"Poster\":\"fanart\",\"Ratings\":\"omdb\"}",
+        MetadataSyncedAt = new DateTime(2026, 1, 3, 0, 0, 0, DateTimeKind.Utc),
         WholphinRating = 8.4,
         WholphinVotes = 17,
         FeatureVectorJson = "[0.1,0.2]",
@@ -67,6 +71,10 @@ public class CatalogEnrichmentPreservationTests
 
         Assert.Equal(existing.ProvidersSyncedAt, mapped.ProvidersSyncedAt);
         Assert.Equal(existing.ContentWarningsSyncedAt, mapped.ContentWarningsSyncedAt);
+
+        // MetadataSyncedAt gates the multi-provider enricher the same way, and OMDb's free tier is
+        // 1000 requests a day — re-queuing every row on every sync would burn it on already-done work.
+        Assert.Equal(existing.MetadataSyncedAt, mapped.MetadataSyncedAt);
     }
 
     [Fact]
@@ -89,6 +97,9 @@ public class CatalogEnrichmentPreservationTests
         Assert.Equal(existing.WholphinVotes, mapped.WholphinVotes);
         Assert.Equal(existing.FeatureVectorJson, mapped.FeatureVectorJson);
         Assert.Equal(existing.DateAdded, mapped.DateAdded);
+        Assert.Equal(existing.LogoImageUrl, mapped.LogoImageUrl);
+        Assert.Equal(existing.RatingsJson, mapped.RatingsJson);
+        Assert.Equal(existing.MetadataSourcesJson, mapped.MetadataSourcesJson);
     }
 
     [Fact]

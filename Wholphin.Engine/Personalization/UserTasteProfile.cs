@@ -17,17 +17,10 @@ public class UserTasteProfile
     /// <summary>Gets or sets the Jellyfin user id.</summary>
     public Guid UserId { get; set; }
 
-    /// <summary>Gets or sets the embedding provider that produced the stored vector (e.g. "tfidf").</summary>
-    public string Provider { get; set; } = "tfidf";
+    /// <summary>Gets or sets the embedding provider that produced the stored vector (e.g. "ollama").</summary>
+    public string Provider { get; set; } = "ollama";
 
-    /// <summary>
-    /// Gets or sets the sparse (TF-IDF) taste vector, when the active provider is sparse. Valid
-    /// only within the catalog snapshot it was built from — cross-snapshot comparisons must
-    /// re-derive the vector from <see cref="Seeds"/> instead (TF-IDF is fit per batch).
-    /// </summary>
-    public Dictionary<string, double>? SparseVector { get; set; }
-
-    /// <summary>Gets or sets the dense taste vector, when the active provider is dense (batch-stable).</summary>
+    /// <summary>Gets or sets the taste vector: the weighted mean of the seeds' content vectors.</summary>
     public float[]? DenseVector { get; set; }
 
     /// <summary>Gets or sets the seed items the vector derives from, strongest first.</summary>
@@ -38,6 +31,14 @@ public class UserTasteProfile
 
     /// <summary>Gets or sets the user's strongest positive tags/keywords (affinity &gt; 0.35, max 8).</summary>
     public List<string> TopKeywords { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the user's strongest original languages as ISO-639-1 codes (affinity &gt; 0.35,
+    /// max 2), strongest first. Drives the language leg of the taste pull, so a viewer who watches
+    /// mostly non-English cinema is offered candidates from it rather than whatever is globally
+    /// popular in the same genre.
+    /// </summary>
+    public List<string> TopLanguages { get; set; } = new();
 
     /// <summary>Gets or sets genres the user actively avoids (affinity &lt; -0.5) — a hard eligibility veto.</summary>
     public List<string> AvoidGenres { get; set; } = new();

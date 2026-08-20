@@ -66,26 +66,16 @@ public class PersonalizationService : IPersonalizationService
         _logger = logger;
     }
 
-    /// <summary>
-    /// The oldest behavior timestamp still folded into a recompute — <c>UtcNow - BehaviorRetentionDays</c>,
-    /// or <see cref="DateTime.MinValue"/> when retention is disabled (keep everything). Bounds
-    /// recompute cost as history grows; the 90-day decay already makes pruned events near-weightless.
-    /// </summary>
-    /// <returns>The retention cutoff (UTC).</returns>
-    public static DateTime RetentionCutoff()
-    {
-        var days = Plugin.Instance?.Configuration?.BehaviorRetentionDays ?? 0;
-        return days > 0 ? DateTime.UtcNow.AddDays(-days) : DateTime.MinValue;
-    }
-
     /// <inheritdoc />
     public async Task<AffinityVector> RecomputeAsync(Guid userId, CancellationToken ct = default)
     {
         await using var db = _factory.Create();
 
-        var cutoff = RetentionCutoff();
+        // Every event the user has ever produced. There is no retention window: the 90-day
+        // half-life already makes old signals near-weightless, so cutting them off bought nothing
+        // and silently threw away imported history.
         var events = await db.BehaviorEvents.AsNoTracking()
-            .Where(e => e.UserId == userId && e.Timestamp >= cutoff)
+            .Where(e => e.UserId == userId)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 

@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import type { EngineAlert } from './api';
 
 /**
  * Catches a render crash and shows it, instead of unmounting the tree.
@@ -101,10 +102,20 @@ export function Problem({ error }: { error: string }) {
   return <p className="obs-problem">{error}</p>;
 }
 
-/** A bar showing a value against a known ceiling — the only honest way to show "how full is it". */
-export function Meter({ value, max, caption }: { value: number; max: number; caption?: string }) {
+/**
+ * A bar showing a value against a known ceiling — the only honest way to show "how full is it".
+ *
+ * Fullness picks the colour by default, because for a cache or a queue "nearly full" is bad news.
+ * Pass `tone` for the bars where it is the opposite: a progress bar at 100% has finished, not failed.
+ */
+export function Meter({ value, max, caption, tone: fixedTone }: {
+  value: number;
+  max: number;
+  caption?: string;
+  tone?: 'ok' | 'warn' | 'bad';
+}) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-  const tone = pct > 90 ? 'bad' : pct > 60 ? 'warn' : 'ok';
+  const tone = fixedTone ?? (pct > 90 ? 'bad' : pct > 60 ? 'warn' : 'ok');
   return (
     <div className="obs-meter">
       <div className="obs-meter-track">
@@ -188,4 +199,36 @@ export function discover(counters: Record<string, number> | undefined, prefix: s
     }
   }
   return [...found].sort();
+}
+
+/**
+ * Standing health conditions, pinned above the navigation on every page.
+ *
+ * This exists because the failure it was built for is invisible by construction: when a cloud
+ * embedding provider fails the engine falls back to local TF-IDF and everything keeps working, just
+ * much worse. A line in the live log is no use — nobody is watching the live log at 3am. So the
+ * server holds the condition until it stops being true, and it sits here, unmissable, until then.
+ */
+export function AlertBanner({ alerts }: { alerts: EngineAlert[] }) {
+  if (!alerts.length) return null;
+  return (
+    <div className="obs-alerts" role="alert" aria-live="assertive">
+      {alerts.map((a) => {
+        const critical = a.level === 'critical';
+        return (
+          <div key={a.key} className={`obs-alert obs-alert-${critical ? 'critical' : 'warn'}`}>
+            <span className="obs-alert-tag">{critical ? 'CRITICAL' : 'WARNING'}</span>
+            <div className="obs-alert-body">
+              <strong>{a.title}</strong>
+              {a.detail && <p>{a.detail}</p>}
+              <p className="obs-alert-meta">
+                since {a.firstSeenUtc ? new Date(a.firstSeenUtc).toLocaleString() : 'unknown'}
+                {a.count > 1 && ` · seen ${a.count} times`}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

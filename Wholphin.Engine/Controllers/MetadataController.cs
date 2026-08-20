@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -22,6 +23,8 @@ public class MetadataController : ControllerBase
     private readonly ITriviaProvider _trivia;
     private readonly IContentWarningProvider _warnings;
     private readonly IContentWarningEnricher _warningEnricher;
+    private readonly IMetadataAggregator _aggregator;
+    private readonly Diagnostics.IEngineMetrics _metrics;
     private readonly IWholphinDbContextFactory _factory;
 
     /// <summary>
@@ -31,11 +34,15 @@ public class MetadataController : ControllerBase
         ITriviaProvider trivia,
         IContentWarningProvider warnings,
         IContentWarningEnricher warningEnricher,
+        IMetadataAggregator aggregator,
+        Diagnostics.IEngineMetrics metrics,
         IWholphinDbContextFactory factory)
     {
         _trivia = trivia;
         _warnings = warnings;
         _warningEnricher = warningEnricher;
+        _aggregator = aggregator;
+        _metrics = metrics;
         _factory = factory;
     }
 
@@ -124,6 +131,58 @@ public class MetadataController : ControllerBase
     {
         var processed = await _warningEnricher.EnrichAsync(maxItems, cancellationToken).ConfigureAwait(false);
         return Ok(new { processed });
+    }
+
+    /// <summary>
+    /// Metadata-provider observability: per-provider health, the effective field priority, and how
+    /// much of the catalog each field is actually covered for.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A diagnostics snapshot.</returns>
+    /// <remarks>
+    /// Reports only whether a provider is <c>Configured</c>, never the key — not even masked. Provider
+    /// URLs carry their key in the query string, so nothing derived from a request is echoed either.
+    /// </remarks>
+    [HttpGet("Diagnostics")]
+    [Authorize(Policy = "RequiresElevation")]
+    public async Task<ActionResult> Diagnostics(CancellationToken cancellationToken)
+    {
+        var priority = MetadataPriority.FromConfig(Plugin.Instance?.Configuration);
+
+        await using var db = _factory.Create();
+        var coverage = await db.CatalogItems
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                NeverSynced = g.Count(c => c.MetadataSyncedAt == null),
+                WithPoster = g.Count(c => c.PosterImageUrl != null),
+                WithLogo = g.Count(c => c.LogoImageUrl != null),
+                WithRatings = g.Count(c => c.RatingsJson != null),
+            })
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var counters = _metrics.Snapshot();
+
+        return Ok(new
+        {
+            Providers = _aggregator.Health(),
+            Priority = new
+            {
+                Core = priority.Order(MetadataCapability.Core),
+                Artwork = priority.Order(MetadataCapability.Artwork),
+                Logo = priority.Order(MetadataCapability.Logo),
+                Ratings = priority.Order(MetadataCapability.Ratings),
+                Episodes = priority.Order(MetadataCapability.Episodes),
+            },
+            Coverage = coverage,
+            Metrics = counters
+                .Where(kv => kv.Key.StartsWith("provider.", StringComparison.Ordinal)
+                             || kv.Key.StartsWith("metadata.", StringComparison.Ordinal)
+                             || kv.Key.StartsWith("cache.meta.", StringComparison.Ordinal))
+                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal),
+        });
     }
 
     /// <summary>Trivia response.</summary>

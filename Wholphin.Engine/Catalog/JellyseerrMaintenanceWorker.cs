@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -44,7 +45,7 @@ public class JellyseerrMaintenanceWorker : IHostedService
 
     private readonly IAvailabilityReconciler _reconciler;
     private readonly IDiscoveryOrchestrator _discovery;
-    private readonly ICatalogEnricher _enricher;
+    private readonly IReadOnlyList<ICatalogEnricher> _enrichers;
     private readonly IWatchProviderEnricher _watchProviders;
     private readonly Wholphin.Engine.Metadata.IContentWarningEnricher _contentWarnings;
     private readonly Wholphin.Engine.Analytics.ICommunityRatingService _communityRatings;
@@ -60,7 +61,7 @@ public class JellyseerrMaintenanceWorker : IHostedService
     /// </summary>
     /// <param name="reconciler">The availability reconciler.</param>
     /// <param name="discovery">The taste-driven discovery orchestrator.</param>
-    /// <param name="enricher">The TMDB catalog enricher.</param>
+    /// <param name="enrichers">Every catalog enricher (TMDB backfill + multi-provider), run in registration order.</param>
     /// <param name="watchProviders">The watch-provider (studio tag) enricher.</param>
     /// <param name="contentWarnings">The content-advisory pre-generator.</param>
     /// <param name="communityRatings">The Wholphin community-rating service.</param>
@@ -70,7 +71,7 @@ public class JellyseerrMaintenanceWorker : IHostedService
     public JellyseerrMaintenanceWorker(
         IAvailabilityReconciler reconciler,
         IDiscoveryOrchestrator discovery,
-        ICatalogEnricher enricher,
+        IEnumerable<ICatalogEnricher> enrichers,
         IWatchProviderEnricher watchProviders,
         Wholphin.Engine.Metadata.IContentWarningEnricher contentWarnings,
         Wholphin.Engine.Analytics.ICommunityRatingService communityRatings,
@@ -80,7 +81,7 @@ public class JellyseerrMaintenanceWorker : IHostedService
     {
         _reconciler = reconciler;
         _discovery = discovery;
-        _enricher = enricher;
+        _enrichers = enrichers.ToList();
         _watchProviders = watchProviders;
         _contentWarnings = contentWarnings;
         _communityRatings = communityRatings;
@@ -124,7 +125,10 @@ public class JellyseerrMaintenanceWorker : IHostedService
                 try
                 {
                     await _reconciler.ReconcileAsync(ct: ct).ConfigureAwait(false);
-                    await _enricher.EnrichAsync(EnrichPerTick, ct).ConfigureAwait(false);
+                    foreach (var enricher in _enrichers)
+                    {
+                        await enricher.EnrichAsync(EnrichPerTick, ct).ConfigureAwait(false);
+                    }
                     await _watchProviders.EnrichAsync(WatchProvidersPerTick, ct).ConfigureAwait(false);
                     await _contentWarnings.EnrichAsync(WarningsPerTick, ct).ConfigureAwait(false);
                     await _communityRatings.RecomputeAllAsync(ct).ConfigureAwait(false);
@@ -169,21 +173,6 @@ public class JellyseerrMaintenanceWorker : IHostedService
 
         var tuning = DiscoveryTuning.Resolve();
         await using var db = _factory.Create();
-
-        // Retention: physically prune raw behavior events past the window (the affinity vector has
-        // already decayed them to near-zero). No-op when retention is disabled.
-        var cutoff = Personalization.PersonalizationService.RetentionCutoff();
-        if (cutoff > DateTime.MinValue)
-        {
-            var pruned = await db.BehaviorEvents
-                .Where(e => e.Timestamp < cutoff)
-                .ExecuteDeleteAsync(ct)
-                .ConfigureAwait(false);
-            if (pruned > 0)
-            {
-                _logger.LogInformation("Orca Engine: pruned {Count} behavior events older than retention.", pruned);
-            }
-        }
 
         var eligible = await db.UserProfiles.AsNoTracking()
             .Where(p => p.EventCount >= MinEventsForPull)

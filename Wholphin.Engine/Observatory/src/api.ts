@@ -32,6 +32,22 @@ export async function post(path: string, params?: Record<string, unknown>): Prom
   if (!response.ok) throw new Error(`${path} failed (${response.status})`);
 }
 
+/** POSTs and reads the response back — for actions whose result is the point, not the side effect. */
+export async function postFor<T>(path: string, params?: Record<string, unknown>): Promise<T> {
+  const response = await authFetch(path, params, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(
+      response.status === 403
+        ? 'Administrator access required.'
+        : `${path} failed (${response.status})`,
+    );
+  }
+  return (await response.json()) as T;
+}
+
 /** POSTs a JSON body — used for the plugin configuration, which Jellyfin replaces wholesale. */
 export async function postJson(path: string, body: unknown): Promise<void> {
   const response = await authFetch(path, undefined, {
@@ -141,6 +157,31 @@ export function series(samples: Sample[], key: string): number[] {
     out.push(Math.max(0, (samples[i].counters[key] ?? 0) - (samples[i - 1].counters[key] ?? 0)));
   }
   return out;
+}
+
+/** A condition that is wrong right now. Sticky server-side until it stops being true. */
+export interface EngineAlert {
+  key: string;
+  /** "critical" or "warn". */
+  level: string;
+  title: string;
+  detail: string;
+  firstSeenUtc: string;
+  lastSeenUtc: string;
+  count: number;
+}
+
+/** Normalizes one alert, case-insensitively — see the note on `pick`. */
+export function toAlert(raw: unknown): EngineAlert {
+  return {
+    key: String(pick(raw, 'Key') ?? ''),
+    level: String(pick(raw, 'Level') ?? 'warn'),
+    title: String(pick(raw, 'Title') ?? ''),
+    detail: String(pick(raw, 'Detail') ?? ''),
+    firstSeenUtc: String(pick(raw, 'FirstSeenUtc') ?? ''),
+    lastSeenUtc: String(pick(raw, 'LastSeenUtc') ?? ''),
+    count: Number(pick(raw, 'Count') ?? 1),
+  };
 }
 
 export interface EngineEvent {

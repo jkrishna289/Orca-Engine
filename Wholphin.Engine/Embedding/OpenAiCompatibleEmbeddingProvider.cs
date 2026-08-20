@@ -16,13 +16,17 @@ namespace Wholphin.Engine.Embedding;
 /// <summary>
 /// Base <see cref="IEmbeddingProvider"/> for services that speak OpenAI's <c>/v1/embeddings</c> shape
 /// (request <c>{model, input:[...]}</c>, response <c>{data:[{index, embedding:[...]}]}</c>) — OpenAI,
-/// Jina, and Voyage. Subclasses supply the endpoint, key, model, and any extra body fields. Raw HTTP
-/// via <see cref="IHttpClientFactory"/>; fails soft to <c>null</c> so the service falls back to TF-IDF.
+/// Jina, Voyage, and a local Ollama server. Subclasses supply the endpoint, key, model, and any extra
+/// body fields. Raw HTTP via <see cref="IHttpClientFactory"/>; fails soft to <c>null</c>.
 /// </summary>
+/// <remarks>
+/// The API key is optional. A self-hosted endpoint on the same machine has nothing to authenticate,
+/// so readiness is <see cref="IsConfigured"/>'s question to answer — a subclass whose readiness is
+/// "a base URL is set" overrides it, and the Authorization header is simply omitted when there is no
+/// key to send.
+/// </remarks>
 public abstract class OpenAiCompatibleEmbeddingProvider : IEmbeddingProvider
 {
-    /// <summary>Max inputs per request (chunked to stay within every provider's batch limit).</summary>
-    private const int BatchSize = 96;
     private static readonly TimeSpan CallTimeout = TimeSpan.FromSeconds(30);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -49,13 +53,25 @@ public abstract class OpenAiCompatibleEmbeddingProvider : IEmbeddingProvider
     public abstract string Name { get; }
 
     /// <inheritdoc />
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
+    public virtual bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// 96 inputs per request sits inside every OpenAI-shaped provider's documented limit. Kept
+    /// virtual so a provider with a tighter ceiling can lower it without touching the caller. The
+    /// loop below still honours it even when the caller has already batched, because a provider owns
+    /// its own wire limits regardless of who is calling.
+    /// </remarks>
+    public virtual int MaxBatchSize => 96;
 
     /// <summary>Gets the full embeddings endpoint URL.</summary>
     protected abstract string EndpointUrl { get; }
 
-    /// <summary>Gets the API key (Bearer), or null/empty when unconfigured.</summary>
+    /// <summary>Gets the API key (Bearer), or null when the endpoint needs no authentication.</summary>
     protected abstract string? ApiKey { get; }
+
+    /// <inheritdoc />
+    public string ModelId => Model;
 
     /// <summary>Gets the embedding model id.</summary>
     protected abstract string Model { get; }
@@ -69,18 +85,20 @@ public abstract class OpenAiCompatibleEmbeddingProvider : IEmbeddingProvider
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContentVector>?> EmbedAsync(IReadOnlyList<string> documents, CancellationToken ct = default)
     {
-        var apiKey = ApiKey?.Trim();
-        if (string.IsNullOrWhiteSpace(apiKey) || documents.Count == 0)
+        if (!IsConfigured || documents.Count == 0)
         {
             return null;
         }
 
+        var apiKey = ApiKey?.Trim();
+
         var all = new List<ContentVector>(documents.Count);
         try
         {
-            for (var start = 0; start < documents.Count; start += BatchSize)
+            var batchSize = Math.Max(1, MaxBatchSize);
+            for (var start = 0; start < documents.Count; start += batchSize)
             {
-                var count = Math.Min(BatchSize, documents.Count - start);
+                var count = Math.Min(batchSize, documents.Count - start);
                 var chunk = new List<string>(count);
                 for (var i = 0; i < count; i++)
                 {
@@ -107,7 +125,7 @@ public abstract class OpenAiCompatibleEmbeddingProvider : IEmbeddingProvider
         }
     }
 
-    private async Task<IReadOnlyList<ContentVector>?> EmbedChunkAsync(string apiKey, List<string> chunk, CancellationToken ct)
+    private async Task<IReadOnlyList<ContentVector>?> EmbedChunkAsync(string? apiKey, List<string> chunk, CancellationToken ct)
     {
         var body = new Dictionary<string, object?>
         {
@@ -124,7 +142,11 @@ public abstract class OpenAiCompatibleEmbeddingProvider : IEmbeddingProvider
         while (true)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, EndpointUrl);
-            request.Headers.Add("Authorization", $"Bearer {apiKey}");
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                request.Headers.Add("Authorization", $"Bearer {apiKey}");
+            }
+
             request.Content = JsonContent.Create(body, options: JsonOptions);
 
             response = await client.SendAsync(request, ct).ConfigureAwait(false);

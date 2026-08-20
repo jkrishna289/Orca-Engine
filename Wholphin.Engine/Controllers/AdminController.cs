@@ -139,7 +139,7 @@ public class AdminController : ControllerBase
 
     /// <summary>
     /// Returns operational diagnostics: recompute timing (bounded-cost check), the effective
-    /// daypart clock, retention window, cache bound, and the resolved ranking weights.
+    /// daypart clock, cache bound, and the resolved ranking weights.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The diagnostics snapshot.</returns>
@@ -202,8 +202,6 @@ public class AdminController : ControllerBase
             Behavior = new
             {
                 Events = behaviorEvents,
-                RetentionDays = config.BehaviorRetentionDays,
-                RetentionCutoffUtc = Personalization.PersonalizationService.RetentionCutoff(),
             },
             Daypart = new
             {

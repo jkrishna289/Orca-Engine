@@ -18,6 +18,12 @@ namespace Wholphin.Engine.Catalog;
 /// in from a TMDB detail lookup — so discovery cards ("You Might Like" etc.) show real artwork and
 /// request affinity/similarity get genre signal for not-yet-available titles.
 /// </summary>
+/// <remarks>
+/// Library rows are in scope for exactly one field: the original language, which Jellyfin does not
+/// supply and which nothing else could fill when the multi-provider layer is switched off. They are
+/// deliberately NOT in scope for artwork — a library title renders from its Jellyfin id, and writing
+/// a TMDB poster onto it would override the art the server already has.
+/// </remarks>
 public class TmdbEnricher : ICatalogEnricher
 {
     private static readonly MediaType[] Enrichable = { MediaType.Movie, MediaType.Series };
@@ -54,9 +60,10 @@ public class TmdbEnricher : ICatalogEnricher
 
         await using var db = _factory.Create();
         var candidates = await db.CatalogItems
-            .Where(c => c.JellyfinItemId == null
-                        && c.TmdbId != null
-                        && (c.GenresJson == null || c.PosterImageUrl == null))
+            .Where(c => c.TmdbId != null
+                        && (c.OriginalLanguage == null
+                            || (c.JellyfinItemId == null
+                                && (c.GenresJson == null || c.PosterImageUrl == null))))
             .OrderBy(c => c.LastSyncedAt)
             .Take(limit)
             .ToListAsync(ct)
@@ -107,16 +114,20 @@ public class TmdbEnricher : ICatalogEnricher
                 changed = true;
             }
 
-            if (!string.IsNullOrEmpty(e.PosterImageUrl) && string.IsNullOrEmpty(item.PosterImageUrl))
+            // Requestable rows only — see the note on the class about library artwork.
+            if (item.JellyfinItemId is null)
             {
-                item.PosterImageUrl = e.PosterImageUrl;
-                changed = true;
-            }
+                if (!string.IsNullOrEmpty(e.PosterImageUrl) && string.IsNullOrEmpty(item.PosterImageUrl))
+                {
+                    item.PosterImageUrl = e.PosterImageUrl;
+                    changed = true;
+                }
 
-            if (!string.IsNullOrEmpty(e.BackdropImageUrl) && string.IsNullOrEmpty(item.BackdropImageUrl))
-            {
-                item.BackdropImageUrl = e.BackdropImageUrl;
-                changed = true;
+                if (!string.IsNullOrEmpty(e.BackdropImageUrl) && string.IsNullOrEmpty(item.BackdropImageUrl))
+                {
+                    item.BackdropImageUrl = e.BackdropImageUrl;
+                    changed = true;
+                }
             }
 
             if (!string.IsNullOrEmpty(e.TrailerUrl) && string.IsNullOrEmpty(item.TrailerUrl))
@@ -148,6 +159,7 @@ public class TmdbEnricher : ICatalogEnricher
             if (string.IsNullOrEmpty(item.OriginalLanguage) && !string.IsNullOrEmpty(e.OriginalLanguage))
             {
                 item.OriginalLanguage = e.OriginalLanguage;
+                changed = true;
             }
 
             if (string.IsNullOrEmpty(item.CollectionName) && !string.IsNullOrEmpty(e.CollectionName))

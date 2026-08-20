@@ -1,49 +1,37 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Wholphin.Engine.Recommendation;
 
 namespace Wholphin.Engine.Embedding;
 
 /// <summary>
-/// A unified content vector that is either <em>sparse</em> (TF-IDF term→weight, high-dimensional) or
-/// <em>dense</em> (a fixed-length neural embedding). Both are stored L2-normalized so cosine
-/// similarity is just the dot product. This lets the recommendation layer treat every
-/// <see cref="IEmbeddingProvider"/> the same, whether local TF-IDF or a hosted embedding model.
+/// A fixed-length neural embedding, stored L2-normalized so cosine similarity is just the dot
+/// product. Every <see cref="IEmbeddingProvider"/> produces these, so the recommendation layer treats
+/// a local Ollama model and a hosted API identically.
 /// </summary>
+/// <remarks>
+/// Dense only. This once also carried sparse TF-IDF vectors, and the two kinds scored 0 against each
+/// other — which made "an index must never mix providers" a rule the type could not enforce. One
+/// representation makes that class of bug unrepresentable; the remaining requirement is simply that
+/// vectors compared together came from the same model, since dimensions differ between models.
+/// </remarks>
 public sealed class ContentVector
 {
     /// <summary>An empty vector (cosine 0 against anything).</summary>
-    public static readonly ContentVector Empty = new(null, null);
+    public static readonly ContentVector Empty = new(null);
 
-    private readonly IReadOnlyDictionary<string, double>? _sparse;
-    private readonly float[]? _dense;
+    private readonly float[]? _values;
 
-    private ContentVector(IReadOnlyDictionary<string, double>? sparse, float[]? dense)
-    {
-        _sparse = sparse;
-        _dense = dense;
-    }
+    private ContentVector(float[]? values) => _values = values;
 
     /// <summary>Gets a value indicating whether this vector carries no signal.</summary>
-    public bool IsEmpty =>
-        (_sparse is null || _sparse.Count == 0) && (_dense is null || _dense.Length == 0);
+    public bool IsEmpty => _values is null || _values.Length == 0;
 
-    /// <summary>Gets the sparse term→weight map (L2-normalized), or null for dense/empty vectors.</summary>
-    public IReadOnlyDictionary<string, double>? SparseWeights => _sparse;
+    /// <summary>Gets the embedding values (L2-normalized), or null for an empty vector.</summary>
+    public IReadOnlyList<float>? DenseValues => _values;
 
-    /// <summary>Gets the dense embedding values (L2-normalized), or null for sparse/empty vectors.</summary>
-    public IReadOnlyList<float>? DenseValues => _dense;
-
-    /// <summary>Wraps an already-normalized sparse TF-IDF vector.</summary>
-    /// <param name="weights">The term→weight map (assumed L2-normalized).</param>
-    /// <returns>The content vector.</returns>
-    public static ContentVector Sparse(IReadOnlyDictionary<string, double> weights)
-        => weights.Count == 0 ? Empty : new ContentVector(weights, null);
-
-    /// <summary>Wraps a dense embedding, L2-normalizing it so cosine reduces to a dot product.</summary>
+    /// <summary>Wraps an embedding, L2-normalizing it so cosine reduces to a dot product.</summary>
     /// <param name="values">The raw embedding values.</param>
-    /// <returns>The content vector (empty when the input is empty or zero).</returns>
+    /// <returns>The content vector (empty when the input is empty or all-zero).</returns>
     public static ContentVector Dense(float[] values)
     {
         if (values.Length == 0)
@@ -69,107 +57,75 @@ public sealed class ContentVector
             normalized[i] = (float)(values[i] / norm);
         }
 
-        return new ContentVector(null, normalized);
+        return new ContentVector(normalized);
     }
 
     /// <summary>
-    /// Combines same-kind vectors into their L2-normalized weighted mean — the way a user's taste
-    /// vector is derived from their seed items' content vectors. Empty vectors and non-positive
-    /// weights are skipped; vectors whose kind (or dense length) disagrees with the first usable
-    /// one are skipped too (they never co-occur within one snapshot).
+    /// Combines vectors into their L2-normalized weighted mean — the way a user's taste vector is
+    /// derived from their seed items' content vectors. Empty vectors, non-positive weights, and
+    /// vectors whose length disagrees with the first usable one are skipped.
     /// </summary>
     /// <param name="parts">The vectors with their weights.</param>
     /// <returns>The weighted mean, or <see cref="Empty"/> when nothing usable was supplied.</returns>
     public static ContentVector WeightedMean(IReadOnlyList<(ContentVector Vector, double Weight)> parts)
     {
-        Dictionary<string, double>? sparseSum = null;
-        double[]? denseSum = null;
+        double[]? sum = null;
 
         foreach (var (vector, weight) in parts)
         {
-            if (weight <= 0 || vector.IsEmpty)
+            if (weight <= 0 || vector._values is not { Length: > 0 } values)
             {
                 continue;
             }
 
-            if (vector._sparse is { } sparse && denseSum is null)
-            {
-                sparseSum ??= new Dictionary<string, double>();
-                foreach (var (term, value) in sparse)
-                {
-                    sparseSum[term] = sparseSum.GetValueOrDefault(term) + (value * weight);
-                }
-            }
-            else if (vector._dense is { } dense && sparseSum is null)
-            {
-                denseSum ??= new double[dense.Length];
-                if (dense.Length != denseSum.Length)
-                {
-                    continue;
-                }
+            sum ??= new double[values.Length];
 
-                for (var i = 0; i < dense.Length; i++)
-                {
-                    denseSum[i] += dense[i] * weight;
-                }
+            // A length mismatch means two different models' output reached one profile — skip it
+            // rather than averaging coordinates that do not describe the same axes.
+            if (values.Length != sum.Length)
+            {
+                continue;
+            }
+
+            for (var i = 0; i < values.Length; i++)
+            {
+                sum[i] += values[i] * weight;
             }
         }
 
-        if (sparseSum is { Count: > 0 })
+        if (sum is not { Length: > 0 })
         {
-            var norm = Math.Sqrt(sparseSum.Values.Sum(v => v * v));
-            if (norm <= 0)
-            {
-                return Empty;
-            }
-
-            return Sparse(sparseSum.ToDictionary(kv => kv.Key, kv => kv.Value / norm));
+            return Empty;
         }
 
-        if (denseSum is { Length: > 0 })
+        var mean = new float[sum.Length];
+        for (var i = 0; i < sum.Length; i++)
         {
-            var values = new float[denseSum.Length];
-            for (var i = 0; i < denseSum.Length; i++)
-            {
-                values[i] = (float)denseSum[i];
-            }
-
-            return Dense(values);
+            mean[i] = (float)sum[i];
         }
 
-        return Empty;
+        return Dense(mean);
     }
 
     /// <summary>
-    /// Cosine similarity of two vectors of the same kind, in [0, 1]. Mixed-kind or empty pairs
-    /// (which never occur within one index) score 0.
+    /// Cosine similarity of two vectors, in [0, 1]. Empty or differently-sized pairs score 0.
     /// </summary>
     /// <param name="a">The first vector.</param>
     /// <param name="b">The second vector.</param>
     /// <returns>The cosine similarity in [0, 1].</returns>
     public static double Cosine(ContentVector a, ContentVector b)
     {
-        if (a._dense is { } da && b._dense is { } db)
+        if (a._values is not { Length: > 0 } va || b._values is not { Length: > 0 } vb || va.Length != vb.Length)
         {
-            if (da.Length == 0 || da.Length != db.Length)
-            {
-                return 0.0;
-            }
-
-            var dot = 0.0;
-            for (var i = 0; i < da.Length; i++)
-            {
-                dot += (double)da[i] * db[i];
-            }
-
-            return Math.Clamp(dot, 0.0, 1.0);
+            return 0.0;
         }
 
-        if (a._sparse is { } sa && b._sparse is { } sb)
+        var dot = 0.0;
+        for (var i = 0; i < va.Length; i++)
         {
-            return TfIdfModel.Cosine(sa, sb);
+            dot += (double)va[i] * vb[i];
         }
 
-        return 0.0;
+        return Math.Clamp(dot, 0.0, 1.0);
     }
 }

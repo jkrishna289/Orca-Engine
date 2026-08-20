@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -43,6 +43,7 @@ public class ObservatoryController : ControllerBase
 
     private readonly IEngineMetrics _metrics;
     private readonly IEngineEvents _events;
+    private readonly IEngineAlerts _alerts;
     private readonly IWholphinDbContextFactory _factory;
     private readonly ITrailerQueue _trailerQueue;
     private readonly IProfileRecomputeQueue _recomputeQueue;
@@ -55,6 +56,7 @@ public class ObservatoryController : ControllerBase
     /// </summary>
     /// <param name="metrics">Operational counters.</param>
     /// <param name="events">The structured event log.</param>
+    /// <param name="alerts">Sticky health alerts (the dashboard banner).</param>
     /// <param name="factory">The database context factory.</param>
     /// <param name="trailerQueue">The trailer work queue.</param>
     /// <param name="recomputeQueue">The profile recompute queue.</param>
@@ -64,6 +66,7 @@ public class ObservatoryController : ControllerBase
     public ObservatoryController(
         IEngineMetrics metrics,
         IEngineEvents events,
+        IEngineAlerts alerts,
         IWholphinDbContextFactory factory,
         ITrailerQueue trailerQueue,
         IProfileRecomputeQueue recomputeQueue,
@@ -73,6 +76,7 @@ public class ObservatoryController : ControllerBase
     {
         _metrics = metrics;
         _events = events;
+        _alerts = alerts;
         _factory = factory;
         _trailerQueue = trailerQueue;
         _recomputeQueue = recomputeQueue;
@@ -187,6 +191,11 @@ public class ObservatoryController : ControllerBase
             // Monotonic counters. The client keeps a rolling window of snapshots and diffs
             // successive polls — that is where every rate and time-series chart comes from, with no
             // server-side retention at all.
+            // Conditions that are wrong RIGHT NOW and need someone to act. Rides the 5s snapshot
+            // poll so the banner appears without the dashboard needing a second timer.
+            Alerts = Try<IReadOnlyList<EngineAlert>>(
+                "engine.alerts", _alerts.Active, Array.Empty<EngineAlert>()),
+
             Counters = Try<IReadOnlyDictionary<string, long>>(
                 "counters", _metrics.Snapshot, new Dictionary<string, long>()),
             LastSeq = Try("events.lastSeq", () => _events.LastSeq, 0L),

@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Wholphin.Engine.Configuration;
 using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Diagnostics;
+using Wholphin.Engine.Http;
 using Wholphin.Engine.Integrations.Jellyseerr;
 
 namespace Wholphin.Engine.Integrations.Tmdb;
@@ -85,8 +86,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = Build(HttpMethod.Get, Url(apiKey, $"/genre/{kind}/list"), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, $"/genre/{kind}/list").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 return cached.Map ?? empty;
@@ -126,9 +126,9 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            // One request fetches the detail plus videos/credits/keywords (cheaper than 3 round-trips).
-            using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}", "append_to_response=videos,credits,keywords"), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            // One request fetches the detail plus videos/credits/keywords/external-ids (cheaper than
+            // 4 round-trips). external_ids is free here and is what makes OMDb/Fanart/TVDB reachable.
+            using var response = await SendAsync(client, apiKey, ct, $"/{kind}/{tmdbId}", "append_to_response=videos,credits,keywords,external_ids").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _metrics.Increment("tmdb.enrich.error");
@@ -168,6 +168,8 @@ public class TmdbClient : ITmdbClient
                 RuntimeMinutes = runtime,
                 OriginalLanguage = string.IsNullOrWhiteSpace(detail.OriginalLanguage) ? null : detail.OriginalLanguage,
                 CollectionName = string.IsNullOrWhiteSpace(detail.BelongsToCollection?.Name) ? null : detail.BelongsToCollection!.Name,
+                ImdbId = string.IsNullOrWhiteSpace(detail.ExternalIds?.ImdbId) ? null : detail.ExternalIds!.ImdbId,
+                TvdbId = detail.ExternalIds?.TvdbId is > 0 ? detail.ExternalIds.TvdbId : null,
             };
         }
         catch (Exception ex)
@@ -190,8 +192,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}/videos"), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, $"/{kind}/{tmdbId}/videos").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _metrics.Increment("tmdb.videos.error");
@@ -230,8 +231,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = Build(HttpMethod.Get, Url(apiKey, path, $"page={safePage}"), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, path, $"page={safePage}").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _metrics.Increment("tmdb.discover.error");
@@ -298,8 +298,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = Build(HttpMethod.Get, Url(apiKey, $"/discover/{kind}", query.ToArray()), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, $"/discover/{kind}", query.ToArray()).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _metrics.Increment("tmdb.discover.error");
@@ -336,8 +335,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}/keywords"), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, $"/{kind}/{tmdbId}/keywords").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 return Array.Empty<string>();
@@ -368,8 +366,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = Build(HttpMethod.Get, Url(apiKey, $"/{mk}/{tmdbId}/{leaf}"), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, $"/{mk}/{tmdbId}/{leaf}").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _metrics.Increment("tmdb.related.error");
@@ -416,8 +413,7 @@ public class TmdbClient : ITmdbClient
             foreach (var queryParams in attempts)
             {
                 using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-                using var request = Build(HttpMethod.Get, Url(apiKey, $"/search/{mk}", queryParams), apiKey);
-                using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+                using var response = await SendAsync(client, apiKey, ct, $"/search/{mk}", queryParams).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
                     _metrics.Increment("tmdb.search.error");
@@ -473,8 +469,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = Build(HttpMethod.Get, Url(apiKey, $"/tv/{tmdbId}"), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, $"/tv/{tmdbId}").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 return null;
@@ -520,8 +515,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = Build(HttpMethod.Get, Url(apiKey, $"/{kind}/{tmdbId}/watch/providers"), apiKey);
-            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, $"/{kind}/{tmdbId}/watch/providers").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _metrics.Increment("tmdb.providers.error");
@@ -818,6 +812,46 @@ public class TmdbClient : ITmdbClient
         }
 
         return ApiBase + path + (qs.Count > 0 ? "?" + string.Join("&", qs) : string.Empty);
+    }
+
+    /// <summary>
+    /// Sends one TMDB GET, retrying once when TMDB answers 429.
+    /// </summary>
+    /// <param name="client">The metrics-instrumented HTTP client.</param>
+    /// <param name="apiKey">The configured v3 key or v4 token.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <param name="path">The API path, e.g. "/movie/157336".</param>
+    /// <param name="query">Extra query parameters, already encoded.</param>
+    /// <returns>The response — the caller still owns disposing it and checking its status.</returns>
+    /// <remarks>
+    /// Every TMDB call routes through here so a burst that trips TMDB's limiter costs one short wait
+    /// instead of a failed enrichment. One retry only: a burst surviving two attempts is an outage,
+    /// and every caller already degrades to null/empty past that.
+    /// </remarks>
+    private async Task<HttpResponseMessage> SendAsync(
+        HttpClient client,
+        string apiKey,
+        CancellationToken ct,
+        string path,
+        params string[] query)
+    {
+        var url = Url(apiKey, path, query);
+
+        for (var attempt = 1; ; attempt++)
+        {
+            using var request = Build(HttpMethod.Get, url, apiKey);
+            var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+
+            if (response.StatusCode != System.Net.HttpStatusCode.TooManyRequests || attempt >= RateLimitRetry.MaxAttempts)
+            {
+                return response;
+            }
+
+            var delay = RateLimitRetry.DelayFor(response);
+            response.Dispose();
+            _metrics.Increment("tmdb.ratelimited");
+            await Task.Delay(delay, ct).ConfigureAwait(false);
+        }
     }
 
     private static HttpRequestMessage Build(HttpMethod method, string url, string apiKey)

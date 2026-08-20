@@ -12,8 +12,8 @@ namespace Wholphin.Engine.Embedding;
 /// NOT yet wired: real inference needs the <c>Microsoft.ML.OnnxRuntime</c> package + a bundled model +
 /// a WordPiece/SentencePiece tokenizer, which conflicts with the plugin's single-DLL deploy. This
 /// provider therefore reports configured only when a model path is set, but <see cref="EmbedAsync"/>
-/// returns <c>null</c> (the <see cref="IEmbeddingService"/> falls back to TF-IDF) until inference is
-/// implemented here. Keeping the port in place means enabling it later is purely additive.
+/// returns <c>null</c> until inference is implemented here. Keeping the port in place means enabling
+/// it later is purely additive.
 /// </para>
 /// </summary>
 public class OnnxEmbeddingProvider : IEmbeddingProvider
@@ -31,12 +31,21 @@ public class OnnxEmbeddingProvider : IEmbeddingProvider
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Plugin.Instance?.Configuration?.OnnxModelPath);
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Small by design: on-box inference is bounded by RAM and a single CPU/GPU, so a large batch
+    /// buys nothing and risks an allocation spike on the machine already serving playback.
+    /// </remarks>
+    public int MaxBatchSize => 32;
+
+    /// <inheritdoc />
+    public string ModelId => Plugin.Instance?.Configuration?.OnnxModelPath?.Trim() ?? string.Empty;
+
+    /// <inheritdoc />
     public Task<IReadOnlyList<ContentVector>?> EmbedAsync(IReadOnlyList<string> documents, CancellationToken ct = default)
     {
-        // Placeholder: on-box ONNX inference is not implemented in this build. Returning null makes the
-        // service fall back to TF-IDF so selecting "onnx" degrades gracefully rather than breaking.
+        // Placeholder: on-box ONNX inference is not implemented in this build.
         _logger.LogInformation(
-            "Orca Engine: ONNX embedding provider is selected but not implemented in this build; falling back to TF-IDF.");
+            "Orca Engine: ONNX embedding provider is selected but not implemented in this build.");
         return Task.FromResult<IReadOnlyList<ContentVector>?>(null);
     }
 }

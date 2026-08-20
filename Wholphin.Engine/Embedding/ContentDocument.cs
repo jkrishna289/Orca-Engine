@@ -8,10 +8,17 @@ using Wholphin.Engine.Personalization;
 namespace Wholphin.Engine.Embedding;
 
 /// <summary>
-/// Builds the canonical natural-language "document" for a catalog item — title, year, type, genres,
-/// studios, cast/crew, tags and overview as readable text. Every <see cref="IEmbeddingProvider"/>
-/// consumes this same string, so local TF-IDF and hosted embedding models see identical content.
+/// Builds the canonical natural-language "document" for a catalog item — title, year, type,
+/// language, genres, studios, cast/crew, tags and overview as readable text. Every
+/// <see cref="IEmbeddingProvider"/> consumes this same string, so local TF-IDF and hosted embedding
+/// models see identical content.
 /// </summary>
+/// <remarks>
+/// Language earns its place here because without it the document is effectively
+/// origin-blind: TMDB overviews are written in English whatever the film, so a Hindi title and an
+/// American one in the same genre produced near-identical vectors, and a viewer whose taste is
+/// almost entirely non-English got matched on genre alone.
+/// </remarks>
 public static class ContentDocument
 {
     /// <summary>Builds the text document for a catalog item.</summary>
@@ -30,6 +37,7 @@ public static class ContentDocument
 
         sb.Append(". ").Append(item.MediaType).Append('.');
 
+        AppendLanguage(sb, item.OriginalLanguage);
         AppendList(sb, "Genres", CatalogFeatures.Parse(item.GenresJson), stripRolePrefix: false, max: 8);
         AppendList(sb, "Studios", CatalogFeatures.Parse(item.StudiosJson), stripRolePrefix: false, max: 6);
         AppendList(sb, "Cast and crew", CatalogFeatures.Parse(item.PeopleJson), stripRolePrefix: true, max: 12);
@@ -65,6 +73,7 @@ public static class ContentDocument
 
         sb.Append(". ").Append(result.MediaType).Append('.');
 
+        AppendLanguage(sb, result.OriginalLanguage);
         AppendList(sb, "Genres", result.Genres, stripRolePrefix: false, max: 8);
 
         if (!string.IsNullOrWhiteSpace(result.Overview))
@@ -73,6 +82,46 @@ public static class ContentDocument
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Appends the original language as both its ISO code and its English name ("hi, Hindi").
+    /// </summary>
+    /// <remarks>
+    /// Both, deliberately. The code is a stable token TF-IDF can key on even where the runtime has
+    /// no ICU data; the name is what a neural embedder and the LLM re-ranker actually understand.
+    /// </remarks>
+    private static void AppendLanguage(StringBuilder sb, string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return;
+        }
+
+        var trimmed = code.Trim();
+        sb.Append(" Language: ").Append(trimmed);
+
+        if (EnglishName(trimmed) is { } name)
+        {
+            sb.Append(", ").Append(name);
+        }
+
+        sb.Append('.');
+    }
+
+    // Globalization-invariant runtimes answer "Invariant Language" for everything; that is noise,
+    // not a language, so the code stands alone there.
+    private static string? EnglishName(string code)
+    {
+        try
+        {
+            var name = CultureInfo.GetCultureInfo(code).EnglishName;
+            return name.Contains("Invariant", StringComparison.OrdinalIgnoreCase) ? null : name;
+        }
+        catch (CultureNotFoundException)
+        {
+            return null;
+        }
     }
 
     private static void AppendList(StringBuilder sb, string label, IReadOnlyList<string> values, bool stripRolePrefix, int max)
