@@ -22,6 +22,9 @@ public class CreateStreamSession
     /// </summary>
     public string SourceId { get; set; } = string.Empty;
 
+    /// <summary>Unique per opening attempt; permits safe abandonment of shared torrents.</summary>
+    public Guid? LeaseId { get; set; }
+
     /// <summary>
     /// Gets or sets a magnet link to stream directly, bypassing search. Only accepts <c>magnet:</c>
     /// URIs — an arbitrary HTTP URL here would turn this endpoint into a request forwarder that any
@@ -464,7 +467,7 @@ public class StreamController : ControllerBase
         var fromPublicIndexer = !string.IsNullOrWhiteSpace(request?.SourceId);
 
         var session = await _streams
-            .StartAsync(source, request!.Season, request.Episode, fromPublicIndexer, cancellationToken)
+            .StartAsync(source, request!.Season, request.Episode, fromPublicIndexer, cancellationToken, request.LeaseId)
             .ConfigureAwait(false);
 
         if (session is null)
@@ -537,6 +540,14 @@ public class StreamController : ControllerBase
     /// <summary>Closes a streaming session.</summary>
     /// <param name="token">The session token.</param>
     /// <returns>No content.</returns>
+    [HttpDelete("{token}/Leases/{leaseId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> ReleaseSession(string token, Guid leaseId)
+    {
+        await _streams.ReleaseAsync(token, leaseId).ConfigureAwait(false);
+        return NoContent();
+    }
+
     [HttpDelete("{token}")]
     [Authorize]
     public async Task<IActionResult> StopSession(string token)

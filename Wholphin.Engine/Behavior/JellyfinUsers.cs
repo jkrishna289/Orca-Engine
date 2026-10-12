@@ -21,8 +21,8 @@ namespace Wholphin.Engine.Behavior;
 /// <para>
 /// Binding either at compile time throws <c>MissingMethodException</c> on the other, which is
 /// exactly what shipped in 1.2.0.0: built against 10.11.0, run on 10.11.11, and the watch-history
-/// import died on its first line. The plugin targets ABI 10.11.0.0 and is installed on whatever
-/// patch an operator happens to run, so it has to ask in a way that works either way.
+/// import died on its first line. Jellyfin 12.1 retains the method shape; keeping this adapter
+/// also preserves the historical fallback without claiming binary compatibility with 10.11.
 /// </para>
 /// <para>
 /// Deliberately scoped to <b>ids only</b>. Everything else stays strongly typed:

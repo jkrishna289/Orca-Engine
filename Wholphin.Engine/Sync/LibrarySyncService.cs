@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Stores;
+using Wholphin.Engine.Playback;
 
 namespace Wholphin.Engine.Sync;
 
@@ -29,6 +30,7 @@ public class LibrarySyncService : ILibrarySyncService
     private readonly IWholphinDbContextFactory _factory;
     private readonly IMetadataIndex _metadataIndex;
     private readonly ILogger<LibrarySyncService> _logger;
+    private readonly IJellyfinProgressBridge _progress;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LibrarySyncService"/> class.
@@ -37,12 +39,14 @@ public class LibrarySyncService : ILibrarySyncService
         ILibraryManager libraryManager,
         IWholphinDbContextFactory factory,
         IMetadataIndex metadataIndex,
-        ILogger<LibrarySyncService> logger)
+        ILogger<LibrarySyncService> logger,
+        IJellyfinProgressBridge progress)
     {
         _libraryManager = libraryManager;
         _factory = factory;
         _metadataIndex = metadataIndex;
         _logger = logger;
+        _progress = progress;
     }
 
     /// <inheritdoc />
@@ -95,6 +99,7 @@ public class LibrarySyncService : ILibrarySyncService
 
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
         await UpsertCursorAsync(db, ct).ConfigureAwait(false);
+        await _progress.ReconcileAsync(ct).ConfigureAwait(false);
         progress?.Report(100);
 
         _logger.LogInformation("Orca Engine: catalog sync complete ({Count} items).", processed);
@@ -113,6 +118,7 @@ public class LibrarySyncService : ILibrarySyncService
 
         var mapped = CatalogMapper.Map(item, _libraryManager.GetPeople(item));
         await _metadataIndex.UpsertAsync(mapped, ct).ConfigureAwait(false);
+        await _progress.ReconcileAsync(ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

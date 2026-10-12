@@ -12,6 +12,7 @@ using Wholphin.Engine.Home;
 using Wholphin.Engine.Integrations.Jellyseerr;
 using Wholphin.Engine.Llm;
 using Wholphin.Engine.Personalization;
+using Wholphin.Engine.Playback;
 using Wholphin.Engine.Presentation;
 using Wholphin.Engine.Recommendation;
 using Wholphin.Engine.Requests;
@@ -64,6 +65,12 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
 
         // Creates the SQLite database (schema + WAL) on startup (runs before sync).
         serviceCollection.AddHostedService<DatabaseInitializer>();
+
+        // Progress outlives transient torrent sessions and bridges into native Jellyfin user data.
+        serviceCollection.AddSingleton<IPlaybackProgressService, PlaybackProgressService>();
+        serviceCollection.AddSingleton<JellyfinProgressBridge>();
+        serviceCollection.AddSingleton<IJellyfinProgressBridge>(sp => sp.GetRequiredService<JellyfinProgressBridge>());
+        serviceCollection.AddHostedService(sp => sp.GetRequiredService<JellyfinProgressBridge>());
 
         // Sync engine: projects the Jellyfin library into the catalog.
         serviceCollection.AddSingleton<ILibrarySyncService, LibrarySyncService>();

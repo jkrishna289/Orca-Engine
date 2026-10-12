@@ -198,7 +198,35 @@ public class HomeService
                 RefreshInBackground(cacheKey, capabilities, size, userId);
             }
 
-            return cached.Bundle;
+            // Recommendation rows can be cached for minutes, but a stopped/completed stream
+            // must be reflected as soon as the viewer returns. Copy the row list so concurrent
+            // requests never mutate the shared cached bundle.
+            var resumed = new RenderBundle
+            {
+                ContractVersion = cached.Bundle.ContractVersion,
+                Rows = cached.Bundle.Rows.Where(r => r.Id != "continue").ToList(),
+            };
+            if (settings.Features.ContinueWatching)
+            {
+                var points = await RowOrDefaultAsync<IReadOnlyList<ResumePoint>>(
+                    "continue", FastRowBudget,
+                    async c => await _resume.GetResumeAsync(userId!.Value, size, c).ConfigureAwait(false), ct).ConfigureAwait(false);
+                if (points is null)
+                {
+                    return cached.Bundle;
+                }
+
+                AddResumeRow(resumed, points, capabilities);
+                var row = resumed.Rows.FirstOrDefault(r => r.Id == "continue");
+                if (row is not null)
+                {
+                    resumed.Rows.Remove(row);
+                    var oldIndex = cached.Bundle.Rows.FindIndex(r => r.Id == "continue");
+                    resumed.Rows.Insert(oldIndex < 0 ? 0 : Math.Min(oldIndex, resumed.Rows.Count), row);
+                }
+            }
+
+            return resumed;
         }
 
         var built = await BuildFreshAsync(capabilities, size, userId, personalized, settings, ct).ConfigureAwait(false);

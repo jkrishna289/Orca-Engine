@@ -50,10 +50,22 @@ public class WholphinDbContext : DbContext
     /// <summary>Gets the persisted catalog content vectors (schema v12).</summary>
     public DbSet<CatalogItemVector> CatalogItemVectors => Set<CatalogItemVector>();
 
+    /// <summary>Gets durable per-user streaming progress and its library handoff state.</summary>
+    public DbSet<PlaybackProgressRecord> PlaybackProgress => Set<PlaybackProgressRecord>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<PlaybackProgressRecord>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.UserId, x.TmdbId, x.MediaType, x.Season, x.Episode }).IsUnique();
+            e.HasIndex(x => new { x.UserId, x.ActiveSessionId });
+            e.HasIndex(x => new { x.UserId, x.UpdatedAt });
+            e.Property(x => x.Title).HasMaxLength(1024);
+        });
 
         modelBuilder.Entity<CatalogItem>(e =>
         {

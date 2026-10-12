@@ -9,6 +9,11 @@ using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using Microsoft.EntityFrameworkCore;
+using Wholphin.Engine.Data;
+using Wholphin.Engine.Data.Entities;
+using Wholphin.Engine.Data.Enums;
+using Wholphin.Engine.Playback;
 using Wholphin.Engine.Sync;
 
 namespace Wholphin.Engine.Home;
@@ -16,8 +21,7 @@ namespace Wholphin.Engine.Home;
 /// <summary>
 /// Resolves "Continue Watching" items from Jellyfin's per-user resume points (movies + episodes),
 /// projecting each into the engine's catalog shape so the card selector can render it like any
-/// other item. Resume state lives in Jellyfin's user data, not the engine catalog, so this reads
-/// it live (the home read-model that consumes it is itself cached/precomputed).
+/// other item. Durable streaming history is merged by identity with live library history.
 /// </summary>
 public sealed class JellyfinResumeProvider : IResumeProvider
 {
@@ -26,6 +30,9 @@ public sealed class JellyfinResumeProvider : IResumeProvider
     private readonly ILibraryManager _libraryManager;
     private readonly IUserManager _userManager;
     private readonly IUserDataManager _userDataManager;
+    private readonly IPlaybackProgressService _progress;
+    private readonly JellyfinProgressBridge _bridge;
+    private readonly IWholphinDbContextFactory _factory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="JellyfinResumeProvider"/> class.
@@ -36,31 +43,40 @@ public sealed class JellyfinResumeProvider : IResumeProvider
     public JellyfinResumeProvider(
         ILibraryManager libraryManager,
         IUserManager userManager,
-        IUserDataManager userDataManager)
+        IUserDataManager userDataManager,
+        IPlaybackProgressService progress,
+        JellyfinProgressBridge bridge,
+        IWholphinDbContextFactory factory)
     {
         _libraryManager = libraryManager;
         _userManager = userManager;
         _userDataManager = userDataManager;
+        _progress = progress;
+        _bridge = bridge;
+        _factory = factory;
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<ResumePoint>> GetResumeAsync(Guid userId, int limit, CancellationToken ct)
+    public async Task<IReadOnlyList<ResumePoint>> GetResumeAsync(Guid userId, int limit, CancellationToken ct)
     {
         var user = _userManager.GetUserById(userId);
         if (user is null || limit <= 0)
         {
-            return Task.FromResult<IReadOnlyList<ResumePoint>>(Array.Empty<ResumePoint>());
+            return Array.Empty<ResumePoint>();
         }
 
+        await _bridge.ReconcileUserAsync(userId, ct).ConfigureAwait(false);
+        var stored = await _progress.GetRecentAsync(userId, int.MaxValue, ct).ConfigureAwait(false);
+        var records = stored.ToDictionary(p => new PlaybackIdentity(p.TmdbId, p.MediaType, p.Season, p.Episode));
         var query = new InternalItemsQuery(user)
         {
             IncludeItemTypes = ResumableKinds,
-            IsResumable = true,
+            IsVirtualItem = false,
             Recursive = true,
             DtoOptions = new DtoOptions(false),
         };
 
-        var scored = new List<(ResumePoint Point, DateTime LastPlayed)>();
+        var scored = new Dictionary<string, (ResumePoint Point, DateTime LastPlayed)>();
         foreach (var item in _libraryManager.GetItemList(query))
         {
             ct.ThrowIfCancellationRequested();
@@ -73,7 +89,11 @@ public sealed class JellyfinResumeProvider : IResumeProvider
 
             var data = _userDataManager.GetUserData(user, item);
             var position = data?.PlaybackPositionTicks ?? 0;
-            if (position <= 0)
+            var identity = _bridge.Identify(item);
+            var record = identity is not null ? records.GetValueOrDefault(identity) : null;
+            if (position <= 0 || data?.Played == true ||
+                (record is not null && record.UpdatedAt >= (data?.LastPlayedDate ?? DateTime.MinValue)
+                    && (record.Completed || record.PositionMs <= 0 || record.AppliedRevision < record.Revision)))
             {
                 continue;
             }
@@ -93,16 +113,53 @@ public sealed class JellyfinResumeProvider : IResumeProvider
                 subtitle = FormatEpisode(episode);
             }
 
-            scored.Add((new ResumePoint(mapped, progress, subtitle), data?.LastPlayedDate ?? DateTime.MinValue));
+            var key = identity?.ToString() ?? item.Id.ToString();
+            var lastPlayed = data?.LastPlayedDate ?? DateTime.MinValue;
+            if (!scored.TryGetValue(key, out var previous) || previous.LastPlayed < lastPlayed)
+            {
+                scored[key] = (new ResumePoint(mapped, progress, subtitle), lastPlayed);
+            }
         }
 
-        var ordered = scored
+        // Stream cards use the ordinary TMDB details route, which can resume streaming and
+        // later hand off to the local item. Episode streams wait for episode-aware navigation.
+        var streams = stored.Where(p => p.MediaType == "movie" && !p.Completed && p.PositionMs > 0 && p.DurationMs > 0).ToList();
+        var tmdbIds = streams.Select(p => p.TmdbId).Distinct().ToArray();
+        await using var db = _factory.Create();
+        var metadata = await db.CatalogItems.AsNoTracking()
+            .Where(p => p.MediaType == Wholphin.Engine.Data.Enums.MediaType.Movie && p.TmdbId != null && tmdbIds.Contains(p.TmdbId.Value))
+            .ToListAsync(ct).ConfigureAwait(false);
+        foreach (var record in streams)
+        {
+            var key = new PlaybackIdentity(record.TmdbId, record.MediaType, record.Season, record.Episode).ToString();
+            if (scored.TryGetValue(key, out var native) && native.LastPlayed >= record.UpdatedAt)
+            {
+                continue;
+            }
+
+            var info = metadata.Where(p => p.TmdbId == record.TmdbId).OrderByDescending(p => p.LastSyncedAt).FirstOrDefault();
+            var item = new CatalogItem
+            {
+                TmdbId = record.TmdbId,
+                MediaType = Wholphin.Engine.Data.Enums.MediaType.Movie,
+                Availability = AvailabilityState.Unavailable,
+                Title = info?.Title ?? record.Title ?? $"Movie {record.TmdbId}",
+                ProductionYear = info?.ProductionYear ?? record.Year,
+                PosterImageUrl = info?.PosterImageUrl,
+                BackdropImageUrl = info?.BackdropImageUrl,
+                LogoImageUrl = info?.LogoImageUrl,
+                Overview = info?.Overview,
+            };
+            scored[key] = (new ResumePoint(item, Math.Clamp((double)record.PositionMs / record.DurationMs, 0, 1), null), record.UpdatedAt);
+        }
+
+        var ordered = scored.Values
             .OrderByDescending(r => r.LastPlayed)
             .Take(limit)
             .Select(r => r.Point)
             .ToList();
 
-        return Task.FromResult<IReadOnlyList<ResumePoint>>(ordered);
+        return ordered;
     }
 
     private static string? FormatEpisode(Episode episode)

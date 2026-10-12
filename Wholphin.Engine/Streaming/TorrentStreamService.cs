@@ -56,6 +56,19 @@ public sealed class StreamSession
     /// </summary>
     public required string Token { get; init; }
 
+    // Accessed under _startGate. A legacy opener has no releasable lease, so it must
+    // retain idle-sweep semantics rather than being disconnected by a newer client.
+    private readonly HashSet<Guid> _viewerLeases = [];
+    private bool _hasLegacyViewer;
+    internal void AcquireViewer(Guid? leaseId)
+    {
+        if (leaseId is { } id && id != Guid.Empty) _viewerLeases.Add(id);
+        else _hasLegacyViewer = true;
+    }
+    internal bool ReleaseViewer(Guid leaseId)
+        => _viewerLeases.Remove(leaseId) && _viewerLeases.Count == 0 && !_hasLegacyViewer && !Kept;
+
+
     /// <summary>Gets the selected file's name (used for the Content-Type guess). Empty until ready.</summary>
     public string FileName { get; internal set; } = string.Empty;
 
@@ -503,7 +516,8 @@ public interface ITorrentStreamService
         int? season,
         int? episode,
         bool fromPublicIndexer,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        Guid? leaseId = null);
 
     /// <summary>Looks up a live session by its URL token.</summary>
     /// <param name="token">The capability token from the stream URL.</param>
@@ -551,6 +565,9 @@ public interface ITorrentStreamService
     /// <param name="token">The session's URL token.</param>
     /// <returns>A task.</returns>
     Task StopAsync(string token);
+
+    /// <summary>Releases only this viewer, retaining shared or kept torrents.</summary>
+    Task ReleaseAsync(string token, Guid leaseId);
 
     /// <summary>
     /// Keeps a streamed title: finishes the download, copies it into the library folder and asks
@@ -1042,7 +1059,8 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
         int? season,
         int? episode,
         bool fromPublicIndexer,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? leaseId = null)
     {
         // Resolve to something MonoTorrent can add. A magnet carries its infohash inline; a .torrent
         // link has to be fetched and parsed before we know what it even is.
@@ -1057,22 +1075,17 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
         // The infohash identifies the content, so two viewers asking for the same source share one
         // session and one set of peers rather than downloading it twice.
         var id = resolved.InfoHash;
-        var existing = FindByContentId(id);
-        if (existing is not null)
-        {
-            existing.LastAccess = DateTimeOffset.UtcNow;
-            return existing;
-        }
 
         // Serialized so two simultaneous requests for a new magnet can't both build a session, and
         // so the concurrency cap is actually a cap.
         await _startGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            existing = FindByContentId(id);
+            var existing = FindByContentId(id);
             if (existing is not null)
             {
                 existing.LastAccess = DateTimeOffset.UtcNow;
+                existing.AcquireViewer(leaseId);
                 return existing;
             }
 
@@ -1086,6 +1099,7 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
             }
 
             created = CreateSession(id, resolved, season, episode);
+            created?.AcquireViewer(leaseId);
         }
         finally
         {
@@ -1236,6 +1250,22 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
     }
 
     /// <inheritdoc />
+    public async Task ReleaseAsync(string token, Guid leaseId)
+    {
+        await _startGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_sessions.TryGetValue(token, out var session) && session.ReleaseViewer(leaseId)
+                && _sessions.TryRemove(token, out _))
+            {
+                // Keep the start gate until the old torrent is removed from MonoTorrent,
+                // so reopening the same source cannot race teardown of its manager.
+                await TearDownAsync(session).ConfigureAwait(false);
+            }
+        }
+        finally { _startGate.Release(); }
+    }
+
     public async Task StopAsync(string token)
     {
         if (!_sessions.TryRemove(token, out var session))
@@ -1458,7 +1488,8 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
     private async Task<ResolvedTorrent?> ResolveAsync(
         string source,
         bool fromPublicIndexer,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? leaseId = null)
     {
         if (string.IsNullOrWhiteSpace(source))
         {

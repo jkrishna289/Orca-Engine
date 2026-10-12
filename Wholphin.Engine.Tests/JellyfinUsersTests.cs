@@ -18,6 +18,16 @@ public class JellyfinUsersTests
     private static readonly Guid B = Guid.Parse("bbbbbbbb-2222-2222-2222-222222222222");
 
     [Fact]
+    public void CurrentJellyfinSdkStillExposesTheReflectedIdsMethod()
+    {
+        // Compilation alone cannot catch a renamed API used through reflection.
+        var method = typeof(MediaBrowser.Controller.Library.IUserManager)
+            .GetMethod("GetUsersIds", Type.EmptyTypes);
+        Assert.NotNull(method);
+        Assert.True(typeof(IEnumerable<Guid>).IsAssignableFrom(method.ReturnType));
+    }
+
+    [Fact]
     public void ReadsThePropertyShape()
     {
         // Jellyfin 10.11.0

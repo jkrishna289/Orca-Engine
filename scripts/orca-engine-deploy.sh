@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # In-place Orca Engine DLL swap. Run as root: sudo bash /tmp/orca-engine-deploy.sh
+# Same-ABI updates only. For the Jellyfin 12.1 upgrade, install the complete package
+# including meta.json instead; see README.md.
 #
 # Lives in the repo because /tmp is reaped: the copy that had been used for every deploy vanished
 # mid-session and had to be reconstructed from a log of its own output. Ship it with:
-#   scp scripts/orca-engine-deploy.sh Wholphin.Engine/bin/Release/net9.0/Wholphin.Engine.dll host:/tmp/
+#   scp scripts/orca-engine-deploy.sh Wholphin.Engine/bin/Release/net10.0/Wholphin.Engine.dll host:/tmp/
 set -euo pipefail
 
 PLUGIN_ROOT=/var/lib/jellyfin/plugins

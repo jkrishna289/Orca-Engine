@@ -1,14 +1,14 @@
 {
   "category": "General",
-  "changelog": "Settings move to the pages they belong to. The Settings tab had grown to sixteen sections, which made finding one field a scrolling exercise. Each subsystem's settings now sit at the bottom of its own page, with their own save button: trailer sources and scoring under Trailer Resolver, provider keys and resilience under Metadata, home rows, discovery tuning, ranking weights and AI under Recommendation Engine, provider and batch size under Embeddings, and peers, ports and connection budget under Torrent Streaming. You change a setting while looking at the diagnostics for the thing it affects. The Settings tab keeps only what belongs nowhere else - the engine kill switch, refresh interval, home shape, time zone and service URLs - plus anything the dashboard does not yet describe and the maintenance operations. This is a beta release.",
+  "changelog": "Compatibility maintenance for Jellyfin 12.1. Rebuilt for .NET 10 with Jellyfin 12.1.0 and the host EF Core 10.0.11 dependencies. Requires Jellyfin 12.1 or later in the compatible release line; use Orca Engine 1.2.4.0 on Jellyfin 10.11. Install the complete package, including updated ABI metadata. Adds server-side playback progress: the Orca X app can start a playback session, report progress and read its resume position through authenticated OrcaEngine/Playback endpoints, and progress is reconciled with Jellyfin so Continue Watching stays in sync. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
   "overview": "The brain/backbone for the Orca X Android TV client.",
   "owner": "jkrishna289",
-  "targetAbi": "10.11.0.0",
-  "framework": "net9.0",
-  "version": "1.2.4.0",
+  "targetAbi": "12.1.0.0",
+  "framework": "net10.0",
+  "version": "1.3.0.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

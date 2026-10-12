@@ -20,7 +20,7 @@ namespace Wholphin.Engine.Data;
 public class DatabaseInitializer : IHostedService
 {
     /// <summary>The schema version this build expects.</summary>
-    public const int SchemaVersion = 12;
+    public const int SchemaVersion = 13;
 
     /// <summary>
     /// Idempotent migration steps keyed by the version they bring the schema TO. Each statement is
@@ -147,6 +147,34 @@ public class DatabaseInitializer : IHostedService
                 "UpdatedAt" TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS "IX_CatalogItemVectors_Provider_ModelId" ON "CatalogItemVectors" ("Provider", "ModelId");
+            """),
+        (13,
+            """
+            CREATE TABLE IF NOT EXISTS "PlaybackProgress" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_PlaybackProgress" PRIMARY KEY AUTOINCREMENT,
+                "UserId" TEXT NOT NULL,
+                "TmdbId" INTEGER NOT NULL,
+                "MediaType" TEXT NOT NULL,
+                "Season" INTEGER NOT NULL,
+                "Episode" INTEGER NOT NULL,
+                "Title" TEXT NULL,
+                "Year" INTEGER NULL,
+                "PositionMs" INTEGER NOT NULL,
+                "DurationMs" INTEGER NOT NULL,
+                "Completed" INTEGER NOT NULL,
+                "UpdatedAt" TEXT NOT NULL,
+                "Revision" INTEGER NOT NULL,
+                "JellyfinItemId" TEXT NULL,
+                "AppliedRevision" INTEGER NOT NULL,
+                "ActiveSessionId" TEXT NOT NULL,
+                "SessionStartedAt" TEXT NOT NULL,
+                "LastNativeAt" TEXT NOT NULL,
+                "LastSequence" INTEGER NOT NULL,
+                "SessionStopped" INTEGER NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_PlaybackProgress_UserId_TmdbId_MediaType_Season_Episode" ON "PlaybackProgress" ("UserId", "TmdbId", "MediaType", "Season", "Episode");
+            CREATE INDEX IF NOT EXISTS "IX_PlaybackProgress_UserId_ActiveSessionId" ON "PlaybackProgress" ("UserId", "ActiveSessionId");
+            CREATE INDEX IF NOT EXISTS "IX_PlaybackProgress_UserId_UpdatedAt" ON "PlaybackProgress" ("UserId", "UpdatedAt");
             """),
     };
 
