@@ -71,6 +71,8 @@ public sealed class JellyfinResumeProvider : IResumeProvider
         var query = new InternalItemsQuery(user)
         {
             IncludeItemTypes = ResumableKinds,
+            // The loop below skips position <= 0 anyway; let Jellyfin filter instead of walking the library.
+            IsResumable = true,
             IsVirtualItem = false,
             Recursive = true,
             DtoOptions = new DtoOptions(false),

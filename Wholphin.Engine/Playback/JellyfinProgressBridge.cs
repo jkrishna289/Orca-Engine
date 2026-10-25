@@ -110,11 +110,12 @@ public sealed class JellyfinProgressBridge : IHostedService, IJellyfinProgressBr
     private async Task ReconcileRecordsAsync(Guid userId, IEnumerable<PlaybackProgressRecord> records, CancellationToken ct)
     {
         var user = _users.GetUserById(userId);
-        if (user is null)
+        if (user is null || !records.Any())
         {
             return;
         }
 
+        // ponytail: full accessible-library scan per call (every home read); index items by TMDB id if large libraries still miss the row budget.
         // A user-scoped Jellyfin query respects library access and parental restrictions.
         var candidates = AccessibleItems(user).Select(i => (Item: i, Identity: Identify(i)))
             .Where(i => i.Identity is not null).ToLookup(i => i.Identity!, i => i.Item);
@@ -126,6 +127,13 @@ public sealed class JellyfinProgressBridge : IHostedService, IJellyfinProgressBr
             if (matches.Count == 0)
             {
                 continue; // Metadata/runtime may still be arriving; a scan or timer retries.
+            }
+
+            // Home reads reconcile every record; most are settled. Skip the write gate and DB
+            // round trip unless the callback below could change something (it re-checks under lock).
+            if (IsSettled(snapshot, matches, user))
+            {
+                continue;
             }
 
             try
@@ -186,6 +194,21 @@ public sealed class JellyfinProgressBridge : IHostedService, IJellyfinProgressBr
                 _logger.LogWarning(ex, "Orca Engine: could not transfer resume point {ProgressId}.", snapshot.Id);
             }
         }
+    }
+
+    // Mirrors the reconcile callback's no-op path: applied to an accessible copy, no newer native
+    // playback on any edition, and no mark-unwatched reset of the mapped copy.
+    private bool IsSettled(PlaybackProgressRecord record, List<BaseItem> matches, Jellyfin.Database.Implementations.Entities.User user)
+    {
+        var mapped = matches.FirstOrDefault(i => i.Id == record.JellyfinItemId);
+        if (mapped is null || record.AppliedRevision < record.Revision
+            || matches.Any(i => _userData.GetUserData(user, i)?.LastPlayedDate > record.UpdatedAt))
+        {
+            return false;
+        }
+
+        return !((record.PositionMs > 0 || record.Completed)
+            && _userData.GetUserData(user, mapped) is { Played: false, PlaybackPositionTicks: 0, LastPlayedDate: null });
     }
 
     private IReadOnlyList<BaseItem> AccessibleItems(Jellyfin.Database.Implementations.Entities.User user)

@@ -537,8 +537,9 @@ public class StreamController : ControllerBase
         });
     }
 
-    /// <summary>Closes a streaming session.</summary>
+    /// <summary>Releases one viewer's lease; the torrent closes only when no viewer still holds it.</summary>
     /// <param name="token">The session token.</param>
+    /// <param name="leaseId">The lease supplied when the session was opened.</param>
     /// <returns>No content.</returns>
     [HttpDelete("{token}/Leases/{leaseId:guid}")]
     [Authorize]
@@ -548,6 +549,9 @@ public class StreamController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Closes a streaming session.</summary>
+    /// <param name="token">The session token.</param>
+    /// <returns>No content.</returns>
     [HttpDelete("{token}")]
     [Authorize]
     public async Task<IActionResult> StopSession(string token)

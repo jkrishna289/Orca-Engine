@@ -191,6 +191,25 @@ public sealed class JellyfinProgressBridgeTests
         Assert.Empty(await fixture.Resume.GetResumeAsync(fixture.User.Id, 10, default));
     }
 
+    [Fact]
+    public async Task SettledRecordsDoNotWaitOnTheWriteGate()
+    {
+        using var fixture = new BridgeFixture();
+        fixture.AddMovie();
+        var session = await fixture.StartStreamAsync();
+        await fixture.Progress.ReportAsync(fixture.User.Id, session.ActiveSessionId, new(0, 40_000, 100_000, false, true));
+        await fixture.Bridge.ReconcileAsync();
+        Assert.Empty(await fixture.Progress.GetPendingAsync());
+
+        // Hold the gate; a home read reconciling an already-applied record must not queue behind it.
+        var release = new TaskCompletionSource<bool>();
+        var held = fixture.Progress.ReconcileAsync(session.Id, (_, _) => release.Task);
+        var read = fixture.Bridge.ReconcileUserAsync(fixture.User.Id);
+        Assert.Same(read, await Task.WhenAny(read, Task.Delay(TimeSpan.FromSeconds(5))));
+        release.SetResult(false);
+        await held;
+    }
+
     private sealed class BridgeFixture : IWholphinDbContextFactory, IDisposable
     {
         private readonly SqliteConnection _connection = new("Data Source=:memory:");
