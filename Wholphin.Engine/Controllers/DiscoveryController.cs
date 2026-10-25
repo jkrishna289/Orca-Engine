@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,13 +24,15 @@ public class DiscoveryController : ControllerBase
 {
     private readonly IDiscoveryOrchestrator _discovery;
     private readonly IWholphinDbContextFactory _factory;
+    private readonly IAuthorizationContext _authorization;
 
     /// <summary>Initializes a new instance of the <see cref="DiscoveryController"/> class.</summary>
     /// <param name="discovery">The discovery orchestrator.</param>
     /// <param name="factory">Database context factory (read-only audit queries).</param>
-    public DiscoveryController(IDiscoveryOrchestrator discovery, IWholphinDbContextFactory factory)
+    public DiscoveryController(IDiscoveryOrchestrator discovery, IWholphinDbContextFactory factory, IAuthorizationContext authorization)
     {
         _discovery = discovery;
+        _authorization = authorization;
         _factory = factory;
     }
 
@@ -41,6 +44,7 @@ public class DiscoveryController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<TastePullResult>> Pull([FromQuery] Guid userId, CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty)
         {
             return BadRequest(new { error = "userId is required." });
@@ -80,6 +84,7 @@ public class DiscoveryController : ControllerBase
         [FromQuery] string? kind,
         CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         DiscoveryPickKind? kindFilter = null;
         if (!string.IsNullOrWhiteSpace(kind))
         {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,7 @@ public class BehaviorController : ControllerBase
     private readonly IBehaviorService _behavior;
     private readonly IWholphinDbContextFactory _factory;
     private readonly IWatchHistoryImporter _historyImporter;
+    private readonly IAuthorizationContext _authorization;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BehaviorController"/> class.
@@ -45,11 +47,13 @@ public class BehaviorController : ControllerBase
     public BehaviorController(
         IBehaviorService behavior,
         IWholphinDbContextFactory factory,
-        IWatchHistoryImporter historyImporter)
+        IWatchHistoryImporter historyImporter,
+        IAuthorizationContext authorization)
     {
         _behavior = behavior;
         _factory = factory;
         _historyImporter = historyImporter;
+        _authorization = authorization;
     }
 
     /// <summary>
@@ -85,8 +89,9 @@ public class BehaviorController : ControllerBase
     /// <returns>Acceptance result.</returns>
     [HttpPost("Feedback")]
     [AllowAnonymous]
-    public ActionResult RecordFeedback([FromBody] FeedbackRequest request)
+    public async Task<ActionResult> RecordFeedback([FromBody] FeedbackRequest request)
     {
+        if (await this.AuthorizeUserAsync(_authorization, request.UserId).ConfigureAwait(false) is { } denied) return denied;
         if (request.UserId == Guid.Empty || request.ItemId == Guid.Empty)
         {
             return BadRequest(new { error = "UserId and ItemId are required." });
@@ -118,6 +123,7 @@ public class BehaviorController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult> RecordEvents([FromBody] TelemetryBatch batch, CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, batch.UserId).ConfigureAwait(false) is { } denied) return denied;
         if (batch.UserId == Guid.Empty || batch.Events is not { Count: > 0 })
         {
             return BadRequest(new { error = "UserId and at least one event are required." });
@@ -250,6 +256,7 @@ public class BehaviorController : ControllerBase
         [FromQuery] int limit,
         CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         var events = await _behavior.GetRecentAsync(userId, limit <= 0 ? 50 : limit, cancellationToken).ConfigureAwait(false);
         return events.Select(BehaviorEventDto.From).ToList();
     }
@@ -262,6 +269,7 @@ public class BehaviorController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<object>> GetStats([FromQuery] Guid? userId, CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         var count = await _behavior.CountAsync(userId, cancellationToken).ConfigureAwait(false);
         return new { Events = count, UserId = userId };
     }

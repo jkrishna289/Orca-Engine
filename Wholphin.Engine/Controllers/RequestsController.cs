@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wholphin.Engine.Data.Enums;
@@ -20,16 +21,18 @@ public class RequestsController : ControllerBase
 {
     private readonly IRequestService _requests;
     private readonly IJellyseerrClient _jellyseerr;
+    private readonly IAuthorizationContext _authorization;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RequestsController"/> class.
     /// </summary>
     /// <param name="requests">The request orchestration service.</param>
     /// <param name="jellyseerr">The Jellyseerr client (for status lookups).</param>
-    public RequestsController(IRequestService requests, IJellyseerrClient jellyseerr)
+    public RequestsController(IRequestService requests, IJellyseerrClient jellyseerr, IAuthorizationContext authorization)
     {
         _requests = requests;
         _jellyseerr = jellyseerr;
+        _authorization = authorization;
     }
 
     /// <summary>Submits an engine-proxied request for a title.</summary>
@@ -42,6 +45,7 @@ public class RequestsController : ControllerBase
         [FromBody] CreateRequest request,
         CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, request.UserId).ConfigureAwait(false) is { } denied) return denied;
         if (!TryParseMediaType(request.MediaType, out var mediaType))
         {
             return BadRequest("mediaType must be Movie/movie or Series/tv.");

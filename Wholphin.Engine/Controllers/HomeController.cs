@@ -49,7 +49,7 @@ public class HomeController : ControllerBase
         [FromQuery] bool inlineVideo = false,
         CancellationToken cancellationToken = default)
     {
-        if (await AuthorizePersonalizationAsync(userId).ConfigureAwait(false) is { } denied) return denied;
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         var capabilities = ParseCapabilities(supported, inlineVideo);
         return await _home.BuildAsync(capabilities, rowSize, userId, cancellationToken).ConfigureAwait(false);
     }
@@ -73,7 +73,7 @@ public class HomeController : ControllerBase
         [FromQuery] bool inlineVideo = false,
         CancellationToken cancellationToken = default)
     {
-        if (await AuthorizePersonalizationAsync(userId).ConfigureAwait(false) is { } denied) return denied;
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         var capabilities = ParseCapabilities(supported, inlineVideo);
         var settings = await _settings.ResolveAsync(userId, cancellationToken).ConfigureAwait(false);
         var home = await _home.BuildAsync(capabilities, rowSize, userId, cancellationToken).ConfigureAwait(false);
@@ -93,16 +93,6 @@ public class HomeController : ControllerBase
             Settings = settings,
             Home = home
         };
-    }
-
-    // Generic discovery can stay anonymous. Continue Watching exposes private per-user state,
-    // so a query-string user id alone must not grant access to a personalized home or bootstrap.
-    private async Task<ActionResult?> AuthorizePersonalizationAsync(Guid? userId)
-    {
-        if (userId is null || userId == Guid.Empty) return null;
-        var authenticated = (await _authorization.GetAuthorizationInfo(HttpContext).ConfigureAwait(false)).UserId;
-        if (authenticated == Guid.Empty) return Unauthorized();
-        return authenticated == userId ? null : Forbid();
     }
 
     private static ClientCapabilities ParseCapabilities(string? supported, bool inlineVideo)

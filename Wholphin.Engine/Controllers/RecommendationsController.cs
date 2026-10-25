@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wholphin.Engine.Llm;
@@ -23,6 +24,7 @@ public class RecommendationsController : ControllerBase
     private readonly ILlmReRanker _reRanker;
     private readonly ILlmProvider _llmProvider;
     private readonly IPersonalizationService _personalization;
+    private readonly IAuthorizationContext _authorization;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RecommendationsController"/> class.
@@ -35,8 +37,10 @@ public class RecommendationsController : ControllerBase
         IRecommender recommender,
         ILlmReRanker reRanker,
         ILlmProvider llmProvider,
-        IPersonalizationService personalization)
+        IPersonalizationService personalization,
+        IAuthorizationContext authorization)
     {
+        _authorization = authorization;
         _recommender = recommender;
         _reRanker = reRanker;
         _llmProvider = llmProvider;
@@ -55,6 +59,7 @@ public class RecommendationsController : ControllerBase
         [FromQuery] int limit,
         CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty)
         {
             return BadRequest(new { error = "userId is required." });
@@ -79,6 +84,7 @@ public class RecommendationsController : ControllerBase
         [FromQuery] int limit,
         CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty)
         {
             return BadRequest(new { error = "userId is required." });

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wholphin.Engine.Settings;
@@ -19,16 +20,18 @@ public class SettingsController : ControllerBase
 {
     private readonly ISettingsService _settings;
     private readonly IUserSettingsStore _userSettings;
+    private readonly IAuthorizationContext _authorization;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SettingsController"/> class.
     /// </summary>
     /// <param name="settings">The layered settings resolver.</param>
     /// <param name="userSettings">The roaming per-user settings store.</param>
-    public SettingsController(ISettingsService settings, IUserSettingsStore userSettings)
+    public SettingsController(ISettingsService settings, IUserSettingsStore userSettings, IAuthorizationContext authorization)
     {
         _settings = settings;
         _userSettings = userSettings;
+        _authorization = authorization;
     }
 
     /// <summary>Returns the effective settings (flags + tunables) for a scope.</summary>
@@ -40,7 +43,10 @@ public class SettingsController : ControllerBase
     public async Task<ActionResult<EngineSettings>> GetSettings(
         [FromQuery] Guid? userId,
         CancellationToken cancellationToken)
-        => await _settings.ResolveAsync(userId, cancellationToken).ConfigureAwait(false);
+    {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
+        return await _settings.ResolveAsync(userId, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>Returns just the resolved feature flags for a scope.</summary>
     /// <param name="userId">Optional Jellyfin user id.</param>
@@ -51,7 +57,10 @@ public class SettingsController : ControllerBase
     public async Task<ActionResult<FeatureFlags>> GetFeatures(
         [FromQuery] Guid? userId,
         CancellationToken cancellationToken)
-        => (await _settings.ResolveAsync(userId, cancellationToken).ConfigureAwait(false)).Features;
+    {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
+        return (await _settings.ResolveAsync(userId, cancellationToken).ConfigureAwait(false)).Features;
+    }
 
     /// <summary>Returns a user's raw roaming settings (key → JSON value).</summary>
     /// <param name="userId">The Jellyfin user id.</param>
@@ -63,6 +72,7 @@ public class SettingsController : ControllerBase
         [FromQuery] Guid userId,
         CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty)
         {
             return BadRequest("userId is required.");
@@ -81,6 +91,7 @@ public class SettingsController : ControllerBase
         [FromBody] UserSettingRequest request,
         CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, request.UserId).ConfigureAwait(false) is { } denied) return denied;
         if (request.UserId == Guid.Empty || string.IsNullOrWhiteSpace(request.Key))
         {
             return BadRequest("userId and key are required.");
@@ -102,6 +113,7 @@ public class SettingsController : ControllerBase
         [FromQuery] string key,
         CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(key))
         {
             return BadRequest("userId and key are required.");

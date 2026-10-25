@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wholphin.Engine.Personalization;
@@ -17,16 +18,18 @@ public class PersonalizationController : ControllerBase
 {
     private readonly IPersonalizationService _personalization;
     private readonly ITasteProfileService _tasteProfiles;
+    private readonly IAuthorizationContext _authorization;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PersonalizationController"/> class.
     /// </summary>
     /// <param name="personalization">The personalization service.</param>
     /// <param name="tasteProfiles">The taste-profile file service.</param>
-    public PersonalizationController(IPersonalizationService personalization, ITasteProfileService tasteProfiles)
+    public PersonalizationController(IPersonalizationService personalization, ITasteProfileService tasteProfiles, IAuthorizationContext authorization)
     {
         _personalization = personalization;
         _tasteProfiles = tasteProfiles;
+        _authorization = authorization;
     }
 
     /// <summary>Returns a user's stored affinity vector.</summary>
@@ -37,6 +40,7 @@ public class PersonalizationController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<AffinityVector>> GetProfile([FromQuery] Guid userId, CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty)
         {
             return BadRequest(new { error = "userId is required." });
@@ -53,6 +57,7 @@ public class PersonalizationController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<AffinityVector>> Recompute([FromQuery] Guid userId, CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty)
         {
             return BadRequest(new { error = "userId is required." });
@@ -69,6 +74,7 @@ public class PersonalizationController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<UserTasteProfile>> GetTasteProfile([FromQuery] Guid userId, CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty)
         {
             return BadRequest(new { error = "userId is required." });
@@ -91,6 +97,7 @@ public class PersonalizationController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<UserTasteProfile>> RebuildTasteProfile([FromQuery] Guid userId, CancellationToken cancellationToken)
     {
+        if (await this.AuthorizeUserAsync(_authorization, userId).ConfigureAwait(false) is { } denied) return denied;
         if (userId == Guid.Empty)
         {
             return BadRequest(new { error = "userId is required." });
