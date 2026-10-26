@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,14 +19,15 @@ public static class ExternalProcess
 {
     /// <summary>Runs a binary and returns its stdout, or null on non-zero exit / timeout / spawn failure.</summary>
     /// <param name="fileName">Executable name, resolved on PATH.</param>
-    /// <param name="args">Command-line arguments.</param>
+    /// <param name="args">Arguments, one per element. Passed as argv, never re-parsed: callers splice in
+    /// metadata-supplied values (trailer URLs, titles), and a quote in one must not become a new option.</param>
     /// <param name="timeoutMs">Hard timeout; the process is killed past it.</param>
     /// <param name="logger">Logger for spawn failures.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>stdout, or null.</returns>
     public static async Task<string?> CaptureAsync(
         string fileName,
-        string args,
+        IReadOnlyList<string> args,
         int timeoutMs,
         ILogger logger,
         CancellationToken cancellationToken)

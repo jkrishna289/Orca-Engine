@@ -148,6 +148,16 @@ public class AppUpdateService : IAppUpdateService
             return path;
         }
 
+        // Anonymous endpoint: only mirror an asset of the release we advertise. Otherwise any caller
+        // could make the server fetch arbitrary tags, litter empty cache folders, and (via the prune
+        // below) evict the current release's APK by requesting an old one.
+        var latest = await GetLatestAsync(ct).ConfigureAwait(false);
+        if (latest is null || !string.Equals(latest.TagName, tag, StringComparison.Ordinal)
+            || !latest.Assets.Any(a => string.Equals(a.Name, assetName, StringComparison.Ordinal)))
+        {
+            return null;
+        }
+
         await _downloadLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {

@@ -72,7 +72,7 @@ public class YtDlpSearchTrailerSource : ITrailerSource
         var query = BuildQuery(identity.Title, identity.Year, count);
         var stdout = await ExternalProcess.CaptureAsync(
             "yt-dlp",
-            $"--skip-download --no-warnings --flat-playlist --print \"{PrintFormat}\" \"{query}\"",
+            ["--skip-download", "--no-warnings", "--flat-playlist", "--print", PrintFormat, "--", query],
             SearchTimeoutMs,
             _logger,
             cancellationToken).ConfigureAwait(false);
@@ -103,8 +103,8 @@ public class YtDlpSearchTrailerSource : ITrailerSource
     /// <returns>The search expression.</returns>
     internal static string BuildQuery(string title, int? year, int count)
     {
-        // Quotes would be re-interpreted by the shell-less argument string; the scorer does the real
-        // matching, so the query only has to get the right neighbourhood of results.
+        // Quotes would turn into YouTube phrase search; the scorer does the real matching, so the
+        // query only has to get the right neighbourhood of results.
         var cleaned = title.Replace("\"", string.Empty, StringComparison.Ordinal).Trim();
         var suffix = year is > 0 ? " " + year.Value.ToString(CultureInfo.InvariantCulture) : string.Empty;
         return $"ytsearch{count.ToString(CultureInfo.InvariantCulture)}:{cleaned}{suffix} official trailer";

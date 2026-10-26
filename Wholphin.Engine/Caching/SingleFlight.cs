@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -60,18 +61,21 @@ public static class SingleFlight
         var lazy = InFlight.GetOrAdd(
             key,
             k => new Lazy<Task<object?>>(
-                () => ProduceAsync(cache, k, ttl, negativeTtl, factory, cancellationToken),
+                // Shared by every waiter, so it must not run on the first caller's token: one
+                // disconnecting client would otherwise cancel the call for all of them.
+                () => ProduceAsync(cache, k, ttl, negativeTtl, factory, CancellationToken.None),
                 LazyThreadSafetyMode.ExecutionAndPublication));
 
         try
         {
-            return await lazy.Value.ConfigureAwait(false) as T;
+            return await lazy.Value.WaitAsync(cancellationToken).ConfigureAwait(false) as T;
         }
         finally
         {
             // The winner's result is already cached by the time anyone gets here, so a caller
             // arriving after this point reads the cache instead of starting a second call.
-            InFlight.TryRemove(key, out _);
+            // Only this flight: a late waiter must not evict a newer flight for the same key.
+            InFlight.TryRemove(new KeyValuePair<string, Lazy<Task<object?>>>(key, lazy));
         }
     }
 

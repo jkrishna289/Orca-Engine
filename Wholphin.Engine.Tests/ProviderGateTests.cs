@@ -50,6 +50,18 @@ public class ProviderGateTests
     }
 
     [Fact]
+    public async Task ARateLimitedProbe_HandsBackTheHalfOpenSlot()
+    {
+        var (gate, _) = Build(new PluginConfiguration { MetadataProviderBreakerThreshold = 1, MetadataProviderBreakerCooldownSeconds = 1 });
+        await gate.ExecuteAsync("omdb", _ => Fail(), CancellationToken.None);
+        await Task.Delay(TimeSpan.FromMilliseconds(1100));
+
+        // The probe neither succeeds nor fails. It must not leave the breaker half-open forever.
+        await gate.ExecuteAsync<string>("omdb", _ => throw new ProviderRateLimitedException(), CancellationToken.None);
+        Assert.Equal("ok", await gate.ExecuteAsync("omdb", _ => Task.FromResult<string?>("ok"), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task FourFailures_DoNotOpenTheBreaker()
     {
         var (gate, _) = Build();

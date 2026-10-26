@@ -138,9 +138,14 @@ public class TrailerService : ITrailerService
             // YouTube only serves >720p as separate DASH video+audio, so prefer a merged pick and
             // fall down the ladder to progressive formats when merging isn't possible.
             await _state.SetStateAsync(tmdbId, mediaType, TrailerState.Downloading, ct).ConfigureAwait(false);
+            // The URL comes from community-editable metadata (TMDB/TVDB/Jellyfin): argv plus "--"
+            // keeps it a URL, never an injected option such as --exec.
             var dl = await RunAsync("yt-dlp",
-                $"-f \"bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]/best\" " +
-                $"--merge-output-format mp4 --no-playlist --no-warnings --no-progress -o \"{tmp}.%(ext)s\" \"{youtubeUrl}\"",
+                [
+                    "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]/best",
+                    "--merge-output-format", "mp4", "--no-playlist", "--no-warnings", "--no-progress",
+                    "-o", $"{tmp}.%(ext)s", "--", youtubeUrl,
+                ],
                 DownloadTimeoutMs, ct).ConfigureAwait(false);
             if (!dl || !File.Exists(tmpDl))
             {
@@ -157,8 +162,10 @@ public class TrailerService : ITrailerService
             await _state.SetStateAsync(tmdbId, mediaType, TrailerState.Transcoding, ct).ConfigureAwait(false);
             TryDelete(partPath);
             var tx = await RunAsync("ffmpeg",
-                $"-y -i \"{tmpDl}\" -vf scale=-2:'min(1080,ih)' -b:v 4500k -maxrate 6000k -bufsize 9000k " +
-                $"-c:v libx264 -preset veryfast -c:a aac -b:a 160k -movflags +faststart \"{partPath}\"",
+                [
+                    "-y", "-i", tmpDl, "-vf", "scale=-2:'min(1080,ih)'", "-b:v", "4500k", "-maxrate", "6000k", "-bufsize", "9000k",
+                    "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", partPath,
+                ],
                 TranscodeTimeoutMs, ct).ConfigureAwait(false);
             if (!tx || !File.Exists(partPath) || new FileInfo(partPath).Length == 0)
             {
@@ -318,7 +325,7 @@ public class TrailerService : ITrailerService
         }
     }
 
-    private async Task<bool> RunAsync(string fileName, string args, int timeoutMs, CancellationToken ct)
+    private async Task<bool> RunAsync(string fileName, IReadOnlyList<string> args, int timeoutMs, CancellationToken ct)
     {
         try
         {
@@ -356,7 +363,7 @@ public class TrailerService : ITrailerService
     }
 
     /// <summary>Runs a process and returns its stdout (or null on failure/timeout/missing binary).</summary>
-    private Task<string?> RunCaptureAsync(string fileName, string args, int timeoutMs, CancellationToken ct) =>
+    private Task<string?> RunCaptureAsync(string fileName, IReadOnlyList<string> args, int timeoutMs, CancellationToken ct) =>
         ExternalProcess.CaptureAsync(fileName, args, timeoutMs, _logger, ct);
 
     /// <summary>Probes the transcoded file's duration via ffprobe (ms), or null when unavailable.</summary>
@@ -364,7 +371,7 @@ public class TrailerService : ITrailerService
     {
         var output = await RunCaptureAsync(
             "ffprobe",
-            $"-v quiet -show_entries format=duration -of csv=p=0 \"{filePath}\"",
+            ["-v", "quiet", "-show_entries", "format=duration", "-of", "csv=p=0", filePath],
             ProbeTimeoutMs, ct).ConfigureAwait(false);
         if (double.TryParse(output?.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var seconds) && seconds > 0)
         {

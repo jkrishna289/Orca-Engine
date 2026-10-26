@@ -61,14 +61,23 @@ public class ProviderGate : IProviderGate
         var config = _config();
         var state = _states.GetOrAdd(provider, _ => new State(Math.Clamp(config?.MetadataProviderMaxConcurrency ?? 2, 1, 16)));
 
-        if (!TryPass(state))
+        if (!TryPass(state, out var probe))
         {
             Interlocked.Increment(ref state.ShortCircuited);
             _metrics.Increment($"provider.{provider}.short");
             return null;
         }
 
-        await state.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await state.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            EndProbe(state, probe);
+            throw;
+        }
+
         var stopwatch = Stopwatch.StartNew();
         try
         {
@@ -130,6 +139,9 @@ public class ProviderGate : IProviderGate
         }
         finally
         {
+            // Rate-limited and caller-cancelled outcomes record neither success nor failure. A probe
+            // ending that way must still hand the half-open slot back, or the breaker never closes.
+            EndProbe(state, probe);
             state.Gate.Release();
         }
     }
@@ -172,8 +184,9 @@ public class ProviderGate : IProviderGate
     /// The breaker decision: closed passes, open refuses, and an elapsed cooldown admits exactly one
     /// probe so a recovered provider is noticed without a thundering herd against a still-broken one.
     /// </summary>
-    private static bool TryPass(State state)
+    private static bool TryPass(State state, out bool probe)
     {
+        probe = false;
         lock (state.Sync)
         {
             if (state.OpenUntilUtc is not { } until)
@@ -193,7 +206,21 @@ public class ProviderGate : IProviderGate
             }
 
             state.Probing = true;
+            probe = true;
             return true;
+        }
+    }
+
+    private static void EndProbe(State state, bool probe)
+    {
+        if (!probe)
+        {
+            return;
+        }
+
+        lock (state.Sync)
+        {
+            state.Probing = false;
         }
     }
 

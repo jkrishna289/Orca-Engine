@@ -41,6 +41,28 @@ public class SingleFlightTests
     }
 
     [Fact]
+    public async Task TheFirstCallerCancelling_DoesNotCancelTheOthers()
+    {
+        using var cache = NewCache();
+        using var release = new SemaphoreSlim(0);
+        using var first = new CancellationTokenSource();
+
+        async Task<string?> Factory(CancellationToken ct)
+        {
+            await release.WaitAsync(ct);
+            return "value";
+        }
+
+        var abandoned = SingleFlight.GetOrCreateAsync(cache, "meta:tmdb:2", Positive, Negative, Factory, first.Token);
+        var waiting = SingleFlight.GetOrCreateAsync(cache, "meta:tmdb:2", Positive, Negative, Factory, CancellationToken.None);
+        first.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => abandoned);
+
+        release.Release();
+        Assert.Equal("value", await waiting);
+    }
+
+    [Fact]
     public async Task ASecondCall_IsServedFromCache()
     {
         using var cache = NewCache();

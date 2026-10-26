@@ -74,10 +74,12 @@ public sealed class MediaProbe
 
             var json = await ExternalProcess.CaptureAsync(
                 "ffprobe",
-                "-v quiet -print_format json -show_format -show_streams " +
+                [
+                    "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams",
                     // The head may be a partial frame run; let ffprobe work harder before giving up.
-                    "-analyzeduration 20000000 -probesize 20000000 " +
-                    $"\"{scratch}\"",
+                    "-analyzeduration", "20000000", "-probesize", "20000000",
+                    scratch,
+                ],
                 ProbeTimeoutMs,
                 _logger,
                 cancellationToken).ConfigureAwait(false);

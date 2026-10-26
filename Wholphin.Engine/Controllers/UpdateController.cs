@@ -45,7 +45,8 @@ public class UpdateController : ControllerBase
             return NotFound();
         }
 
-        var baseUrl = $"{Request.Scheme}://{Request.Host}/OrcaEngine/Update/Apk";
+        // PathBase carries Jellyfin's configured base URL (e.g. /jellyfin); without it the link 404s.
+        var baseUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}/OrcaEngine/Update/Apk";
         return new AppUpdateResponse
         {
             Name = release.Name,
