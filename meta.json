@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Compatibility maintenance for Jellyfin 12.1. Rebuilt for .NET 10 with Jellyfin 12.1.0 and the host EF Core 10.0.11 dependencies. Requires Jellyfin 12.1 or later in the compatible release line; use Orca Engine 1.2.4.0 on Jellyfin 10.11. Install the complete package, including updated ABI metadata. Adds server-side playback progress: the Orca X app can start a playback session, report progress and read its resume position through authenticated OrcaEngine/Playback endpoints, and progress is reconciled with Jellyfin so Continue Watching stays in sync. This is a beta release.",
+  "changelog": "Details for titles outside your library: a new OrcaEngine/Metadata/Details endpoint returns a title's year, runtime, age rating, score, genres, full overview, cast and crew straight from the catalog, and TMDB enrichment now stores the age rating for requestable titles (the watch-provider region's, else the US one; titles enriched earlier are backfilled). More Like This no longer waits on a first-time LLM curation: after 1.5 s it serves the similarity ranking and finishes curating in the background. TMDB results with no poster or backdrop are left out instead of showing as blank cards. Streamed sources are held through short pauses and torn down after a grace period. Per-user endpoints now require the matching signed-in user, trailer downloads are hardened against command injection, and Continue Watching reconciliation is cheaper per request. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.3.0.0",
+  "version": "1.4.0.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
