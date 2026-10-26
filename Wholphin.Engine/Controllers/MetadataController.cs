@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Wholphin.Engine.Data;
+using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Metadata;
+using Wholphin.Engine.Personalization;
 
 namespace Wholphin.Engine.Controllers;
 
@@ -75,6 +77,67 @@ public class MetadataController : ControllerBase
 
         var facts = await _trivia.GetTriviaAsync(item, cancellationToken).ConfigureAwait(false);
         return new TriviaDto { CatalogId = item.Id, Title = item.Title, Facts = facts };
+    }
+
+    /// <summary>
+    /// Returns what the catalog already knows about a title — year, runtime, certificate, score,
+    /// genres, the full overview, cast and crew, logo. It is the details page's source for a title that
+    /// is not in the library, which otherwise has only its card. Read straight from the catalog: no
+    /// provider calls, so it answers as fast as the database does.
+    /// </summary>
+    /// <param name="tmdbId">The TMDB id.</param>
+    /// <param name="type"><c>movie</c> or <c>tv</c>; TMDB reuses ids across the two.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The details, or 404 when the catalog has no such title.</returns>
+    [HttpGet("Details")]
+    [AllowAnonymous]
+    public async Task<ActionResult<TitleDetailsDto>> GetDetails(
+        [FromQuery] int tmdbId,
+        [FromQuery] string? type,
+        CancellationToken cancellationToken = default)
+    {
+        var mediaType = type?.ToLowerInvariant() switch
+        {
+            "movie" => (MediaType?)MediaType.Movie,
+            "tv" or "series" => MediaType.Series,
+            _ => null,
+        };
+
+        await using var db = _factory.Create();
+        var item = await db.CatalogItems.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TmdbId == tmdbId && (mediaType == null || c.MediaType == mediaType), cancellationToken)
+            .ConfigureAwait(false);
+        if (item is null)
+        {
+            return NotFound();
+        }
+
+        // People are stored role-prefixed ("Actor:X", "Director:Y", "Writer:Z").
+        var people = CatalogFeatures.Parse(item.PeopleJson);
+        IReadOnlyList<string> Role(string role) => people
+            .Where(p => p.StartsWith(role + ":", StringComparison.OrdinalIgnoreCase))
+            .Select(p => p[(role.Length + 1)..].Trim())
+            .Where(n => n.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new TitleDetailsDto
+        {
+            CatalogId = item.Id,
+            Title = item.Title,
+            Year = item.ProductionYear,
+            RuntimeMinutes = item.RuntimeMinutes is > 0 ? item.RuntimeMinutes : null,
+            OfficialRating = string.IsNullOrWhiteSpace(item.OfficialRating) ? null : item.OfficialRating,
+            CommunityRating = item.CommunityRating,
+            Genres = CatalogFeatures.Parse(item.GenresJson),
+            Overview = string.IsNullOrWhiteSpace(item.Overview) ? null : item.Overview,
+            Cast = Role("Actor"),
+            Directors = Role("Director"),
+            Writers = Role("Writer"),
+            Studios = CatalogFeatures.Parse(item.StudiosJson),
+            CollectionName = item.CollectionName,
+            LogoImageUrl = string.IsNullOrWhiteSpace(item.LogoImageUrl) ? null : item.LogoImageUrl,
+        };
     }
 
     /// <summary>
@@ -196,6 +259,52 @@ public class MetadataController : ControllerBase
 
         /// <summary>Gets or sets the trivia facts.</summary>
         public IReadOnlyList<string> Facts { get; set; } = Array.Empty<string>();
+    }
+
+    /// <summary>Title details response (<see cref="GetDetails"/>). Absent values are null or empty, never guessed.</summary>
+    public class TitleDetailsDto
+    {
+        /// <summary>Gets or sets the catalog id.</summary>
+        public long CatalogId { get; set; }
+
+        /// <summary>Gets or sets the title.</summary>
+        public string Title { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the release / first-air year.</summary>
+        public int? Year { get; set; }
+
+        /// <summary>Gets or sets the runtime (per episode for series), in minutes.</summary>
+        public int? RuntimeMinutes { get; set; }
+
+        /// <summary>Gets or sets the certificate (e.g. "PG-13").</summary>
+        public string? OfficialRating { get; set; }
+
+        /// <summary>Gets or sets the community score (0-10).</summary>
+        public float? CommunityRating { get; set; }
+
+        /// <summary>Gets or sets the genres.</summary>
+        public IReadOnlyList<string> Genres { get; set; } = Array.Empty<string>();
+
+        /// <summary>Gets or sets the full overview.</summary>
+        public string? Overview { get; set; }
+
+        /// <summary>Gets or sets the billed cast, in order.</summary>
+        public IReadOnlyList<string> Cast { get; set; } = Array.Empty<string>();
+
+        /// <summary>Gets or sets the directors.</summary>
+        public IReadOnlyList<string> Directors { get; set; } = Array.Empty<string>();
+
+        /// <summary>Gets or sets the writers.</summary>
+        public IReadOnlyList<string> Writers { get; set; } = Array.Empty<string>();
+
+        /// <summary>Gets or sets the studios / networks.</summary>
+        public IReadOnlyList<string> Studios { get; set; } = Array.Empty<string>();
+
+        /// <summary>Gets or sets the collection (franchise) name.</summary>
+        public string? CollectionName { get; set; }
+
+        /// <summary>Gets or sets the logo art URL, when the catalog has one.</summary>
+        public string? LogoImageUrl { get; set; }
     }
 
     /// <summary>Content-advisory response.</summary>

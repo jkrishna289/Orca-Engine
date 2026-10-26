@@ -128,7 +128,9 @@ public class TmdbClient : ITmdbClient
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
             // One request fetches the detail plus videos/credits/keywords/external-ids (cheaper than
             // 4 round-trips). external_ids is free here and is what makes OMDb/Fanart/TVDB reachable.
-            using var response = await SendAsync(client, apiKey, ct, $"/{kind}/{tmdbId}", "append_to_response=videos,credits,keywords,external_ids").ConfigureAwait(false);
+            // The certification lives in release_dates (movies) / content_ratings (series), same request.
+            var ratings = mediaType == MediaType.Movie ? "release_dates" : "content_ratings";
+            using var response = await SendAsync(client, apiKey, ct, $"/{kind}/{tmdbId}", $"append_to_response=videos,credits,keywords,external_ids,{ratings}").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _metrics.Increment("tmdb.enrich.error");
@@ -170,6 +172,7 @@ public class TmdbClient : ITmdbClient
                 CollectionName = string.IsNullOrWhiteSpace(detail.BelongsToCollection?.Name) ? null : detail.BelongsToCollection!.Name,
                 ImdbId = string.IsNullOrWhiteSpace(detail.ExternalIds?.ImdbId) ? null : detail.ExternalIds!.ImdbId,
                 TvdbId = detail.ExternalIds?.TvdbId is > 0 ? detail.ExternalIds.TvdbId : null,
+                Certification = Certification(detail),
             };
         }
         catch (Exception ex)
@@ -615,6 +618,35 @@ public class TmdbClient : ITmdbClient
             .Select(n => n!.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// The age certification for the operator's region (the watch-provider region, so it matches what
+    /// the home already localises to), else the US one, else null. A movie lists several releases per
+    /// country and most carry an empty certification, so the first non-empty one wins.
+    /// </summary>
+    private static string? Certification(TmdbDetail detail) =>
+        PickCertification(detail, Plugin.Instance?.Configuration?.WatchProviderRegion);
+
+    /// <summary>The certification for <paramref name="region"/>, else the US one, else null.</summary>
+    internal static string? PickCertification(TmdbDetail detail, string? region)
+    {
+        var regions = new[] { string.IsNullOrWhiteSpace(region) ? "US" : region.Trim().ToUpperInvariant(), "US" };
+        foreach (var r in regions)
+        {
+            var cert = detail.ReleaseDates?.Results
+                    .FirstOrDefault(x => string.Equals(x.Country, r, StringComparison.OrdinalIgnoreCase))
+                    ?.Dates.Select(d => d.Certification?.Trim()).FirstOrDefault(c => !string.IsNullOrEmpty(c))
+                ?? detail.ContentRatings?.Results
+                    .FirstOrDefault(x => string.Equals(x.Country, r, StringComparison.OrdinalIgnoreCase))
+                    ?.Rating?.Trim();
+            if (!string.IsNullOrEmpty(cert))
+            {
+                return cert;
+            }
+        }
+
+        return null;
     }
 
     private static List<string> ExtractPeople(TmdbCredits? credits)

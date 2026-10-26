@@ -242,6 +242,55 @@ public class TmdbDetail
     /// <summary>Gets or sets the appended external-ids block.</summary>
     [JsonPropertyName("external_ids")]
     public TmdbExternalIds? ExternalIds { get; set; }
+
+    /// <summary>Gets or sets the appended per-country release dates (movies; carries the certification).</summary>
+    [JsonPropertyName("release_dates")]
+    public TmdbCountryList<TmdbReleaseDates>? ReleaseDates { get; set; }
+
+    /// <summary>Gets or sets the appended per-country content ratings (series).</summary>
+    [JsonPropertyName("content_ratings")]
+    public TmdbCountryList<TmdbContentRating>? ContentRatings { get; set; }
+}
+
+/// <summary>A TMDB <c>{ "results": [...] }</c> wrapper of per-country entries.</summary>
+/// <typeparam name="T">The per-country entry.</typeparam>
+public class TmdbCountryList<T>
+{
+    /// <summary>Gets or sets the per-country entries.</summary>
+    [JsonPropertyName("results")]
+    public List<T> Results { get; set; } = new();
+}
+
+/// <summary>A movie's release dates in one country.</summary>
+public class TmdbReleaseDates
+{
+    /// <summary>Gets or sets the ISO-3166-1 country code.</summary>
+    [JsonPropertyName("iso_3166_1")]
+    public string? Country { get; set; }
+
+    /// <summary>Gets or sets the release dates, each with its certification.</summary>
+    [JsonPropertyName("release_dates")]
+    public List<TmdbReleaseDate> Dates { get; set; } = new();
+}
+
+/// <summary>One release of a movie (theatrical, digital, …) and the certification it carried.</summary>
+public class TmdbReleaseDate
+{
+    /// <summary>Gets or sets the certification (e.g. "PG-13"); often empty.</summary>
+    [JsonPropertyName("certification")]
+    public string? Certification { get; set; }
+}
+
+/// <summary>A series' content rating in one country.</summary>
+public class TmdbContentRating
+{
+    /// <summary>Gets or sets the ISO-3166-1 country code.</summary>
+    [JsonPropertyName("iso_3166_1")]
+    public string? Country { get; set; }
+
+    /// <summary>Gets or sets the rating (e.g. "TV-MA").</summary>
+    [JsonPropertyName("rating")]
+    public string? Rating { get; set; }
 }
 
 /// <summary>
@@ -460,6 +509,12 @@ public class TmdbEnrichment
 
     /// <summary>Gets or sets the TVDB id, when TMDB knows one. The key Fanart addresses series by.</summary>
     public int? TvdbId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the age certification for the configured region (falling back to the US), or null
+    /// when TMDB has none for either.
+    /// </summary>
+    public string? Certification { get; set; }
 }
 
 /// <summary>A TMDB collection/franchise reference (from a movie detail's <c>belongs_to_collection</c>).</summary>

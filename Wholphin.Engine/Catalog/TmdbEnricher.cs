@@ -63,7 +63,9 @@ public class TmdbEnricher : ICatalogEnricher
             .Where(c => c.TmdbId != null
                         && (c.OriginalLanguage == null
                             || (c.JellyfinItemId == null
-                                && (c.GenresJson == null || c.PosterImageUrl == null))))
+                                // OfficialRating null = never asked (rows enriched before the
+                                // certification was fetched); "" = asked, TMDB had none.
+                                && (c.GenresJson == null || c.PosterImageUrl == null || c.OfficialRating == null))))
             .OrderBy(c => c.LastSyncedAt)
             .Take(limit)
             .ToListAsync(ct)
@@ -126,6 +128,14 @@ public class TmdbEnricher : ICatalogEnricher
                 if (!string.IsNullOrEmpty(e.BackdropImageUrl) && string.IsNullOrEmpty(item.BackdropImageUrl))
                 {
                     item.BackdropImageUrl = e.BackdropImageUrl;
+                    changed = true;
+                }
+
+                // The age rating for a title outside the library (a library title keeps Jellyfin's).
+                // Stored as "" when TMDB has none, so the row isn't asked again every pass.
+                if (item.OfficialRating is null)
+                {
+                    item.OfficialRating = e.Certification ?? string.Empty;
                     changed = true;
                 }
             }
