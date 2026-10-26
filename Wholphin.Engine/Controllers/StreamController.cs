@@ -549,7 +549,7 @@ public class StreamController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Closes a streaming session.</summary>
+    /// <summary>Lets go of a lease-less viewer's hold; the torrent closes after a grace period once nothing holds it.</summary>
     /// <param name="token">The session token.</param>
     /// <returns>No content.</returns>
     [HttpDelete("{token}")]
@@ -609,7 +609,11 @@ public class StreamController : ControllerBase
         }
 
         var session = _streams.Get(token);
-        if (session is null)
+
+        // The open request itself holds the session (Stremio-style): it cannot be retired mid-read,
+        // and its grace countdown starts only when the last request and viewer have gone.
+        using var hold = session is null ? null : _streams.OpenRead(session);
+        if (session is null || hold is null)
         {
             return NotFound();
         }

@@ -56,17 +56,121 @@ public sealed class StreamSession
     /// </summary>
     public required string Token { get; init; }
 
-    // Accessed under _startGate. A legacy opener has no releasable lease, so it must
-    // retain idle-sweep semantics rather than being disconnected by a newer client.
+    // Stremio-style lifetime: the session lives while anything holds it (an open file request, a
+    // lease, or a lease-less legacy opener) and is retired a grace period after the last one lets go.
+    // Leaving never kills a shared torrent. All of this is guarded by _holdSync; Retired is final.
+    private readonly object _holdSync = new();
     private readonly HashSet<Guid> _viewerLeases = [];
-    private bool _hasLegacyViewer;
+    private int _legacyViewers;
+    private int _openReads;
+    private CancellationTokenSource? _grace;
+    private DateTimeOffset _holdsChangedAt = DateTimeOffset.UtcNow;
+    private bool _retired;
+
     internal void AcquireViewer(Guid? leaseId)
     {
-        if (leaseId is { } id && id != Guid.Empty) _viewerLeases.Add(id);
-        else _hasLegacyViewer = true;
+        lock (_holdSync)
+        {
+            if (leaseId is { } id && id != Guid.Empty) _viewerLeases.Add(id);
+            else _legacyViewers++;
+            HoldsChanged();
+        }
     }
+
+    /// <summary>Drops one lease. True when it was held (the caller then reschedules retirement).</summary>
     internal bool ReleaseViewer(Guid leaseId)
-        => _viewerLeases.Remove(leaseId) && _viewerLeases.Count == 0 && !_hasLegacyViewer && !Kept;
+    {
+        lock (_holdSync)
+        {
+            if (!_viewerLeases.Remove(leaseId)) return false;
+            HoldsChanged();
+            return true;
+        }
+    }
+
+    /// <summary>Drops one lease-less opener (the legacy Stop). False when none is left to drop.</summary>
+    internal bool ReleaseLegacyViewer()
+    {
+        lock (_holdSync)
+        {
+            if (_legacyViewers == 0) return false;
+            _legacyViewers--;
+            HoldsChanged();
+            return true;
+        }
+    }
+
+    /// <summary>Counts an open file request. False once retired: the caller must not read.</summary>
+    internal bool TryBeginRead()
+    {
+        lock (_holdSync)
+        {
+            if (_retired) return false;
+            _openReads++;
+            HoldsChanged();
+            return true;
+        }
+    }
+
+    internal void EndRead()
+    {
+        lock (_holdSync)
+        {
+            _openReads--;
+            HoldsChanged();
+        }
+    }
+
+    /// <summary>
+    /// Restarts the grace countdown: a token when nothing holds the session any more (cancelled by
+    /// the next hold), otherwise null.
+    /// </summary>
+    internal CancellationToken? RestartGrace()
+    {
+        lock (_holdSync)
+        {
+            _grace?.Cancel();
+            _grace = null;
+            if (_retired || Kept || Holders != 0) return null;
+            _grace = new CancellationTokenSource();
+            return _grace.Token;
+        }
+    }
+
+    /// <summary>Whether the session should be retired now; see <see cref="TryRetire"/>.</summary>
+    internal bool IsDue(DateTimeOffset now, TimeSpan grace, TimeSpan idle)
+    {
+        lock (_holdSync)
+        {
+            if (_retired || Kept) return false;
+
+            // Unheld: the grace period. Held but untouched for the idle window: the backstop for a
+            // client that leaked its hold (opened and never stopped), as the old idle sweep did.
+            if (Holders == 0) return now - _holdsChangedAt >= grace;
+            var lastActivity = LastAccess > _holdsChangedAt ? LastAccess : _holdsChangedAt;
+            return now - lastActivity >= idle;
+        }
+    }
+
+    /// <summary>Atomically re-checks <see cref="IsDue"/> and marks the session retired.</summary>
+    internal bool TryRetire(DateTimeOffset now, TimeSpan grace, TimeSpan idle)
+    {
+        lock (_holdSync)
+        {
+            if (!IsDue(now, grace, idle)) return false;
+            _retired = true;
+            _grace?.Cancel();
+            return true;
+        }
+    }
+
+    private int Holders => _openReads + _viewerLeases.Count + _legacyViewers;
+
+    private void HoldsChanged()
+    {
+        _holdsChangedAt = DateTimeOffset.UtcNow;
+        LastAccess = _holdsChangedAt;
+    }
 
 
     /// <summary>Gets the selected file's name (used for the Content-Type guess). Empty until ready.</summary>
@@ -570,6 +674,12 @@ public interface ITorrentStreamService
     Task ReleaseAsync(string token, Guid leaseId);
 
     /// <summary>
+    /// Holds the session open for one file request. Null when it was just retired (answer 404: the
+    /// player retries and a fresh open re-creates it). Disposing the handle lets go.
+    /// </summary>
+    IDisposable? OpenRead(StreamSession session);
+
+    /// <summary>
     /// Keeps a streamed title: finishes the download, copies it into the library folder and asks
     /// Jellyfin to scan it in.
     /// </summary>
@@ -601,6 +711,12 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
     private readonly ConcurrentDictionary<string, StreamSession> _sessions = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _startGate = new(1, 1);
     private readonly Timer _idleSweep;
+    private int _sweeping;
+
+    // How long an unheld session lingers before its torrent closes — Stremio's ENGINE_TIMEOUT. Long
+    // enough to cover a seek's reconnect or a player re-opening the URL, short enough that a viewer
+    // who left stops costing a slot and a swarm.
+    internal static readonly TimeSpan ReleaseGrace = TimeSpan.FromSeconds(60);
 
     private ClientEngine? _engine;
     private bool _disposed;
@@ -701,20 +817,11 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
         _httpClientFactory = httpClientFactory;
         _libraryManager = libraryManager;
         _trackers = trackers;
-        // Keep-warm rides the sweep's timer but deliberately NOT SweepIdle itself: that method is also
-        // called from inside the session-start gate, where a warm-up's UPnP round trip would sit in
-        // front of a viewer waiting to play. Fire-and-forget for the same reason — the timer thread
-        // must not block on the network. WarmUpAsync handles its own exceptions.
+        // Fire-and-forget: the sweep waits on the start gate and on the network (keep-warm), and the
+        // timer thread must block on neither. Only this timer runs the sweep, never StartAsync, so a
+        // warm-up's UPnP round trip never sits in front of a viewer waiting to play.
         _idleSweep = new Timer(
-            _ =>
-            {
-                SweepIdle();
-
-                // MonoTorrent stops the engine once the last torrent is removed — which the sweep may
-                // just have caused — so this is what puts DHT and the listener back up between
-                // streams instead of letting the next viewer pay to start them again.
-                _ = WarmUpAsync();
-            },
+            _ => _ = SweepAsync(),
             null,
             TimeSpan.FromMinutes(1),
             TimeSpan.FromMinutes(1));
@@ -1086,10 +1193,18 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
             {
                 existing.LastAccess = DateTimeOffset.UtcNow;
                 existing.AcquireViewer(leaseId);
+                ScheduleRetire(existing); // cancels a pending grace countdown
                 return existing;
             }
 
-            SweepIdle();
+            // Free slots held by sessions already past their grace/idle window before applying the
+            // cap. Already under the start gate, so the locked variant: no re-entry, no deadlock.
+            foreach (var session in _sessions.Values.ToList())
+            {
+                await RetireIfDueLockedAsync(session).ConfigureAwait(false);
+            }
+
+            TrimCache();
             if (_sessions.Count >= Math.Max(1, Config.MaxConcurrentStreamSessions))
             {
                 _logger.LogWarning(
@@ -1250,29 +1365,112 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
     }
 
     /// <inheritdoc />
-    public async Task ReleaseAsync(string token, Guid leaseId)
+    public Task ReleaseAsync(string token, Guid leaseId)
     {
-        await _startGate.WaitAsync().ConfigureAwait(false);
-        try
+        if (_sessions.TryGetValue(token, out var session) && session.ReleaseViewer(leaseId))
         {
-            if (_sessions.TryGetValue(token, out var session) && session.ReleaseViewer(leaseId)
-                && _sessions.TryRemove(token, out _))
-            {
-                // Keep the start gate until the old torrent is removed from MonoTorrent,
-                // so reopening the same source cannot race teardown of its manager.
-                await TearDownAsync(session).ConfigureAwait(false);
-            }
+            ScheduleRetire(session);
         }
-        finally { _startGate.Release(); }
+
+        return Task.CompletedTask;
     }
 
-    public async Task StopAsync(string token)
+    // Leaving is a decrement, never a kill: another viewer may share this torrent. A lease-less
+    // client's Stop releases one lease-less hold; the grace timer closes the torrent once unheld.
+    public Task StopAsync(string token)
     {
-        if (!_sessions.TryRemove(token, out var session))
+        if (_sessions.TryGetValue(token, out var session) && session.ReleaseLegacyViewer())
+        {
+            ScheduleRetire(session);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public IDisposable? OpenRead(StreamSession session)
+    {
+        if (!session.TryBeginRead())
+        {
+            return null;
+        }
+
+        ScheduleRetire(session); // cancels a pending grace countdown
+        return new ReadHold(this, session);
+    }
+
+    private sealed class ReadHold(TorrentStreamService owner, StreamSession session) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                session.EndRead();
+                owner.ScheduleRetire(session);
+            }
+        }
+    }
+
+    /// <summary>Starts (or cancels) the grace countdown after a session's holds changed.</summary>
+    private void ScheduleRetire(StreamSession session)
+    {
+        if (session.RestartGrace() is { } cancelled)
+        {
+            _ = RetireAfterGraceAsync(session, cancelled);
+        }
+    }
+
+    private async Task RetireAfterGraceAsync(StreamSession session, CancellationToken cancelled)
+    {
+        try
+        {
+            await Task.Delay(ReleaseGrace, cancelled).ConfigureAwait(false);
+            await RetireIfDueAsync(session).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Someone came back within the grace period.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Orca stream: retiring {Id} failed", session.Id);
+        }
+    }
+
+    private async Task RetireIfDueAsync(StreamSession session)
+    {
+        if (_disposed)
         {
             return;
         }
 
+        await _startGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await RetireIfDueLockedAsync(session).ConfigureAwait(false);
+        }
+        finally
+        {
+            _startGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// The one place a live session is closed. The caller holds <see cref="_startGate"/>, so a
+    /// reopen of the same source waits until the old torrent is out of MonoTorrent, and the due
+    /// check is re-made at the last moment so a viewer who returned is never cut off.
+    /// </summary>
+    private async Task RetireIfDueLockedAsync(StreamSession session)
+    {
+        var idle = TimeSpan.FromMinutes(Math.Max(1, Config.StreamSessionIdleMinutes));
+        if (!session.TryRetire(DateTimeOffset.UtcNow, ReleaseGrace, idle)
+            || !_sessions.TryRemove(new KeyValuePair<string, StreamSession>(session.Token, session)))
+        {
+            return;
+        }
+
+        _logger.LogInformation("Orca stream: retiring session {Id} — no longer held", session.Id);
         await TearDownAsync(session).ConfigureAwait(false);
     }
 
@@ -1389,6 +1587,7 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
             // Whether it worked or not, the session stops being exempt from the idle sweep — leaving
             // it pinned would hold a slot and a swarm forever on a failure nobody is watching.
             session.Kept = false;
+            ScheduleRetire(session);
         }
     }
 
@@ -2110,33 +2309,41 @@ public sealed class TorrentStreamService : ITorrentStreamService, IDisposable
         }
     }
 
-    private void SweepIdle()
+    private async Task SweepAsync()
     {
+        // Timer ticks can outlast their minute (a teardown waits up to 10s per session); never overlap.
+        if (Interlocked.Exchange(ref _sweeping, 1) == 1)
+        {
+            return;
+        }
+
         try
         {
             LogPlaybackHeartbeats();
             PauseUnreadTorrents();
 
-            var idleAfter = TimeSpan.FromMinutes(Math.Max(1, Config.StreamSessionIdleMinutes));
-            var cutoff = DateTimeOffset.UtcNow - idleAfter;
-
-            // A kept session is finishing a download nobody is reading from, which is exactly what
-            // "idle" looks like from here. Skipping it is the whole reason the flag exists.
-            foreach (var session in _sessions.Values.Where(s => !s.Kept && s.LastAccess < cutoff).ToList())
+            // Backstop for holds that leaked or whose grace timer was lost: same locked re-check.
+            // Kept sessions are never due — they are finishing a download nobody is reading.
+            foreach (var session in _sessions.Values.ToList())
             {
-                if (_sessions.TryRemove(session.Token, out _))
-                {
-                    _logger.LogInformation("Orca stream: evicting idle session {Id}", session.Id);
-                    TearDownAsync(session).GetAwaiter().GetResult();
-                }
+                await RetireIfDueAsync(session).ConfigureAwait(false);
             }
 
             TrimCache();
+
+            // MonoTorrent stops the engine once the last torrent is removed — which the sweep may
+            // just have caused — so this is what puts DHT and the listener back up between
+            // streams instead of letting the next viewer pay to start them again.
+            await WarmUpAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             // A sweep failure must never surface as a request error or kill the timer.
             _logger.LogWarning(ex, "Orca stream: idle sweep failed");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _sweeping, 0);
         }
     }
 
