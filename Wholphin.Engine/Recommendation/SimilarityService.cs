@@ -85,6 +85,33 @@ public class SimilarityService : ISimilarityService
         // Under LLM curation the embedding ranking only prefilters a wider pool; the LLM picks
         // which of those a fan of the source would genuinely reach for (fail-soft to this order).
         var local = Rank(source, candidates, take * 3, vectors);
+
+        // A first-time curation is a live LLM call (seen at ~17 s), and the details page waits on this
+        // row. Give it a short window; past that, serve the embedding order now and let curation finish
+        // in the background — its result lands in the LLM cache and here, so the next visit gets it.
+        // Not tied to the request token: the work should outlive this request.
+        var curation = CurateAsync(source, local, take, cacheKey);
+        if (await Task.WhenAny(curation, Task.Delay(CurationWait, ct)).ConfigureAwait(false) == curation)
+        {
+            return await curation.ConfigureAwait(false);
+        }
+
+        IReadOnlyList<SimilarityResult> interim = local.Take(take).ToList();
+        _cache.Set(cacheKey, interim, InterimCacheTtl);
+        return interim;
+    }
+
+    private static readonly TimeSpan CurationWait = TimeSpan.FromMilliseconds(1500);
+
+    // Short, so a visit soon after a timed-out curation still picks up the curated row.
+    private static readonly TimeSpan InterimCacheTtl = TimeSpan.FromMinutes(1);
+
+    private async Task<IReadOnlyList<SimilarityResult>> CurateAsync(
+        CatalogItem source,
+        IReadOnlyList<SimilarityResult> local,
+        int take,
+        string cacheKey)
+    {
         var curated = await _llm.CurateAsync(
             new LlmCurationRequest
             {
@@ -95,7 +122,7 @@ public class SimilarityService : ISimilarityService
                 Context = "a 'More Like This' row on the title's detail page — same tone, themes, creators, or story appeal",
                 CacheTtl = LlmSimilarCacheTtl,
             },
-            ct).ConfigureAwait(false);
+            CancellationToken.None).ConfigureAwait(false);
 
         var byId = local.ToDictionary(r => r.Item.Id);
         var results = (IReadOnlyList<SimilarityResult>)curated.Items

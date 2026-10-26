@@ -571,7 +571,8 @@ public class TmdbClient : ITmdbClient
         var results = new List<DiscoverResult>(items.Count);
         foreach (var item in items)
         {
-            if (item.Id <= 0)
+            // No poster and no backdrop means the card can only render as a blank block, so leave it out.
+            if (item.Id <= 0 || (string.IsNullOrEmpty(item.PosterPath) && string.IsNullOrEmpty(item.BackdropPath)))
             {
                 continue;
             }
