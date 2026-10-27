@@ -9,6 +9,8 @@ using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Embedding;
+using Wholphin.Engine.Integrations.Jellyseerr;
+using Wholphin.Engine.Integrations.Tmdb;
 using Wholphin.Engine.Llm;
 
 namespace Wholphin.Engine.Recommendation;
@@ -40,6 +42,20 @@ public class SimilarityService : ISimilarityService
     private readonly ICache _cache;
     private readonly IContentVectorIndex _vectorIndex;
     private readonly ILlmReRanker _llm;
+    private readonly ITmdbClient _tmdb;
+
+    // TMDB's related titles are its "people who watched this also watched" signal — far stronger
+    // than shared genres, which is all the catalog-only ranking had (ODDTAXI came back as Tulsa King
+    // and Slow Horses). Recommendations outrank Similar, and both start above the local blend.
+    private const double TmdbRecommendationScore = 0.95;
+    private const double TmdbSimilarScore = 0.8;
+    private const double TmdbRankStep = 0.015;
+
+    // A title both TMDB and the local ranking picked is the surest match of all.
+    private const double AgreementBonus = 0.05;
+
+    // New requestable rows one More Like This lookup may add to the catalog.
+    private const int MaxTmdbImports = 20;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SimilarityService"/> class.
@@ -48,12 +64,14 @@ public class SimilarityService : ISimilarityService
     /// <param name="cache">The L1 cache.</param>
     /// <param name="vectorIndex">The TF-IDF content-vector index.</param>
     /// <param name="llm">The LLM curator (More Like This selection under FeatureLlmCuration; fail-soft).</param>
-    public SimilarityService(IWholphinDbContextFactory factory, ICache cache, IContentVectorIndex vectorIndex, ILlmReRanker llm)
+    /// <param name="tmdb">TMDB, for the source title's own recommendations and similar titles.</param>
+    public SimilarityService(IWholphinDbContextFactory factory, ICache cache, IContentVectorIndex vectorIndex, ILlmReRanker llm, ITmdbClient tmdb)
     {
         _factory = factory;
         _cache = cache;
         _vectorIndex = vectorIndex;
         _llm = llm;
+        _tmdb = tmdb;
     }
 
     /// <inheritdoc />
@@ -75,6 +93,8 @@ public class SimilarityService : ISimilarityService
             return Array.Empty<SimilarityResult>();
         }
 
+        var related = TmdbRelatedAsync(source, ct); // in flight while the local ranking runs
+
         var candidates = await db.CatalogItems.AsNoTracking()
             .Where(c => c.Id != source.Id && c.Availability != AvailabilityState.Unavailable)
             .ToListAsync(ct)
@@ -82,9 +102,9 @@ public class SimilarityService : ISimilarityService
 
         var vectors = await _vectorIndex.GetAsync(ct).ConfigureAwait(false);
 
-        // Under LLM curation the embedding ranking only prefilters a wider pool; the LLM picks
-        // which of those a fan of the source would genuinely reach for (fail-soft to this order).
-        var local = Rank(source, candidates, take * 3, vectors);
+        // Under LLM curation the ranking only prefilters a wider pool; the LLM picks which of those a
+        // fan of the source would genuinely reach for (fail-soft to this order).
+        var local = Merge(source, Rank(source, candidates, take * 3, vectors), await related.ConfigureAwait(false), take * 3);
 
         // A first-time curation is a live LLM call (seen at ~17 s), and the details page waits on this
         // row. Give it a short window; past that, serve the embedding order now and let curation finish
@@ -180,6 +200,150 @@ public class SimilarityService : ISimilarityService
         var results = Rank(seed, filtered, take, vectors);
         return new BecauseYouWatched(seed, results);
     }
+
+    /// <summary>
+    /// TMDB's recommendations and similar titles for the source, as catalog rows: matched to the
+    /// existing row for each (TMDB id, type), or imported as a requestable row so it can be shown,
+    /// opened and requested like any other. Empty when the source has no TMDB id or TMDB is off.
+    /// </summary>
+    private async Task<IReadOnlyList<SimilarityResult>> TmdbRelatedAsync(CatalogItem source, CancellationToken ct)
+    {
+        if (source.TmdbId is not { } tmdbId || !_tmdb.IsConfigured || source.MediaType is not (MediaType.Movie or MediaType.Series))
+        {
+            return Array.Empty<SimilarityResult>();
+        }
+
+        var recommendations = _tmdb.GetRelatedAsync(tmdbId, source.MediaType, TmdbRelatedKind.Recommendations, ct);
+        var similar = _tmdb.GetRelatedAsync(tmdbId, source.MediaType, TmdbRelatedKind.Similar, ct);
+        var scored = new Dictionary<(int, MediaType), (DiscoverResult Result, double Score)>();
+        void Score(IReadOnlyList<DiscoverResult> results, double top)
+        {
+            for (var i = 0; i < results.Count; i++)
+            {
+                var key = (results[i].TmdbId, results[i].MediaType);
+                var score = top - (i * TmdbRankStep);
+                scored[key] = scored.TryGetValue(key, out var seen)
+                    ? (seen.Result, Math.Max(seen.Score, score) + AgreementBonus) // in both lists
+                    : (results[i], score);
+            }
+        }
+
+        Score(await recommendations.ConfigureAwait(false), TmdbRecommendationScore);
+        Score(await similar.ConfigureAwait(false), TmdbSimilarScore);
+        scored.Remove((tmdbId, source.MediaType));
+        if (scored.Count == 0)
+        {
+            return Array.Empty<SimilarityResult>();
+        }
+
+        await using var db = _factory.Create();
+        var ids = scored.Keys.Select(k => k.Item1).Distinct().ToList();
+        var existing = await db.CatalogItems
+            .Where(c => c.TmdbId != null && ids.Contains(c.TmdbId.Value))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        var byKey = existing
+            .GroupBy(c => (c.TmdbId!.Value, c.MediaType))
+            .ToDictionary(g => g.Key, g => g.Aggregate(Preferred));
+
+        var output = new List<SimilarityResult>();
+        var imported = 0;
+        foreach (var (key, (result, score)) in scored.OrderByDescending(kv => kv.Value.Score))
+        {
+            if (!byKey.TryGetValue(key, out var item))
+            {
+                if (imported >= MaxTmdbImports)
+                {
+                    continue;
+                }
+
+                // The same shape discovery imports a pick with (PickPersistence).
+                item = new CatalogItem
+                {
+                    TmdbId = result.TmdbId,
+                    MediaType = result.MediaType,
+                    Availability = AvailabilityState.Request,
+                    Title = result.Title,
+                    Overview = result.Overview,
+                    ProductionYear = result.Year,
+                    CommunityRating = result.CommunityRating,
+                    GenresJson = result.Genres.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(result.Genres) : null,
+                    OriginalLanguage = result.OriginalLanguage,
+                    PosterImageUrl = result.PosterImageUrl,
+                    BackdropImageUrl = result.BackdropImageUrl,
+                    LastSyncedAt = DateTime.UtcNow,
+                };
+                db.CatalogItems.Add(item);
+                imported++;
+            }
+
+            if (item.Availability != AvailabilityState.Unavailable)
+            {
+                output.Add(new SimilarityResult(item, score));
+            }
+        }
+
+        if (imported > 0)
+        {
+            await db.SaveChangesAsync(ct).ConfigureAwait(false); // gives the new rows their ids
+        }
+
+        return output;
+    }
+
+    /// <summary>
+    /// Combines the local ranking with TMDB's, one entry per title. The catalog can hold two rows for
+    /// the same (TMDB id, type) — a library copy and a TMDB copy, which put Asur in the row twice — so
+    /// titles are keyed on that pair and the library row is kept. The source and its own duplicates
+    /// are dropped. A title both lists picked gets the agreement bonus.
+    /// </summary>
+    internal static IReadOnlyList<SimilarityResult> Merge(
+        CatalogItem source,
+        IReadOnlyList<SimilarityResult> local,
+        IReadOnlyList<SimilarityResult> tmdb,
+        int take)
+    {
+        var sourceKey = TitleKey(source);
+        Dictionary<string, SimilarityResult> Distinct(IEnumerable<SimilarityResult> results)
+        {
+            var best = new Dictionary<string, SimilarityResult>();
+            foreach (var r in results)
+            {
+                var key = TitleKey(r.Item);
+                if (key == sourceKey || r.Item.Id == source.Id)
+                {
+                    continue;
+                }
+
+                best[key] = best.TryGetValue(key, out var seen)
+                    ? new SimilarityResult(Preferred(seen.Item, r.Item), Math.Max(seen.Score, r.Score))
+                    : r;
+            }
+
+            return best;
+        }
+
+        var merged = Distinct(local);
+        foreach (var (key, r) in Distinct(tmdb))
+        {
+            merged[key] = merged.TryGetValue(key, out var seen)
+                ? new SimilarityResult(Preferred(seen.Item, r.Item), Math.Max(seen.Score, r.Score) + AgreementBonus)
+                : r;
+        }
+
+        return merged.Values
+            .OrderByDescending(r => r.Score)
+            .ThenByDescending(r => r.Item.CommunityRating ?? 0)
+            .Take(take)
+            .ToList();
+    }
+
+    private static string TitleKey(CatalogItem item) =>
+        item.TmdbId is { } tmdbId ? $"tmdb:{tmdbId}:{item.MediaType}" : $"id:{item.Id}";
+
+    /// <summary>Of two rows for one title, the one the viewer can actually watch.</summary>
+    private static CatalogItem Preferred(CatalogItem a, CatalogItem b) =>
+        (b.JellyfinItemId is not null && a.JellyfinItemId is null) ? b : a;
 
     private static IReadOnlyList<SimilarityResult> Rank(
         CatalogItem source,
