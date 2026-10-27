@@ -449,6 +449,73 @@ public class TmdbClient : ITmdbClient
         }
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<DiscoverResult>> SearchTitlesAsync(string query, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || !TryConfig(out var apiKey))
+        {
+            return Array.Empty<DiscoverResult>();
+        }
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
+            using var response = await SendAsync(
+                client,
+                apiKey,
+                ct,
+                "/search/multi",
+                "query=" + Uri.EscapeDataString(query.Trim()),
+                "include_adult=false").ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _metrics.Increment("tmdb.search.error");
+                return Array.Empty<DiscoverResult>();
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<TmdbDiscoverPage>(JsonOptions, ct).ConfigureAwait(false);
+            if (page?.Results is not { Count: > 0 } items)
+            {
+                return Array.Empty<DiscoverResult>();
+            }
+
+            var movieGenres = await GetGenreMapAsync(MediaType.Movie, ct).ConfigureAwait(false);
+            var tvGenres = await GetGenreMapAsync(MediaType.Series, ct).ConfigureAwait(false);
+            _metrics.Increment("tmdb.search.ok");
+            return MapMultiSearch(items, movieGenres, tvGenres);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _metrics.Increment("tmdb.search.error");
+            _logger.LogWarning(ex, "Orca Engine: TMDB title search failed for '{Query}'.", query);
+            return Array.Empty<DiscoverResult>();
+        }
+    }
+
+    /// <summary>A multi-search page as titles: movies and series in TMDB's order, everything else dropped.</summary>
+    internal static List<DiscoverResult> MapMultiSearch(
+        List<TmdbDiscoverItem> items,
+        IReadOnlyDictionary<int, string> movieGenres,
+        IReadOnlyDictionary<int, string> tvGenres)
+    {
+        var results = new List<DiscoverResult>(items.Count);
+        foreach (var item in items)
+        {
+            var mapped = item.MediaType switch
+            {
+                "movie" => MapPage([item], MediaType.Movie, movieGenres),
+                "tv" => MapPage([item], MediaType.Series, tvGenres),
+                _ => null, // people and collections
+            };
+            if (mapped is not null)
+            {
+                results.AddRange(mapped);
+            }
+        }
+
+        return results;
+    }
+
     /// <summary>The best match within one search page: exact title → ±1-year → first result.</summary>
     internal static DiscoverResult PickSearchMatch(IReadOnlyList<DiscoverResult> results, string query, int? year)
     {

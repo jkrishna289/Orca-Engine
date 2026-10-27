@@ -101,6 +101,15 @@ public interface ITmdbClient
     /// <returns>The best-matching title, or null when unresolved/unconfigured/on failure.</returns>
     Task<DiscoverResult?> SearchAsync(string query, int? year, MediaType mediaType, CancellationToken ct = default);
 
+    /// <summary>
+    /// Movies and series matching free text, most relevant first (TMDB's multi search, one page).
+    /// People, and titles with no artwork to show, are left out.
+    /// </summary>
+    /// <param name="query">What the viewer typed.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matches; empty when unconfigured or on failure.</returns>
+    Task<IReadOnlyList<DiscoverResult>> SearchTitlesAsync(string query, CancellationToken ct = default);
+
     /// <summary>Fetches a series' next episode to air (the "Coming Soon" signal). Series only.</summary>
     /// <param name="tmdbId">The series TMDB id.</param>
     /// <param name="ct">Cancellation token.</param>

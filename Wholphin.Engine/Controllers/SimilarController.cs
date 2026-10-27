@@ -112,7 +112,7 @@ public class SimilarController : ControllerBase
         return null;
     }
 
-    private static ClientCapabilities ParseCapabilities(string? supported)
+    internal static ClientCapabilities ParseCapabilities(string? supported)
     {
         var capabilities = new ClientCapabilities();
         if (string.IsNullOrWhiteSpace(supported))

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Wholphin.Engine.Caching;
+using Wholphin.Engine.Catalog;
 using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
@@ -252,59 +253,15 @@ public class SimilarityService : ISimilarityService
             return Array.Empty<SimilarityResult>();
         }
 
+        var ranked = scored.OrderByDescending(kv => kv.Value.Score).ToList();
         await using var db = _factory.Create();
-        var ids = scored.Keys.Select(k => k.Item1).Distinct().ToList();
-        var existing = await db.CatalogItems
-            .Where(c => c.TmdbId != null && ids.Contains(c.TmdbId.Value))
-            .ToListAsync(ct)
+        var rows = await TmdbTitleRows.MatchOrImportAsync(db, ranked.Select(kv => kv.Value.Result).ToList(), MaxTmdbImports, ct)
             .ConfigureAwait(false);
-        var byKey = existing
-            .GroupBy(c => (c.TmdbId!.Value, c.MediaType))
-            .ToDictionary(g => g.Key, g => g.Aggregate(Preferred));
 
-        var output = new List<SimilarityResult>();
-        var imported = 0;
-        foreach (var (key, (result, score)) in scored.OrderByDescending(kv => kv.Value.Score))
-        {
-            if (!byKey.TryGetValue(key, out var item))
-            {
-                if (imported >= MaxTmdbImports)
-                {
-                    continue;
-                }
-
-                // The same shape discovery imports a pick with (PickPersistence).
-                item = new CatalogItem
-                {
-                    TmdbId = result.TmdbId,
-                    MediaType = result.MediaType,
-                    Availability = AvailabilityState.Request,
-                    Title = result.Title,
-                    Overview = result.Overview,
-                    ProductionYear = result.Year,
-                    CommunityRating = result.CommunityRating,
-                    GenresJson = result.Genres.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(result.Genres) : null,
-                    OriginalLanguage = result.OriginalLanguage,
-                    PosterImageUrl = result.PosterImageUrl,
-                    BackdropImageUrl = result.BackdropImageUrl,
-                    LastSyncedAt = DateTime.UtcNow,
-                };
-                db.CatalogItems.Add(item);
-                imported++;
-            }
-
-            if (item.Availability != AvailabilityState.Unavailable)
-            {
-                output.Add(new SimilarityResult(item, score));
-            }
-        }
-
-        if (imported > 0)
-        {
-            await db.SaveChangesAsync(ct).ConfigureAwait(false); // gives the new rows their ids
-        }
-
-        return output;
+        return ranked
+            .Where(kv => rows.TryGetValue(kv.Key, out var item) && item.Availability != AvailabilityState.Unavailable)
+            .Select(kv => new SimilarityResult(rows[kv.Key], kv.Value.Score))
+            .ToList();
     }
 
     /// <summary>
@@ -358,8 +315,7 @@ public class SimilarityService : ISimilarityService
         item.TmdbId is { } tmdbId ? $"tmdb:{tmdbId}:{item.MediaType}" : $"id:{item.Id}";
 
     /// <summary>Of two rows for one title, the one the viewer can actually watch.</summary>
-    private static CatalogItem Preferred(CatalogItem a, CatalogItem b) =>
-        (b.JellyfinItemId is not null && a.JellyfinItemId is null) ? b : a;
+    private static CatalogItem Preferred(CatalogItem a, CatalogItem b) => TmdbTitleRows.Preferred(a, b);
 
     private static IReadOnlyList<SimilarityResult> Rank(
         CatalogItem source,
