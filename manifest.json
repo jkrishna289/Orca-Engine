@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.3.0",
+        "changelog": "Trailers: a failed download or transcode now records what yt-dlp or ffmpeg actually said, visible in OrcaEngine/Trailer/Diagnostics and the server log. Failed titles are no longer retried on every card focus: a temporary failure waits 5 minutes, doubling up to a day, and a title with no trailer is retried weekly. ffmpeg can no longer stall on its own log output until the timeout. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.3.0-beta/orca-engine_1.4.3.0.zip",
+        "checksum": "2a6797d3ab0483debe6ed7af2c7ef7f4",
+        "timestamp": "2026-10-27T14:06:02Z"
+      },
+      {
         "version": "1.4.2.0",
         "changelog": "Title logos for titles outside your library: when the catalog has no logo, the title details endpoint now asks Jellyfin's own image providers (its built-in TMDB access, plus Fanart.tv if that plugin is installed), prefers an English logo, and keeps it for next time. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",

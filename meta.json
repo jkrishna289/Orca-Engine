@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Title logos for titles outside your library: when the catalog has no logo, the title details endpoint now asks Jellyfin's own image providers (its built-in TMDB access, plus Fanart.tv if that plugin is installed), prefers an English logo, and keeps it for next time. Requires Jellyfin 12.1 or later. This is a beta release.",
+  "changelog": "Trailers: a failed download or transcode now records what yt-dlp or ffmpeg actually said, visible in OrcaEngine/Trailer/Diagnostics and the server log. Failed titles are no longer retried on every card focus: a temporary failure waits 5 minutes, doubling up to a day, and a title with no trailer is retried weekly. ffmpeg can no longer stall on its own log output until the timeout. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.4.2.0",
+  "version": "1.4.3.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
