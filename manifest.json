@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.1.0",
+        "changelog": "More Like This now uses TMDB's own recommendations and similar titles for the title you're on, ranked ahead of genre matches from your catalog, so the row shows titles people who liked it actually watch. Titles it hadn't seen before are added as requestable. Each title appears once: a library copy and a TMDB copy of the same show no longer both show up, and a title never recommends itself. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.1.0-beta/orca-engine_1.4.1.0.zip",
+        "checksum": "d401d434b1de11905120840835b44eb3",
+        "timestamp": "2026-10-27T11:48:47Z"
+      },
+      {
         "version": "1.4.0.0",
         "changelog": "Details for titles outside your library: a new OrcaEngine/Metadata/Details endpoint returns a title's year, runtime, age rating, score, genres, full overview, cast and crew straight from the catalog, and TMDB enrichment now stores the age rating for requestable titles (the watch-provider region's, else the US one; titles enriched earlier are backfilled). More Like This no longer waits on a first-time LLM curation: after 1.5 s it serves the similarity ranking and finishes curating in the background. TMDB results with no poster or backdrop are left out instead of showing as blank cards. Streamed sources are held through short pauses and torn down after a grace period. Per-user endpoints now require the matching signed-in user, trailer downloads are hardened against command injection, and Continue Watching reconciliation is cheaper per request. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",

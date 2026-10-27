@@ -27,7 +27,7 @@ Orca Engine is currently in beta. The API, database schema and client contract a
 
 ## Jellyfin compatibility
 
-Orca Engine 1.4.0.0 targets **Jellyfin 12.1** and **.NET 10**. It uses the host's
+Orca Engine 1.4.1.0 targets **Jellyfin 12.1** and **.NET 10**. It uses the host's
 Jellyfin and EF Core 10.0.11 assemblies; do not copy those assemblies into the plugin folder.
 For Jellyfin 10.11, use the previous 1.2.4.0 release.
 
@@ -43,10 +43,10 @@ Plugin binaries are in `Wholphin.Engine/bin/Release/net10.0/`; package the DLLs 
 
 For a manual upgrade, stop Jellyfin and back up the existing plugin folder outside the
 Jellyfin plugins directory. Replace the old Orca Engine folder with the complete contents
-of `orca-engine_1.4.0.0.zip`, including `meta.json`, then restart Jellyfin. Keep the existing
+of `orca-engine_1.4.1.0.zip`, including `meta.json`, then restart Jellyfin. Keep the existing
 plugin configuration and `wholphin-engine` data directory. The DLL-only deployment script
 does not update ABI metadata and must not be used for this major Jellyfin upgrade.
 
-After startup, check `/OrcaEngine/Health` reports version `1.4.0.0`, then verify library sync,
+After startup, check `/OrcaEngine/Health` reports version `1.4.1.0`, then verify library sync,
 watch-history import and Continue Watching with an existing user. Build and unit tests do
 not replace this check on the deployed server.
