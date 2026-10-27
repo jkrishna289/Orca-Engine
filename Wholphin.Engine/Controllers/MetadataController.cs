@@ -3,6 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Providers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +34,7 @@ public class MetadataController : ControllerBase
     private readonly IMetadataAggregator _aggregator;
     private readonly Diagnostics.IEngineMetrics _metrics;
     private readonly IWholphinDbContextFactory _factory;
+    private readonly IProviderManager _providers;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MetadataController"/> class.
@@ -38,8 +45,10 @@ public class MetadataController : ControllerBase
         IContentWarningEnricher warningEnricher,
         IMetadataAggregator aggregator,
         Diagnostics.IEngineMetrics metrics,
-        IWholphinDbContextFactory factory)
+        IWholphinDbContextFactory factory,
+        IProviderManager providers)
     {
+        _providers = providers;
         _trivia = trivia;
         _warnings = warnings;
         _warningEnricher = warningEnricher;
@@ -104,12 +113,21 @@ public class MetadataController : ControllerBase
         };
 
         await using var db = _factory.Create();
-        var item = await db.CatalogItems.AsNoTracking()
+        var item = await db.CatalogItems
             .FirstOrDefaultAsync(c => c.TmdbId == tmdbId && (mediaType == null || c.MediaType == mediaType), cancellationToken)
             .ConfigureAwait(false);
         if (item is null)
         {
             return NotFound();
+        }
+
+        // No logo yet (Fanart.tv is the enricher's only source): ask Jellyfin's own image providers,
+        // which carry their own TMDB key, and keep the answer so the next visit is a database read.
+        if (string.IsNullOrWhiteSpace(item.LogoImageUrl)
+            && await JellyfinLogoAsync(tmdbId, item.MediaType, item.Title, cancellationToken).ConfigureAwait(false) is { } logo)
+        {
+            item.LogoImageUrl = logo;
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
         // People are stored role-prefixed ("Actor:X", "Director:Y", "Writer:Z").
@@ -139,6 +157,34 @@ public class MetadataController : ControllerBase
             LogoImageUrl = string.IsNullOrWhiteSpace(item.LogoImageUrl) ? null : item.LogoImageUrl,
         };
     }
+
+    // A throwaway, never-saved Movie/Series carrying only the TMDB id is enough for the providers. No
+    // provider name: every enabled image provider answers (Jellyfin's TMDB, plus Fanart.tv if installed).
+    // ponytail: a miss is not remembered, so a logo-less title asks again on each visit; store a sentinel if that shows up.
+    private async Task<string?> JellyfinLogoAsync(int tmdbId, MediaType type, string? title, CancellationToken ct)
+    {
+        try
+        {
+            BaseItem probe = type == MediaType.Series ? new Series() : new Movie();
+            probe.Name = title;
+            probe.SetProviderId(MediaBrowser.Model.Entities.MetadataProvider.Tmdb, tmdbId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var images = (await _providers.GetAvailableRemoteImages(
+                probe,
+                new RemoteImageQuery(string.Empty) { ImageType = ImageType.Logo, IncludeAllLanguages = true },
+                ct).ConfigureAwait(false)).ToList();
+            return PickLogo(images)?.Url;
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return null;                        // providers down or unhappy with the probe: the page shows the title text
+        }
+    }
+
+    /// <summary>English first, then a language-neutral logo, then whatever there is.</summary>
+    internal static RemoteImageInfo? PickLogo(IReadOnlyList<RemoteImageInfo> images) =>
+        images.FirstOrDefault(i => string.Equals(i.Language, "en", StringComparison.OrdinalIgnoreCase))
+        ?? images.FirstOrDefault(i => string.IsNullOrEmpty(i.Language))
+        ?? images.FirstOrDefault();
 
     /// <summary>
     /// Returns the content advisories for a title (movie or series). For an episode, resolve and pass the
