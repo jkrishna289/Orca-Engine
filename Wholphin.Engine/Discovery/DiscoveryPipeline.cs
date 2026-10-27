@@ -33,6 +33,32 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
     /// <summary>Funnel-run rows older than this are pruned by the sweep.</summary>
     public static readonly TimeSpan RunRetention = TimeSpan.FromDays(30);
 
+    /// <summary>
+    /// How long an unreferenced requestable row is kept after it was last imported or refreshed. A
+    /// row with no request, behavior or live pick can still be on screen: in a More Like This row
+    /// (those imports are referenced by nothing) or on a Home feed built just before its pick
+    /// rotated. Deleting it then leaves its title page with no details and no More Like This.
+    /// </summary>
+    public static readonly TimeSpan OrphanGrace = TimeSpan.FromDays(14);
+
+    /// <summary>
+    /// Requestable rows nothing references any more (no request, no behavior, no live pick) and
+    /// that nothing has imported or refreshed for <see cref="OrphanGrace"/>.
+    /// </summary>
+    /// <param name="db">The database context.</param>
+    /// <param name="now">The current time (UTC).</param>
+    /// <returns>The rows the sweep may delete.</returns>
+    internal static IQueryable<CatalogItem> Orphans(WholphinDbContext db, DateTime now)
+    {
+        var touchedBefore = now - OrphanGrace;
+        return db.CatalogItems
+            .Where(c => c.JellyfinItemId == null && c.Availability == AvailabilityState.Request)
+            .Where(c => c.LastSyncedAt < touchedBefore)
+            .Where(c => c.TmdbId == null || !db.MediaRequests.Any(r => r.TmdbId == c.TmdbId.Value))
+            .Where(c => !db.BehaviorEvents.Any(e => e.CatalogItemId == c.Id))
+            .Where(c => !db.UserDiscoveryPicks.Any(p => p.CatalogItemId == c.Id));
+    }
+
     private readonly IReadOnlyList<IDiscoverySource> _sources;
     private readonly EligibilityFilter _filter;
     private readonly CandidateScorer _scorer;
@@ -255,12 +281,8 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
                 .ConfigureAwait(false);
 
             // 3) The no-firehose guarantee: external Request-state rows nothing references any
-            //    more (no request, no behavior, no live pick) leave the catalog.
-            var orphans = await db.CatalogItems
-                .Where(c => c.JellyfinItemId == null && c.Availability == AvailabilityState.Request)
-                .Where(c => c.TmdbId == null || !db.MediaRequests.Any(r => r.TmdbId == c.TmdbId.Value))
-                .Where(c => !db.BehaviorEvents.Any(e => e.CatalogItemId == c.Id))
-                .Where(c => !db.UserDiscoveryPicks.Any(p => p.CatalogItemId == c.Id))
+            //    more leave the catalog, once they've gone OrphanGrace untouched.
+            var orphans = await Orphans(db, now)
                 .ExecuteDeleteAsync(ct)
                 .ConfigureAwait(false);
 

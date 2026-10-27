@@ -100,7 +100,7 @@ public class SimilarityService : ISimilarityService
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var vectors = await _vectorIndex.GetAsync(ct).ConfigureAwait(false);
+        var vectors = await VectorsWithoutWaitingAsync(_vectorIndex, ct).ConfigureAwait(false);
 
         // Under LLM curation the ranking only prefilters a wider pool; the LLM picks which of those a
         // fan of the source would genuinely reach for (fail-soft to this order).
@@ -122,6 +122,22 @@ public class SimilarityService : ISimilarityService
     }
 
     private static readonly TimeSpan CurationWait = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>
+    /// The content-vector index without waiting on a rebuild. The index expires every few hours and
+    /// its rebuild embeds every title added since (More Like This and discovery import dozens), which
+    /// held a details page's row for ~18 s. With an index already built, serve that and let the
+    /// rebuild finish behind it; only a fresh process, with nothing built yet, has to wait.
+    /// </summary>
+    /// <param name="index">The content-vector index.</param>
+    /// <param name="ct">Cancellation token for the wait, when there is one.</param>
+    /// <returns>The current index, or the freshly built one.</returns>
+    internal static Task<ContentVectorSnapshot> VectorsWithoutWaitingAsync(IContentVectorIndex index, CancellationToken ct)
+    {
+        // Not the request token: the rebuild should outlive the request that noticed it was due.
+        var rebuild = index.GetAsync(CancellationToken.None);
+        return index.Current is { } current ? Task.FromResult(current) : rebuild.WaitAsync(ct);
+    }
 
     // Short, so a visit soon after a timed-out curation still picks up the curated row.
     private static readonly TimeSpan InterimCacheTtl = TimeSpan.FromMinutes(1);
@@ -196,7 +212,7 @@ public class SimilarityService : ISimilarityService
         var filtered = candidates
             .Where(c => !(c.JellyfinItemId is { } jid && watchedSet.Contains(jid)));
 
-        var vectors = await _vectorIndex.GetAsync(ct).ConfigureAwait(false);
+        var vectors = await VectorsWithoutWaitingAsync(_vectorIndex, ct).ConfigureAwait(false);
         var results = Rank(seed, filtered, take, vectors);
         return new BecauseYouWatched(seed, results);
     }
