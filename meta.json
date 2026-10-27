@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "More Like This now uses TMDB's own recommendations and similar titles for the title you're on, ranked ahead of genre matches from your catalog, so the row shows titles people who liked it actually watch. Titles it hadn't seen before are added as requestable. Each title appears once: a library copy and a TMDB copy of the same show no longer both show up, and a title never recommends itself. Requires Jellyfin 12.1 or later. This is a beta release.",
+  "changelog": "Title logos for titles outside your library: when the catalog has no logo, the title details endpoint now asks Jellyfin's own image providers (its built-in TMDB access, plus Fanart.tv if that plugin is installed), prefers an English logo, and keeps it for next time. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.4.1.0",
+  "version": "1.4.2.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
