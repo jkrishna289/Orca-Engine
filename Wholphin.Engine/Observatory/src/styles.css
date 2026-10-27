@@ -531,6 +531,15 @@ html, body {
   max-height: 340px;
 }
 
+/* ---------- setup guides ---------- */
+
+.obs-guide summary { cursor: pointer; font-weight: 600; font-size: 13.5px; padding: 4px 0; }
+.obs-guide ol { margin: 12px 0; padding-left: 22px; display: grid; gap: 14px; font-size: 13px; line-height: 1.5; }
+.obs-guide code { font-family: var(--obs-mono); font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--obs-panel-2); }
+.obs-cmd { display: flex; gap: 8px; align-items: flex-start; margin-top: 6px; }
+.obs-cmd .obs-json { flex: 1; min-width: 0; white-space: pre; }
+.obs-cmd .obs-btn { flex: none; }
+
 /* ---------- settings form ---------- */
 
 .obs-savebar {

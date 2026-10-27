@@ -149,6 +149,104 @@ interface TrailerDiagnostics {
   Metrics: Record<string, number>;
 }
 
+/** A shell command with a Copy button. */
+function Cmd({ children }: { children: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="obs-cmd">
+      <pre className="obs-json">{children}</pre>
+      <button
+        className="obs-btn"
+        onClick={() => navigator.clipboard?.writeText(children).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })}
+      >
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
+  );
+}
+
+// yt-dlp messages that mean "YouTube refused this yt-dlp", as opposed to a title with no trailer.
+const YOUTUBE_BLOCK = /403|forbidden|sign in to confirm|not a bot|nsig|signature|javascript|po token|requested format is not available/i;
+
+/**
+ * How to make trailers work on the server: yt-dlp (current, not the distro's), Deno for YouTube's
+ * signature challenges, and ffmpeg. Opens by itself when the binaries are missing or YouTube is
+ * refusing downloads, which is when an admin actually needs it.
+ */
+function TrailerSetupGuide({ available, failures }: { available: boolean | undefined; failures: TrailerDiagnostics['Failures'] }) {
+  const blocked = failures.filter((f) => YOUTUBE_BLOCK.test(String(pick(f, 'FailureReason') ?? '')));
+  const needsHelp = available === false || blocked.length > 0;
+  return (
+    <Section
+      title="Setup guide: making trailers work"
+      subtitle="Trailers are downloaded from YouTube by yt-dlp and converted by ffmpeg, both running on this server as the Jellyfin user. YouTube changes often, so an out-of-date yt-dlp is the most common reason trailers stop working."
+    >
+      {available === false && (
+        <p className="obs-bad obs-small">yt-dlp or ffmpeg is missing or can't be run by Jellyfin, so no trailers can be made. Follow the steps below.</p>
+      )}
+      {blocked.length > 0 && (
+        <p className="obs-warn obs-small">
+          YouTube is refusing {blocked.length} recent download{blocked.length === 1 ? '' : 's'} (for example “{String(pick(blocked[0], 'FailureReason'))}”). Update yt-dlp and install Deno (steps 2 and 3).
+        </p>
+      )}
+      <details className="obs-guide" open={needsHelp}>
+        <summary>Step-by-step for Debian and Ubuntu (Jellyfin installed from its package)</summary>
+        <ol>
+          <li>
+            <b>See what's installed.</b> If this shows <code>/usr/bin/yt-dlp</code>, that is the distribution's copy. It is months behind,
+            so remove it so it can't take priority over the current one.
+            <Cmd>which -a yt-dlp && yt-dlp --version</Cmd>
+            <Cmd>sudo apt remove -y yt-dlp</Cmd>
+          </li>
+          <li>
+            <b>Install the current yt-dlp.</b> This is the official standalone build, which doesn't need Python. It goes in
+            <code>/usr/local/bin</code>, which the Jellyfin service can see.
+            <Cmd>{'sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp\nsudo chmod a+rx /usr/local/bin/yt-dlp'}</Cmd>
+          </li>
+          <li>
+            <b>Install Deno.</b> yt-dlp needs a JavaScript runtime to get past YouTube's signature checks. Without one, many videos fail with
+            <code>HTTP Error 403: Forbidden</code>.
+            <Cmd>{'sudo apt install -y unzip curl\ncurl -fsSL https://deno.land/install.sh | sudo DENO_INSTALL=/usr/local sh -s -- -y'}</Cmd>
+          </li>
+          <li>
+            <b>Install ffmpeg</b>, if <code>ffmpeg -version</code> doesn't already work. Jellyfin's own <code>jellyfin-ffmpeg</code> is not on the PATH,
+            so install the standard one too.
+            <Cmd>sudo apt install -y ffmpeg</Cmd>
+          </li>
+          <li>
+            <b>Check everything as the Jellyfin user.</b> The last command should finish with no <code>ERROR</code> line.
+            <Cmd>{'sudo -u jellyfin yt-dlp --version\nsudo -u jellyfin deno --version\nsudo -u jellyfin ffmpeg -version | head -1\nsudo -u jellyfin yt-dlp -s "https://www.youtube.com/watch?v=nW948Va-l10"'}</Cmd>
+          </li>
+          <li>
+            <b>Restart Jellyfin</b> so the engine checks for the tools again.
+            <Cmd>sudo systemctl restart jellyfin</Cmd>
+          </li>
+          <li>
+            <b>Optional: keep yt-dlp current.</b> This updates it every Monday at 04:00.
+            <Cmd>{"echo '0 4 * * 1 root /usr/local/bin/yt-dlp -U >/dev/null 2>&1' | sudo tee /etc/cron.d/yt-dlp-update"}</Cmd>
+          </li>
+        </ol>
+        <p className="obs-muted obs-small">
+          <b>Jellyfin in Docker?</b> These steps install on the host, which the container can't see. yt-dlp, Deno and ffmpeg have to be
+          inside the Jellyfin container instead, for example in a custom image built on top of the Jellyfin one.
+        </p>
+        <p className="obs-muted obs-small">
+          <b>After a fix:</b> titles that already failed wait before the next attempt. The wait starts at 5 minutes and doubles up to a day,
+          and titles with no trailer wait a week. New titles are tried straight away. The Failures table below shows the error each tool printed.
+        </p>
+        <Table head={['Reason starts with', 'What it means', 'Fix']}>
+          <tr><td className="obs-mono">HTTP Error 403: Forbidden</td><td>YouTube refused the video stream</td><td>Steps 2 and 3</td></tr>
+          <tr><td className="obs-mono">Sign in to confirm you're not a bot</td><td>YouTube flagged this server's IP</td><td>Steps 2 and 3, then wait a day; the backoff keeps requests low</td></tr>
+          <tr><td className="obs-mono">Requested format is not available</td><td>yt-dlp is too old for YouTube's current formats</td><td>Step 2</td></tr>
+          <tr><td className="obs-mono">Video unavailable / private</td><td>That particular video was removed</td><td>Nothing; another source is tried next time</td></tr>
+          <tr><td className="obs-mono">transcode failed</td><td>ffmpeg couldn't convert the download</td><td>Step 4</td></tr>
+          <tr><td className="obs-mono">no trailer url</td><td>No source had a trailer for the title</td><td>Nothing; it is tried again after a week</td></tr>
+        </Table>
+      </details>
+    </Section>
+  );
+}
+
 export function TrailerResolver() {
   const { data, error, reload } = usePoll<TrailerDiagnostics>('OrcaEngine/Trailer/Diagnostics', 15_000);
   const d = data && {
@@ -175,6 +273,8 @@ export function TrailerResolver() {
 
   return (
     <>
+      <TrailerSetupGuide available={d?.available} failures={d?.failures ?? []} />
+
       <Section
         title="Resolver"
         subtitle="Sources are tried in the configured order until one names a video; yt-dlp then downloads it. The last source searches YouTube directly and scores the results, so a title no provider has a video for can still get one."
@@ -220,7 +320,7 @@ export function TrailerResolver() {
 
       <Section
         title="Failures"
-        subtitle="FailedPermanent means every configured source came back empty — including the scored YouTube search, which declines rather than guess. FailedTemporary means the download or transcode fell over; those retry."
+        subtitle="FailedPermanent means every configured source came back empty — including the scored YouTube search, which declines rather than guess; it is retried after a week. FailedTemporary means the download or transcode fell over, and the reason is what the tool printed; those retry with a growing wait."
       >
         <Table head={['TMDB id', 'Type', 'State', 'Reason', 'Attempts', 'Last tried']} empty={!d?.failures.length}>
           {d?.failures.map((f, i) => (
