@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.5.0",
+        "changelog": "Search beyond the library: a new OrcaEngine/Search endpoint finds movies and series on TMDB that aren't on the server, so the app can show and request them. Titles still on screen are no longer swept from the catalog: an unreferenced requestable title is kept for 14 days after it was last imported or refreshed, so More Like This picks and Home titles keep their details pages. More Like This and Because You Watched no longer wait on a vector-index rebuild (seen at about 18 seconds); they use the index already built while it refreshes. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.5.0-beta/orca-engine_1.4.5.0.zip",
+        "checksum": "2111b7a953e5c488b6b7323ec274ef50",
+        "timestamp": "2026-10-27T19:17:26Z"
+      },
+      {
         "version": "1.4.4.0",
         "changelog": "Observatory: the Trailer Resolver page now opens with a step-by-step setup guide for trailers on Debian and Ubuntu (current yt-dlp, Deno, ffmpeg, checking as the Jellyfin user), with copyable commands, a note for Docker installs, and a table matching each failure reason to its fix. It opens by itself when yt-dlp or ffmpeg is missing or YouTube is refusing downloads. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
