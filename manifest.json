@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.4.0",
+        "changelog": "Observatory: the Trailer Resolver page now opens with a step-by-step setup guide for trailers on Debian and Ubuntu (current yt-dlp, Deno, ffmpeg, checking as the Jellyfin user), with copyable commands, a note for Docker installs, and a table matching each failure reason to its fix. It opens by itself when yt-dlp or ffmpeg is missing or YouTube is refusing downloads. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.4.0-beta/orca-engine_1.4.4.0.zip",
+        "checksum": "657b2d27070ecc7142db4fa355c4ada8",
+        "timestamp": "2026-10-27T14:30:23Z"
+      },
+      {
         "version": "1.4.3.0",
         "changelog": "Trailers: a failed download or transcode now records what yt-dlp or ffmpeg actually said, visible in OrcaEngine/Trailer/Diagnostics and the server log. Failed titles are no longer retried on every card focus: a temporary failure waits 5 minutes, doubling up to a day, and a title with no trailer is retried weekly. ffmpeg can no longer stall on its own log output until the timeout. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
