@@ -113,6 +113,21 @@ public class TrailerService : ITrailerService
             return TrailerState.FailedTemporary;
         }
 
+        // Failed recently: leave it alone until its backoff is up (see RetryAfter).
+        await using (var db = _factory.Create())
+        {
+            var last = await db.TrailerAssets.AsNoTracking()
+                .Where(t => t.TmdbId == tmdbId && t.MediaType == mediaType)
+                .Select(t => new { t.State, t.FailureCount, t.UpdatedAt })
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+            if (last is not null && RetryAfter(last.State, last.FailureCount) is { } wait && last.UpdatedAt + wait > DateTime.UtcNow)
+            {
+                _metrics.Increment("trailer.backoff.skip");
+                return last.State;
+            }
+        }
+
         Directory.CreateDirectory(CacheDir);
         var outPath = Path.Combine(CacheDir, $"{tmdbId}.hd.mp4");
         var tmp = Path.Combine(CacheDir, $"{tmdbId}.src");
@@ -147,10 +162,11 @@ public class TrailerService : ITrailerService
                     "-o", $"{tmp}.%(ext)s", "--", youtubeUrl,
                 ],
                 DownloadTimeoutMs, ct).ConfigureAwait(false);
-            if (!dl || !File.Exists(tmpDl))
+            if (!dl.Ok || !File.Exists(tmpDl))
             {
                 _metrics.Increment("trailer.download.error");
-                await _state.SetStateAsync(tmdbId, mediaType, TrailerState.FailedTemporary, ct, "download failed").ConfigureAwait(false);
+                _logger.LogWarning("Orca Engine: trailer download failed for tmdb {TmdbId}: {Error}", tmdbId, dl.Error ?? "no output file");
+                await _state.SetStateAsync(tmdbId, mediaType, TrailerState.FailedTemporary, ct, $"download failed: {dl.Error ?? "no output file"}").ConfigureAwait(false);
                 return TrailerState.FailedTemporary;
             }
 
@@ -167,11 +183,12 @@ public class TrailerService : ITrailerService
                     "-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", partPath,
                 ],
                 TranscodeTimeoutMs, ct).ConfigureAwait(false);
-            if (!tx || !File.Exists(partPath) || new FileInfo(partPath).Length == 0)
+            if (!tx.Ok || !File.Exists(partPath) || new FileInfo(partPath).Length == 0)
             {
                 TryDelete(partPath);
                 _metrics.Increment("trailer.transcode.error");
-                await _state.SetStateAsync(tmdbId, mediaType, TrailerState.FailedTemporary, ct, "transcode failed").ConfigureAwait(false);
+                _logger.LogWarning("Orca Engine: trailer transcode failed for tmdb {TmdbId}: {Error}", tmdbId, tx.Error ?? "empty output");
+                await _state.SetStateAsync(tmdbId, mediaType, TrailerState.FailedTemporary, ct, $"transcode failed: {tx.Error ?? "empty output"}").ConfigureAwait(false);
                 return TrailerState.FailedTemporary;
             }
 
@@ -325,7 +342,8 @@ public class TrailerService : ITrailerService
         }
     }
 
-    private async Task<bool> RunAsync(string fileName, IReadOnlyList<string> args, int timeoutMs, CancellationToken ct)
+    /// <summary>Runs a binary; on failure, <c>Error</c> is its last stderr line (what yt-dlp/ffmpeg actually said).</summary>
+    private async Task<(bool Ok, string? Error)> RunAsync(string fileName, IReadOnlyList<string> args, int timeoutMs, CancellationToken ct)
     {
         try
         {
@@ -341,6 +359,11 @@ public class TrailerService : ITrailerService
             };
             p.Start();
 
+            // Both pipes drained from the start: ffmpeg logs heavily to stderr, and a full, unread pipe
+            // blocks the process until the timeout kills it.
+            var stdout = p.StandardOutput.ReadToEndAsync(CancellationToken.None);
+            var stderr = p.StandardError.ReadToEndAsync(CancellationToken.None);
+
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(timeoutMs);
             try
@@ -350,17 +373,46 @@ public class TrailerService : ITrailerService
             catch (OperationCanceledException)
             {
                 TryKill(p);
-                return false;
+                ct.ThrowIfCancellationRequested();
+                return (false, $"timed out after {timeoutMs / 1000}s");
             }
 
-            return p.ExitCode == 0;
+            await stdout.ConfigureAwait(false);
+            var err = await stderr.ConfigureAwait(false);
+            return p.ExitCode == 0 ? (true, null) : (false, LastLine(err) ?? $"exit code {p.ExitCode}");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Orca Engine: process {File} failed.", fileName);
-            return false;
+            return (false, ex.Message);
         }
     }
+
+    /// <summary>The last non-blank line of a tool's output, capped to fit a failure reason.</summary>
+    internal static string? LastLine(string? output)
+    {
+        var line = output?
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .LastOrDefault();
+        return string.IsNullOrEmpty(line) ? null : line.Length > 300 ? line[..300] : line;
+    }
+
+    /// <summary>
+    /// How long a failed title is left alone before it may be tried again: temporary failures wait
+    /// 5 min, doubling per consecutive failure up to a day; "no trailer anywhere" waits a week. Without
+    /// this every card focus re-ran yt-dlp, hundreds of times per title, which is what gets a server
+    /// flagged as a bot by YouTube.
+    /// </summary>
+    internal static TimeSpan? RetryAfter(TrailerState state, int failures) => state switch
+    {
+        TrailerState.FailedPermanent => TimeSpan.FromDays(7),
+        TrailerState.FailedTemporary => TimeSpan.FromMinutes(Math.Min(5 * Math.Pow(2, Math.Max(0, failures - 1)), 24 * 60)),
+        _ => null,
+    };
 
     /// <summary>Runs a process and returns its stdout (or null on failure/timeout/missing binary).</summary>
     private Task<string?> RunCaptureAsync(string fileName, IReadOnlyList<string> args, int timeoutMs, CancellationToken ct) =>

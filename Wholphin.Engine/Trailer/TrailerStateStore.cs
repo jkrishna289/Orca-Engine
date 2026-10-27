@@ -107,6 +107,7 @@ public class TrailerStateStore : ITrailerStateStore
             row.FilePath = filePath;
             row.FileBytes = fileBytes;
             row.FailureReason = null;
+            row.FailureCount = 0;            // the retry backoff counts consecutive failures only
             row.ReadyAt = now;
             row.UpdatedAt = now;
             // Only overwrite metadata when freshly probed, so the reconcile path can't null it out.
