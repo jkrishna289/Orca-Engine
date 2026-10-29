@@ -144,7 +144,9 @@ public sealed class JellyfinResumeProvider : IResumeProvider
             {
                 TmdbId = record.TmdbId,
                 MediaType = Wholphin.Engine.Data.Enums.MediaType.Movie,
-                Availability = AvailabilityState.Unavailable,
+                // Not in the library, but out — the viewer is partway through it. Unavailable read
+                // "Coming Soon" on the card.
+                Availability = info?.Availability ?? AvailabilityState.Request,
                 Title = info?.Title ?? record.Title ?? $"Movie {record.TmdbId}",
                 ProductionYear = info?.ProductionYear ?? record.Year,
                 PosterImageUrl = info?.PosterImageUrl,

@@ -47,10 +47,24 @@ public static class TmdbTitleRows
             .ToDictionary(g => g.Key, g => g.Aggregate(Preferred));
 
         var imported = 0;
+        var retitled = 0;
         foreach (var result in results)
         {
             var key = (result.TmdbId, result.MediaType);
-            if (rows.ContainsKey(key) || imported >= maxImports)
+            if (rows.TryGetValue(key, out var row))
+            {
+                // A row outside the library takes TMDB's title. A request creates its row under the
+                // title its client sent, and nothing corrected it: one showed Interstellar as "recon-test".
+                if (row.JellyfinItemId is null && !string.IsNullOrWhiteSpace(result.Title) && row.Title != result.Title)
+                {
+                    row.Title = result.Title;
+                    retitled++;
+                }
+
+                continue;
+            }
+
+            if (imported >= maxImports)
             {
                 continue;
             }
@@ -76,7 +90,7 @@ public static class TmdbTitleRows
             imported++;
         }
 
-        if (imported > 0)
+        if (imported > 0 || retitled > 0)
         {
             await db.SaveChangesAsync(ct).ConfigureAwait(false); // gives the new rows their ids
         }

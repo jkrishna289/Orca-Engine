@@ -87,4 +87,29 @@ public class TitleSearchTests : IDisposable
         Assert.Equal(AvailabilityState.Request, imported.Availability);
         Assert.True(imported.LastSyncedAt > DateTime.UtcNow.AddMinutes(-1)); // inside the sweep's grace period
     }
+
+    [Fact]
+    public async Task ARowOutsideTheLibraryTakesTmdbsTitleAndALibraryRowKeepsItsOwn()
+    {
+        using (var db = _factory.Create())
+        {
+            db.CatalogItems.AddRange(
+                new CatalogItem { TmdbId = 20, MediaType = MediaType.Movie, Title = "recon-test", Availability = AvailabilityState.Request },
+                new CatalogItem { TmdbId = 21, MediaType = MediaType.Movie, Title = "Dune (2021)", JellyfinItemId = Guid.NewGuid(), Availability = AvailabilityState.WatchNow });
+            db.SaveChanges();
+        }
+
+        using (var db = _factory.Create())
+        {
+            await TmdbTitleRows.MatchOrImportAsync(
+                db,
+                new[] { Title(20, MediaType.Movie, "Interstellar"), Title(21, MediaType.Movie, "Dune") },
+                maxImports: 0,
+                CancellationToken.None);
+        }
+
+        using var check = _factory.Create();
+        Assert.Equal("Interstellar", check.CatalogItems.Single(c => c.TmdbId == 20).Title);
+        Assert.Equal("Dune (2021)", check.CatalogItems.Single(c => c.TmdbId == 21).Title);
+    }
 }

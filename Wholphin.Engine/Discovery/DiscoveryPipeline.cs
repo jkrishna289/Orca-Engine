@@ -55,6 +55,8 @@ public class DiscoveryPipeline : IDiscoveryOrchestrator
             .Where(c => c.JellyfinItemId == null && c.Availability == AvailabilityState.Request)
             .Where(c => c.LastSyncedAt < touchedBefore)
             .Where(c => c.TmdbId == null || !db.MediaRequests.Any(r => r.TmdbId == c.TmdbId.Value))
+            // A title someone streamed: its Continue Watching card takes its art from this row.
+            .Where(c => c.TmdbId == null || !db.PlaybackProgress.Any(p => p.TmdbId == c.TmdbId.Value))
             .Where(c => !db.BehaviorEvents.Any(e => e.CatalogItemId == c.Id))
             .Where(c => !db.UserDiscoveryPicks.Any(p => p.CatalogItemId == c.Id));
     }

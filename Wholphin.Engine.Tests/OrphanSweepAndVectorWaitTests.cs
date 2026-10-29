@@ -61,6 +61,23 @@ public class OrphanSweepAndVectorWaitTests : IDisposable
     }
 
     [Fact]
+    public void SweepKeepsATitleSomeoneStreamed()
+    {
+        var now = new DateTime(2026, 10, 27, 12, 0, 0, DateTimeKind.Utc);
+        using (var db = _factory.Create())
+        {
+            db.CatalogItems.AddRange(Requestable(1, now.AddDays(-30)), Requestable(2, now.AddDays(-30)));
+            db.PlaybackProgress.Add(new PlaybackProgressRecord { UserId = Guid.NewGuid(), TmdbId = 1, PositionMs = 60_000, DurationMs = 600_000 });
+            db.SaveChanges();
+        }
+
+        using var read = _factory.Create();
+        var doomed = DiscoveryPipeline.Orphans(read, now).Select(c => c.TmdbId).ToList();
+
+        Assert.Equal(new int?[] { 2 }, doomed);
+    }
+
+    [Fact]
     public async Task MoreLikeThisUsesTheBuiltIndexInsteadOfWaitingForARebuild()
     {
         var built = ContentVectorSnapshot.Empty("cloud");

@@ -208,14 +208,16 @@ public class DefaultCardSelector : ICardSelector
             return CardType.BannerWide;
         }
 
-        if (requestable)
-        {
-            return CardType.Discover;
-        }
-
+        // Before the requestable check: a title being streamed is resumable but not in the library, and
+        // as a Discover card it sat tall and progress-less among Continue Watching's wide cards.
         if (ctx.HasResume || string.Equals(ctx.RowPurpose, "continue", StringComparison.OrdinalIgnoreCase))
         {
             return CardType.BannerWide;
+        }
+
+        if (requestable)
+        {
+            return CardType.Discover;
         }
 
         return item.MediaType switch
