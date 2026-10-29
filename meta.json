@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Search beyond the library: a new OrcaEngine/Search endpoint finds movies and series on TMDB that aren't on the server, so the app can show and request them. Titles still on screen are no longer swept from the catalog: an unreferenced requestable title is kept for 14 days after it was last imported or refreshed, so More Like This picks and Home titles keep their details pages. More Like This and Because You Watched no longer wait on a vector-index rebuild (seen at about 18 seconds); they use the index already built while it refreshes. Requires Jellyfin 12.1 or later. This is a beta release.",
+  "changelog": "Continue Watching: a movie being streamed but not on the server now shows as a wide card with its progress, marked as not in your library, instead of a tall card reading \"Coming Soon\", and the catalog sweep no longer removes its artwork. Titles outside the library now take TMDB's title whenever search or More Like This shows them, correcting rows a request saved under the wrong name. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.4.5.0",
+  "version": "1.4.6.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
