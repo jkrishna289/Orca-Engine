@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -43,6 +44,8 @@ public class LibrarySyncEntryPoint : IHostedService
         _libraryManager.ItemAdded += OnItemAddedOrUpdated;
         _libraryManager.ItemUpdated += OnItemAddedOrUpdated;
         _libraryManager.ItemRemoved += OnItemRemoved;
+        _libraryManager.ItemAdded += OnEpisodeAddedOrRemoved;
+        _libraryManager.ItemRemoved += OnEpisodeAddedOrRemoved;
 
         _worker = Task.Run(() => ConsumeAsync(_cts.Token), CancellationToken.None);
         _ = Task.Run(() => InitialScanIfEmptyAsync(_cts.Token), CancellationToken.None);
@@ -55,6 +58,8 @@ public class LibrarySyncEntryPoint : IHostedService
         _libraryManager.ItemAdded -= OnItemAddedOrUpdated;
         _libraryManager.ItemUpdated -= OnItemAddedOrUpdated;
         _libraryManager.ItemRemoved -= OnItemRemoved;
+        _libraryManager.ItemAdded -= OnEpisodeAddedOrRemoved;
+        _libraryManager.ItemRemoved -= OnEpisodeAddedOrRemoved;
 
         _channel.Writer.TryComplete();
         _cts.Cancel();
@@ -86,6 +91,16 @@ public class LibrarySyncEntryPoint : IHostedService
         }
 
         _channel.Writer.TryWrite(new SyncMessage(e.Item.Id, Removed: true));
+    }
+
+    // A series is only playable once it has an episode (see LibrarySyncService.MapItem), so its
+    // first episode arriving or its last one leaving has to resync it.
+    private void OnEpisodeAddedOrRemoved(object? sender, ItemChangeEventArgs e)
+    {
+        if (e.Item is Episode { SeriesId: var seriesId } && seriesId != Guid.Empty)
+        {
+            _channel.Writer.TryWrite(new SyncMessage(seriesId, Removed: false));
+        }
     }
 
     private async Task ConsumeAsync(CancellationToken ct)

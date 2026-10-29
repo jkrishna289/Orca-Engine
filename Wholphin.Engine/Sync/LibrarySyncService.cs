@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
+using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Stores;
 using Wholphin.Engine.Playback;
 
@@ -74,7 +75,7 @@ public class LibrarySyncService : ILibrarySyncService
         {
             ct.ThrowIfCancellationRequested();
 
-            var mapped = CatalogMapper.Map(item, _libraryManager.GetPeople(item));
+            var mapped = MapItem(item);
             if (mapped.JellyfinItemId is { } jid && existing.TryGetValue(jid, out var current))
             {
                 mapped.Id = current.Id;
@@ -116,7 +117,7 @@ public class LibrarySyncService : ILibrarySyncService
             return;
         }
 
-        var mapped = CatalogMapper.Map(item, _libraryManager.GetPeople(item));
+        var mapped = MapItem(item);
         await _metadataIndex.UpsertAsync(mapped, ct).ConfigureAwait(false);
         await _progress.ReconcileAsync(ct).ConfigureAwait(false);
     }
@@ -133,6 +134,28 @@ public class LibrarySyncService : ILibrarySyncService
 
     /// <inheritdoc />
     public Task<int> CountAsync(CancellationToken ct = default) => _metadataIndex.CountAsync(ct);
+
+    /// <summary>
+    /// Maps a library item, marking a series with no episodes unavailable. Sonarr adds a series
+    /// before anything downloads, and as WatchNow it was recommended with a Play button that opened
+    /// an empty page.
+    /// </summary>
+    private CatalogItem MapItem(BaseItem item)
+    {
+        var mapped = CatalogMapper.Map(item, _libraryManager.GetPeople(item));
+        if (item.GetBaseItemKind() == BaseItemKind.Series
+            && _libraryManager.GetCount(new InternalItemsQuery
+            {
+                AncestorIds = new[] { item.Id },
+                IncludeItemTypes = new[] { BaseItemKind.Episode },
+                IsVirtualItem = false,
+            }) == 0)
+        {
+            mapped.Availability = AvailabilityState.Unavailable;
+        }
+
+        return mapped;
+    }
 
     private static async Task UpsertCursorAsync(WholphinDbContext db, CancellationToken ct)
     {
