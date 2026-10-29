@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Continue Watching: a movie being streamed but not on the server now shows as a wide card with its progress, marked as not in your library, instead of a tall card reading \"Coming Soon\", and the catalog sweep no longer removes its artwork. Titles outside the library now take TMDB's title whenever search or More Like This shows them, correcting rows a request saved under the wrong name. Requires Jellyfin 12.1 or later. This is a beta release.",
+  "changelog": "A library series with no episodes yet, such as one Sonarr has added before anything downloads, is no longer recommended in For You, the billboard or More Like This with a Play button that opens an empty page. It comes back as soon as its first episode arrives. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.4.6.0",
+  "version": "1.4.7.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [

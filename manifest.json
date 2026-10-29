@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.7.0",
+        "changelog": "A library series with no episodes yet, such as one Sonarr has added before anything downloads, is no longer recommended in For You, the billboard or More Like This with a Play button that opens an empty page. It comes back as soon as its first episode arrives. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.7.0-beta/orca-engine_1.4.7.0.zip",
+        "checksum": "051ff532c0c9afed7f025c234e04dc7b",
+        "timestamp": "2026-10-29T11:58:42Z"
+      },
+      {
         "version": "1.4.6.0",
         "changelog": "Continue Watching: a movie being streamed but not on the server now shows as a wide card with its progress, marked as not in your library, instead of a tall card reading \"Coming Soon\", and the catalog sweep no longer removes its artwork. Titles outside the library now take TMDB's title whenever search or More Like This shows them, correcting rows a request saved under the wrong name. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
