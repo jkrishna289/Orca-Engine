@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.8.0",
+        "changelog": "Series pages can list a season's episodes even when that season isn't in your library yet, and pick up where you left off in an episode you streamed. Streamed movies and episodes get intro, recap and credits times from IntroDB, for Skip Intro on streams. A season pack asked for an episode it doesn't hold no longer plays a different episode instead. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.8.0-beta/orca-engine_1.4.8.0.zip",
+        "checksum": "f9ebd7101f3142f3598b87a53524f414",
+        "timestamp": "2026-11-05T12:10:44Z"
+      },
+      {
         "version": "1.4.7.0",
         "changelog": "A library series with no episodes yet, such as one Sonarr has added before anything downloads, is no longer recommended in For You, the billboard or More Like This with a Play button that opens an empty page. It comes back as soon as its first episode arrives. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
