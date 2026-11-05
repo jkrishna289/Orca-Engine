@@ -9,12 +9,12 @@
     "imageUrl": "",
     "versions": [
       {
-        "version": "1.4.9.0",
-        "changelog": "Series get a theme song on their page, including shows that aren't in your library yet. The engine fetches each theme ahead of time for every series on a user's home screen, from Plex's theme server, ThemerrDB or a YouTube search for the show's theme or title track. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "version": "1.4.9.1",
+        "changelog": "Series get a theme song on their page, including shows that aren't in your library yet. The engine fetches each theme ahead of time for every series on a user's home screen, from ThemerrDB or a YouTube search for the show's theme or title track. Replaces 1.4.9.0, which also took themes from Plex's theme server. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
-        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.9.0-beta/orca-engine_1.4.9.0.zip",
-        "checksum": "ab3681c1f33365cd6b762c886d7e6f8d",
-        "timestamp": "2026-11-05T12:28:16Z"
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.9.1-beta/orca-engine_1.4.9.1.zip",
+        "checksum": "ec0e97eb94f1dfa77153716af2c69386",
+        "timestamp": "2026-11-05T12:35:52Z"
       },
       {
         "version": "1.4.8.0",
