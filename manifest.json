@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.10.0",
+        "changelog": "A home card for a title that's in your library, such as a show in For You or In the Spotlight, now opens its library page from Info and Play instead of the not-in-your-library page. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.10.0-beta/orca-engine_1.4.10.0.zip",
+        "checksum": "2b12460bf285b6e38647711aeec059df",
+        "timestamp": "2026-11-05T12:49:20Z"
+      },
+      {
         "version": "1.4.9.1",
         "changelog": "Series get a theme song on their page, including shows that aren't in your library yet. The engine fetches each theme ahead of time for every series on a user's home screen, from ThemerrDB or a YouTube search for the show's theme or title track. Replaces 1.4.9.0, which also took themes from Plex's theme server. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",

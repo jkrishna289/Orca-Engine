@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Series get a theme song on their page, including shows that aren't in your library yet. The engine fetches each theme ahead of time for every series on a user's home screen, from ThemerrDB or a YouTube search for the show's theme or title track. Replaces 1.4.9.0, which also took themes from Plex's theme server. Requires Jellyfin 12.1 or later. This is a beta release.",
+  "changelog": "A home card for a title that's in your library, such as a show in For You or In the Spotlight, now opens its library page from Info and Play instead of the not-in-your-library page. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.4.9.1",
+  "version": "1.4.10.0",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
