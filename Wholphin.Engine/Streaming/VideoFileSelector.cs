@@ -85,13 +85,21 @@ public static class VideoFileSelector
         var threshold = (long)(largest * MinFractionOfLargest);
         candidates = candidates.Where(f => f.Length >= threshold).ToList();
 
-        // 4. A requested episode wins outright; otherwise the biggest file is the feature.
+        // 4. A requested episode wins outright; otherwise the biggest file is the feature. When the
+        //    files are tagged with episodes and none is the one asked for, the torrent doesn't have it:
+        //    the biggest file would be a different episode, played as if it were the right one. Untagged
+        //    files ("Show.E03.mkv", a lone episode named after its title) still fall back.
         if (season.HasValue && episode.HasValue)
         {
             var match = candidates.FirstOrDefault(f => MatchesEpisode(f.Path, season.Value, episode.Value));
             if (match is not null)
             {
                 return match;
+            }
+
+            if (candidates.Any(f => EpisodePattern.IsMatch(f.Path)))
+            {
+                return null;
             }
         }
 

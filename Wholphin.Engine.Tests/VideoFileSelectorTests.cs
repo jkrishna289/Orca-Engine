@@ -92,7 +92,7 @@ public class VideoFileSelectorTests
     }
 
     [Fact]
-    public void FallsBackToLargest_WhenRequestedEpisodeIsAbsent()
+    public void PicksNothing_WhenTaggedEpisodesDontIncludeTheRequestedOne()
     {
         var files = new List<TorrentFileEntry>
         {
@@ -100,8 +100,21 @@ public class VideoFileSelectorTests
             F("Show.S01E02.mkv", 5 * Gb),
         };
 
-        // Asking for an episode the pack doesn't contain should still yield something playable.
-        Assert.Equal("Show.S01E02.mkv", VideoFileSelector.Select(files, season: 1, episode: 9)!.Path);
+        // E2 played as E9 is worse than no stream: the app then searches for E9 itself.
+        Assert.Null(VideoFileSelector.Select(files, season: 1, episode: 9));
+        Assert.Null(VideoFileSelector.Select(files, season: 2, episode: 1));
+    }
+
+    [Fact]
+    public void FallsBackToLargest_WhenNoFileIsTaggedWithAnEpisode()
+    {
+        var files = new List<TorrentFileEntry>
+        {
+            F("Show.E03.180212.720p.mkv", 2 * Gb),
+            F("Sample/sample.mkv", Gb / 10),
+        };
+
+        Assert.Equal("Show.E03.180212.720p.mkv", VideoFileSelector.Select(files, season: 1, episode: 3)!.Path);
     }
 
     [Fact]
