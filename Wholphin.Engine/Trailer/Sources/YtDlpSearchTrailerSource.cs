@@ -129,7 +129,9 @@ public class YtDlpSearchTrailerSource : ITrailerSource
 
         foreach (var line in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var parts = line.TrimEnd('\r').Split('\t');
+            // The format asks for "\t". Should yt-dlp print it as the two characters rather than a tab,
+            // every line would fail the split below and every search would find nothing, silently.
+            var parts = line.TrimEnd('\r').Replace("\\t", "\t", StringComparison.Ordinal).Split('\t');
             if (parts.Length < 2 || string.IsNullOrWhiteSpace(parts[0]) || parts[0] == "NA")
             {
                 continue;

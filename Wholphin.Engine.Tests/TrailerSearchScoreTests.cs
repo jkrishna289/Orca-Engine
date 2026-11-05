@@ -165,6 +165,16 @@ public class TrailerSearchScoreTests
     }
 
     [Fact]
+    public void ParseLines_ReadsALiteralBackslashTAsTheSeparatorToo()
+    {
+        var parsed = YtDlpSearchTrailerSource.ParseLines("abc123\\tPaatal Lok Title Track\\tPrime Video\\t174\n");
+
+        Assert.Single(parsed);
+        Assert.Equal("Paatal Lok Title Track", parsed[0].Title);
+        Assert.Equal(174, parsed[0].DurationSeconds);
+    }
+
+    [Fact]
     public void ParseLines_TreatsNaFieldsAsUnknown()
     {
         var parsed = YtDlpSearchTrailerSource.ParseLines("id1\tSome Trailer\tNA\tNA\n");

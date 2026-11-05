@@ -33,4 +33,11 @@ public class ThemesController : ControllerBase
         Response.Headers.CacheControl = "public, max-age=86400";
         return PhysicalFile(path, "audio/mpeg", enableRangeProcessing: true);
     }
+
+    /// <summary>Whether a series has its theme yet, and what the last lookup found or why it found nothing.</summary>
+    /// <param name="tmdbId">The series' TMDB id.</param>
+    /// <returns>The status.</returns>
+    [HttpGet("{tmdbId:int}/Status")]
+    [AllowAnonymous]
+    public IActionResult Status(int tmdbId) => Ok(new { Cached = _themes.CachedPath(tmdbId) is not null, Note = _themes.Note(tmdbId) });
 }

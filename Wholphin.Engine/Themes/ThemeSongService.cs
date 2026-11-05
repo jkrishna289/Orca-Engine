@@ -32,6 +32,9 @@ public interface IThemeSongService
     /// queued, or was looked for recently and not found.
     /// </summary>
     void Enqueue(int tmdbId, string? title = null);
+
+    /// <summary>What the last lookup for a series found or why it found nothing; null before any.</summary>
+    string? Note(int tmdbId);
 }
 
 /// <summary>
@@ -69,6 +72,10 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
     private readonly IEngineMetrics _metrics;
     private readonly ILogger<ThemeSongService> _logger;
     private int _started;
+    private int _purged;
+
+    /// <summary>Written once the themes from retired sources are gone; see <see cref="PurgeOldSourcesOnce"/>.</summary>
+    private const string SourcesMarker = "sources-2.txt";
 
     /// <summary>Initializes a new instance of the <see cref="ThemeSongService"/> class.</summary>
     public ThemeSongService(
@@ -92,8 +99,38 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
     /// <inheritdoc />
     public string? CachedPath(int tmdbId)
     {
+        PurgeOldSourcesOnce();
         var path = PathFor(tmdbId);
         return tmdbId > 0 && File.Exists(path) ? path : null;
+    }
+
+    /// <inheritdoc />
+    public string? Note(int tmdbId) => _cache.TryGet<string>(NoteKey(tmdbId), out var note) ? note : null;
+
+    /// <summary>
+    /// 1.4.9.0 also took themes from Plex's theme server, which isn't a source any more. Its downloads
+    /// are thrown away once, the first time the cache is used, and refetched from the sources in use.
+    /// </summary>
+    private void PurgeOldSourcesOnce()
+    {
+        if (Interlocked.Exchange(ref _purged, 1) == 1 || !Directory.Exists(Dir))
+        {
+            return;
+        }
+
+        var marker = Path.Combine(Dir, SourcesMarker);
+        if (File.Exists(marker))
+        {
+            return;
+        }
+
+        foreach (var mp3 in Directory.GetFiles(Dir, "*.mp3"))
+        {
+            File.Delete(mp3);
+        }
+
+        File.WriteAllText(marker, "Themes here come from ThemerrDB and YouTube only.");
+        _logger.LogInformation("Orca Engine: cleared themes fetched by an earlier version; they'll be fetched again.");
     }
 
     /// <inheritdoc />
@@ -119,6 +156,10 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
     }
 
     private static string MissKey(int tmdbId) => "theme-miss:" + tmdbId.ToString(CultureInfo.InvariantCulture);
+
+    private static string NoteKey(int tmdbId) => "theme-note:" + tmdbId.ToString(CultureInfo.InvariantCulture);
+
+    private void SetNote(int tmdbId, string note) => _cache.Set(NoteKey(tmdbId), note, NoneFoundFor);
 
     private string PathFor(int tmdbId) => Path.Combine(Dir, tmdbId.ToString(CultureInfo.InvariantCulture) + ".mp3");
 
@@ -148,6 +189,7 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
                 _metrics.Increment("theme.error");
                 _logger.LogWarning(ex, "Orca Engine: theme fetch failed for tmdb {TmdbId}.", tmdbId);
                 _cache.Set(MissKey(tmdbId), true, FailedFor);
+                SetNote(tmdbId, "failed: " + ex.Message);
             }
             finally
             {
@@ -161,21 +203,35 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
     {
         Directory.CreateDirectory(Dir);
 
-        if (await ThemerrDbAsync(tmdbId, ct).ConfigureAwait(false) is { } curated
-            && await FromYouTubeAsync(curated, tmdbId, ct).ConfigureAwait(false))
+        var curated = await ThemerrDbAsync(tmdbId, ct).ConfigureAwait(false);
+        if (curated is not null && await FromYouTubeAsync(curated, tmdbId, ct).ConfigureAwait(false))
         {
+            SetNote(tmdbId, "themerrdb: " + curated);
             return "themerrdb";
         }
 
         var name = (await _tmdb.GetSeriesDetailAsync(tmdbId, ct).ConfigureAwait(false))?.Name ?? title;
-        if (!string.IsNullOrWhiteSpace(name)
-            && await SearchYouTubeAsync(name, ct).ConfigureAwait(false) is { } found
-            && await FromYouTubeAsync(found, tmdbId, ct).ConfigureAwait(false))
+        if (string.IsNullOrWhiteSpace(name))
         {
-            return "youtube";
+            SetNote(tmdbId, "no show name to search YouTube with");
+            return null;
         }
 
-        return null;
+        var (found, why) = await SearchYouTubeAsync(name, ct).ConfigureAwait(false);
+        if (found is null)
+        {
+            SetNote(tmdbId, (curated is null ? string.Empty : "themerrdb's link failed to download; ") + why);
+            return null;
+        }
+
+        if (!await FromYouTubeAsync(found.Value.Url, tmdbId, ct).ConfigureAwait(false))
+        {
+            SetNote(tmdbId, $"youtube: picked “{found.Value.Title}” but it failed to download");
+            return null;
+        }
+
+        SetNote(tmdbId, $"youtube: “{found.Value.Title}”");
+        return "youtube";
     }
 
     private async Task<string?> ThemerrDbAsync(int tmdbId, CancellationToken ct)
@@ -195,10 +251,12 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
             : null;
     }
 
-    private async Task<string?> SearchYouTubeAsync(string name, CancellationToken ct)
+    /// <summary>The best YouTube result for the show's theme, or why there isn't one.</summary>
+    private async Task<((string Url, string Title)? Found, string Why)> SearchYouTubeAsync(string name, CancellationToken ct)
     {
         var clean = name.Replace("\"", string.Empty, StringComparison.Ordinal).Trim();
         var candidates = new List<TrailerCandidate>();
+        var failed = 0;
         foreach (var query in new[] { $"{clean} theme song", $"{clean} title track" })
         {
             var stdout = await ExternalProcess.CaptureAsync(
@@ -207,10 +265,20 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
                 SearchTimeoutMs,
                 _logger,
                 ct).ConfigureAwait(false);
+            failed += stdout is null ? 1 : 0;
             candidates.AddRange(YtDlpSearchTrailerSource.ParseLines(stdout));
         }
 
-        return ThemeCandidates.Best(candidates, name) is { } best ? "https://www.youtube.com/watch?v=" + best.Id : null;
+        if (ThemeCandidates.Best(candidates, name) is { } best)
+        {
+            return (("https://www.youtube.com/watch?v=" + best.Id, best.Title), string.Empty);
+        }
+
+        var why = failed == 2 ? "youtube: the search itself failed (yt-dlp)"
+            : candidates.Count == 0 ? "youtube: the search returned nothing readable"
+            : $"youtube: {candidates.Count} results, none named “{name}” and called a theme or title track, e.g. "
+              + string.Join(" | ", candidates.Take(3).Select(c => c.Title));
+        return (null, why);
     }
 
     /// <summary>Downloads a video's audio and keeps its first <see cref="MaxSeconds"/> seconds, faded out, as MP3.</summary>
