@@ -88,7 +88,7 @@ public sealed class PlaybackControllerTests : IDisposable
     [Fact]
     public async Task ContinueWatchingCannotBeReadBySpoofingTheHomeUserId()
     {
-        var home = new HomeController(null!, null!, null!, _authorization)
+        var home = new HomeController(null!, null!, null!, _authorization, null!)
         { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
         var owner = Guid.NewGuid();
         _authorization.UserId = Guid.Empty;

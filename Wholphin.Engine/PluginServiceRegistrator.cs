@@ -182,6 +182,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<Integrations.Tmdb.ITmdbClient, Integrations.Tmdb.TmdbClient>();
         // Studio/provider tag: caches TMDB watch-provider logos on disk + tags catalog rows with their brand.
         serviceCollection.AddSingleton<Integrations.Tmdb.IProviderLogoCache, Integrations.Tmdb.ProviderLogoCache>();
+        // Theme songs for every series the app shows, fetched in the background and kept as MP3s.
+        serviceCollection.AddSingleton<Themes.IThemeSongService, Themes.ThemeSongService>();
         serviceCollection.AddSingleton<IWatchProviderEnricher, WatchProviderEnricher>();
         // Milestone 8: fail-soft port over Sonarr/Radarr calendars (air dates for New Since Away + Coming Soon).
         serviceCollection.AddSingleton<Integrations.Arr.IArrClient, Integrations.Arr.ArrClient>();

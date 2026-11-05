@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Net;
@@ -22,12 +23,14 @@ public class HomeController : ControllerBase
     private readonly ISettingsService _settings;
     private readonly INewSinceProvider _newSince;
     private readonly IAuthorizationContext _authorization;
+    private readonly Themes.IThemeSongService _themes;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeController"/> class.
     /// </summary>
-    public HomeController(HomeService home, ISettingsService settings, INewSinceProvider newSince, IAuthorizationContext authorization)
+    public HomeController(HomeService home, ISettingsService settings, INewSinceProvider newSince, IAuthorizationContext authorization, Themes.IThemeSongService themes)
     {
+        _themes = themes;
         _home = home;
         _settings = settings;
         _newSince = newSince;
@@ -77,6 +80,16 @@ public class HomeController : ControllerBase
         var capabilities = ParseCapabilities(supported, inlineVideo);
         var settings = await _settings.ResolveAsync(userId, cancellationToken).ConfigureAwait(false);
         var home = await _home.BuildAsync(capabilities, rowSize, userId, cancellationToken).ConfigureAwait(false);
+
+        // Every show this user is about to see gets its theme fetched now, so it's on disk before
+        // they open the show's page. Queued, not awaited: the home screen doesn't wait on YouTube.
+        foreach (var item in home.Rows.SelectMany(r => r.Items))
+        {
+            if (item.Media.MediaType == Data.Enums.MediaType.Series && item.Media.TmdbId is { } tmdbId)
+            {
+                _themes.Enqueue(tmdbId, item.Card.Title);
+            }
+        }
 
         // Stamp "last seen" after building (the row was computed against the PREVIOUS visit) so the
         // next launch's "New Since You Were Away" reflects what arrived while the user was gone.

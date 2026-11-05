@@ -793,6 +793,10 @@ public class TmdbClient : ITmdbClient
         => season < 0 ? [] : ToEpisodes(await FetchAsync<TmdbSeasonDetail>(tmdbId, $"/tv/{tmdbId}/season/{season}", ct).ConfigureAwait(false));
 
     /// <inheritdoc />
+    public Task<TmdbDetail?> GetSeriesDetailAsync(int tmdbId, CancellationToken ct = default)
+        => FetchAsync<TmdbDetail>(tmdbId, $"/tv/{tmdbId}", ct, "append_to_response=external_ids");
+
+    /// <inheritdoc />
     public async Task<string?> GetImdbIdAsync(int tmdbId, MediaType mediaType, CancellationToken ct = default)
         => MediaKind(mediaType) is { } kind
             ? (await FetchAsync<TmdbExternalIds>(tmdbId, $"/{kind}/{tmdbId}/external_ids", ct).ConfigureAwait(false))?.ImdbId
@@ -814,7 +818,7 @@ public class TmdbClient : ITmdbClient
                 e.GuestStars.Select(p => p.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList()!))
             .ToList() ?? [];
 
-    private async Task<T?> FetchAsync<T>(int tmdbId, string path, CancellationToken ct)
+    private async Task<T?> FetchAsync<T>(int tmdbId, string path, CancellationToken ct, params string[] query)
         where T : class
     {
         if (tmdbId <= 0 || !TryConfig(out var apiKey))
@@ -825,7 +829,7 @@ public class TmdbClient : ITmdbClient
         try
         {
             using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var response = await SendAsync(client, apiKey, ct, path).ConfigureAwait(false);
+            using var response = await SendAsync(client, apiKey, ct, path, query).ConfigureAwait(false);
             return response.IsSuccessStatusCode
                 ? await response.Content.ReadFromJsonAsync<T>(JsonOptions, ct).ConfigureAwait(false)
                 : null;

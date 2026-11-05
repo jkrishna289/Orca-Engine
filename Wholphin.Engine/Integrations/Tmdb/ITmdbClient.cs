@@ -133,6 +133,9 @@ public interface ITmdbClient
     /// <summary>One season's episodes in order; empty when unconfigured or on failure.</summary>
     Task<IReadOnlyList<EpisodeInfo>> GetSeasonEpisodesAsync(int tmdbId, int season, CancellationToken ct = default);
 
+    /// <summary>A series' name, first air date and external ids (TVDB, IMDb); null when unknown, unconfigured or on failure.</summary>
+    Task<TmdbDetail?> GetSeriesDetailAsync(int tmdbId, CancellationToken ct = default);
+
     /// <summary>A title's IMDb id ("tt…"); null when unknown, unconfigured or on failure.</summary>
     Task<string?> GetImdbIdAsync(int tmdbId, MediaType mediaType, CancellationToken ct = default);
 }
