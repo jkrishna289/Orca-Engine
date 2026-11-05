@@ -160,6 +160,77 @@ public class TmdbEpisodeStub
     public string? Name { get; set; }
 }
 
+/// <summary>A season as listed on a TMDB tv detail.</summary>
+public class TmdbSeasonStub
+{
+    /// <summary>Gets or sets the season number (0 is Specials).</summary>
+    [JsonPropertyName("season_number")]
+    public int SeasonNumber { get; set; }
+
+    /// <summary>Gets or sets the season name.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>Gets or sets the episode count.</summary>
+    [JsonPropertyName("episode_count")]
+    public int EpisodeCount { get; set; }
+
+    /// <summary>Gets or sets the air date (yyyy-MM-dd).</summary>
+    [JsonPropertyName("air_date")]
+    public string? AirDate { get; set; }
+
+    /// <summary>Gets or sets the poster path.</summary>
+    [JsonPropertyName("poster_path")]
+    public string? PosterPath { get; set; }
+}
+
+/// <summary>A TMDB <c>/tv/{id}/season/{n}</c> response (only its episodes).</summary>
+public class TmdbSeasonDetail
+{
+    /// <summary>Gets or sets the episodes.</summary>
+    [JsonPropertyName("episodes")]
+    public List<TmdbEpisode> Episodes { get; set; } = new();
+}
+
+/// <summary>One episode of a TMDB season.</summary>
+public class TmdbEpisode : TmdbEpisodeStub
+{
+    /// <summary>Gets or sets the overview.</summary>
+    [JsonPropertyName("overview")]
+    public string? Overview { get; set; }
+
+    /// <summary>Gets or sets the runtime in minutes.</summary>
+    [JsonPropertyName("runtime")]
+    public int? Runtime { get; set; }
+
+    /// <summary>Gets or sets the still path.</summary>
+    [JsonPropertyName("still_path")]
+    public string? StillPath { get; set; }
+
+    /// <summary>Gets or sets the vote average.</summary>
+    [JsonPropertyName("vote_average")]
+    public double? VoteAverage { get; set; }
+
+    /// <summary>Gets or sets the guest stars.</summary>
+    [JsonPropertyName("guest_stars")]
+    public List<TmdbPerson> GuestStars { get; set; } = new();
+}
+
+/// <summary>A season the engine hands to clients.</summary>
+public sealed record SeasonInfo(int SeasonNumber, string Name, int EpisodeCount, string? AirDate, string? PosterUrl);
+
+/// <summary>An episode the engine hands to clients.</summary>
+public sealed record EpisodeInfo(
+    int SeasonNumber,
+    int EpisodeNumber,
+    string? Name,
+    string? Overview,
+    string? AirDate,
+    int? RuntimeMinutes,
+    string? StillUrl,
+    double? CommunityRating,
+    IReadOnlyList<string> GuestStars);
+
 /// <summary>A TMDB movie/tv detail (only the fields the engine reads), with appended videos.</summary>
 public class TmdbDetail
 {
@@ -238,6 +309,10 @@ public class TmdbDetail
     /// <summary>Gets or sets the last episode to air (TV only).</summary>
     [JsonPropertyName("last_episode_to_air")]
     public TmdbEpisodeStub? LastEpisodeToAir { get; set; }
+
+    /// <summary>Gets or sets the seasons (TV only; numbers and counts, no episodes).</summary>
+    [JsonPropertyName("seasons")]
+    public List<TmdbSeasonStub> Seasons { get; set; } = new();
 
     /// <summary>Gets or sets the appended external-ids block.</summary>
     [JsonPropertyName("external_ids")]

@@ -60,6 +60,16 @@ public sealed class PlaybackController : ControllerBase
         catch (ArgumentException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    /// <summary>Every streamed episode of one series this user has progress on, most recently touched first.</summary>
+    [HttpGet("Progress/Series")]
+    public async Task<ActionResult<IReadOnlyList<SeriesEpisodeProgress>>> GetSeries([FromQuery] int tmdbId, CancellationToken cancellationToken = default)
+    {
+        var userId = (await _authorization.GetAuthorizationInfo(HttpContext).ConfigureAwait(false)).UserId;
+        if (userId == Guid.Empty) return Unauthorized();
+        var rows = await _progress.GetSeriesAsync(userId, tmdbId, cancellationToken).ConfigureAwait(false);
+        return Ok(rows.Select(r => new SeriesEpisodeProgress(r.Season, r.Episode, r.PositionMs, r.DurationMs, r.Completed, r.UpdatedAt)).ToList());
+    }
+
     [HttpPost("Sessions/{sessionId:guid}/Progress")]
     public async Task<IActionResult> Report(Guid sessionId, [FromBody] PlaybackProgressUpdate update, CancellationToken cancellationToken)
     {
@@ -92,6 +102,14 @@ public sealed class StartPlaybackRequest
     [JsonPropertyName("Year")]
     public int? Year { get; set; }
 }
+
+public sealed record SeriesEpisodeProgress(
+    [property: JsonPropertyName("Season")] int Season,
+    [property: JsonPropertyName("Episode")] int Episode,
+    [property: JsonPropertyName("PositionMs")] long PositionMs,
+    [property: JsonPropertyName("DurationMs")] long DurationMs,
+    [property: JsonPropertyName("Completed")] bool Completed,
+    [property: JsonPropertyName("UpdatedAt")] DateTime UpdatedAt);
 
 public sealed record PlaybackProgressResponse(
     [property: JsonPropertyName("SessionId")] Guid SessionId,

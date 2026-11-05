@@ -34,6 +34,8 @@ public interface IPlaybackProgressService
     Task<PlaybackReportResult> ReportAsync(Guid userId, Guid sessionId, PlaybackProgressUpdate update, CancellationToken ct = default);
     Task<PlaybackProgressRecord?> GetAsync(Guid userId, PlaybackIdentity identity, CancellationToken ct = default);
     Task<IReadOnlyList<PlaybackProgressRecord>> GetRecentAsync(Guid userId, int limit = 100, CancellationToken ct = default);
+    /// <summary>One series' episode rows for a user, most recently touched first.</summary>
+    Task<IReadOnlyList<PlaybackProgressRecord>> GetSeriesAsync(Guid userId, int tmdbId, CancellationToken ct = default);
     Task<IReadOnlyList<PlaybackProgressRecord>> GetPendingAsync(CancellationToken ct = default);
     /// <summary>Serializes a Jellyfin apply/adoption with progress writes. Callback must not reenter this service.</summary>
     Task ReconcileAsync(long recordId, Func<PlaybackProgressRecord, CancellationToken, Task<bool>> apply, CancellationToken ct = default);

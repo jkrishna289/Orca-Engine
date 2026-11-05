@@ -782,6 +782,62 @@ public class TmdbClient : ITmdbClient
     private static string? Image(string size, string? path)
         => string.IsNullOrWhiteSpace(path) ? null : ImageBase + size + path;
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SeasonInfo>> GetSeasonsAsync(int tmdbId, CancellationToken ct = default)
+        => (await FetchAsync<TmdbDetail>(tmdbId, $"/tv/{tmdbId}", ct).ConfigureAwait(false))?.Seasons
+            .Select(s => new SeasonInfo(s.SeasonNumber, s.Name ?? $"Season {s.SeasonNumber}", s.EpisodeCount, s.AirDate, Image("w342", s.PosterPath)))
+            .ToList() ?? [];
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<EpisodeInfo>> GetSeasonEpisodesAsync(int tmdbId, int season, CancellationToken ct = default)
+        => season < 0 ? [] : ToEpisodes(await FetchAsync<TmdbSeasonDetail>(tmdbId, $"/tv/{tmdbId}/season/{season}", ct).ConfigureAwait(false));
+
+    /// <inheritdoc />
+    public async Task<string?> GetImdbIdAsync(int tmdbId, MediaType mediaType, CancellationToken ct = default)
+        => MediaKind(mediaType) is { } kind
+            ? (await FetchAsync<TmdbExternalIds>(tmdbId, $"/{kind}/{tmdbId}/external_ids", ct).ConfigureAwait(false))?.ImdbId
+            : null;
+
+    internal static IReadOnlyList<EpisodeInfo> ToEpisodes(TmdbSeasonDetail? season)
+        => season?.Episodes
+            .Where(e => e.SeasonNumber is not null && e.EpisodeNumber is not null)
+            .OrderBy(e => e.EpisodeNumber)
+            .Select(e => new EpisodeInfo(
+                e.SeasonNumber!.Value,
+                e.EpisodeNumber!.Value,
+                e.Name,
+                string.IsNullOrWhiteSpace(e.Overview) ? null : e.Overview,
+                e.AirDate,
+                e.Runtime is > 0 ? e.Runtime : null,
+                Image("w300", e.StillPath),
+                e.VoteAverage is > 0 ? e.VoteAverage : null,
+                e.GuestStars.Select(p => p.Name).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList()!))
+            .ToList() ?? [];
+
+    private async Task<T?> FetchAsync<T>(int tmdbId, string path, CancellationToken ct)
+        where T : class
+    {
+        if (tmdbId <= 0 || !TryConfig(out var apiKey))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
+            using var response = await SendAsync(client, apiKey, ct, path).ConfigureAwait(false);
+            return response.IsSuccessStatusCode
+                ? await response.Content.ReadFromJsonAsync<T>(JsonOptions, ct).ConfigureAwait(false)
+                : null;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            _metrics.Increment("tmdb.fetch.error");
+            _logger.LogWarning(ex, "Orca Engine: TMDB {Path} fetch failed.", path);
+            return null;
+        }
+    }
+
     /// <summary>
     /// Picks the best trailer video, preferring the wanted audio language ("use English audio
     /// whenever it's available"): official trailer in the language → any trailer in the language →

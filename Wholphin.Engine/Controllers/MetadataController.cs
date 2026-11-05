@@ -35,6 +35,9 @@ public class MetadataController : ControllerBase
     private readonly Diagnostics.IEngineMetrics _metrics;
     private readonly IWholphinDbContextFactory _factory;
     private readonly IProviderManager _providers;
+    private readonly Integrations.Tmdb.ITmdbClient _tmdb;
+    private readonly Caching.ICache _cache;
+    private readonly System.Net.Http.IHttpClientFactory _http;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MetadataController"/> class.
@@ -46,8 +49,14 @@ public class MetadataController : ControllerBase
         IMetadataAggregator aggregator,
         Diagnostics.IEngineMetrics metrics,
         IWholphinDbContextFactory factory,
-        IProviderManager providers)
+        IProviderManager providers,
+        Integrations.Tmdb.ITmdbClient tmdb,
+        Caching.ICache cache,
+        System.Net.Http.IHttpClientFactory http)
     {
+        _tmdb = tmdb;
+        _cache = cache;
+        _http = http;
         _providers = providers;
         _trivia = trivia;
         _warnings = warnings;
@@ -156,6 +165,94 @@ public class MetadataController : ControllerBase
             CollectionName = item.CollectionName,
             LogoImageUrl = string.IsNullOrWhiteSpace(item.LogoImageUrl) ? null : item.LogoImageUrl,
         };
+    }
+
+    /// <summary>A series' seasons from TMDB, so a show that isn't (fully) in the library can still be browsed.</summary>
+    /// <param name="tmdbId">The series' TMDB id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The seasons, Specials included; empty when TMDB is unset or down.</returns>
+    [HttpGet("Seasons")]
+    [AllowAnonymous]
+    public async Task<ActionResult<IReadOnlyList<Integrations.Tmdb.SeasonInfo>>> GetSeasons(
+        [FromQuery] int tmdbId,
+        CancellationToken cancellationToken = default)
+        => Ok(await _tmdb.GetSeasonsAsync(tmdbId, cancellationToken).ConfigureAwait(false));
+
+    /// <summary>One season's episodes from TMDB, in order.</summary>
+    /// <param name="tmdbId">The series' TMDB id.</param>
+    /// <param name="season">The season number (0 is Specials).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The episodes; empty when TMDB is unset or down.</returns>
+    [HttpGet("Episodes")]
+    [AllowAnonymous]
+    public async Task<ActionResult<IReadOnlyList<Integrations.Tmdb.EpisodeInfo>>> GetEpisodes(
+        [FromQuery] int tmdbId,
+        [FromQuery] int season,
+        CancellationToken cancellationToken = default)
+        => Ok(await _tmdb.GetSeasonEpisodesAsync(tmdbId, season, cancellationToken).ConfigureAwait(false));
+
+    /// <summary>
+    /// Intro, recap and credits times for a streamed movie or episode, from IntroDB. A stream isn't a
+    /// library item, so Jellyfin's own segments never cover it.
+    /// </summary>
+    /// <param name="tmdbId">The movie's or series' TMDB id.</param>
+    /// <param name="type"><c>movie</c> or <c>tv</c>.</param>
+    /// <param name="season">The season, for an episode.</param>
+    /// <param name="episode">The episode, for an episode.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Whatever is known; every part null when nothing is.</returns>
+    [HttpGet("Segments")]
+    [AllowAnonymous]
+    public async Task<ActionResult<SkipSegments>> GetSegments(
+        [FromQuery] int tmdbId,
+        [FromQuery] string? type,
+        [FromQuery] int? season,
+        [FromQuery] int? episode,
+        CancellationToken cancellationToken = default)
+    {
+        var tv = type?.ToLowerInvariant() is "tv" or "series";
+        if (tmdbId <= 0 || (tv && (season is null || episode is null)))
+        {
+            return BadRequest("tmdbId, and season and episode for tv, are required.");
+        }
+
+        var key = $"introdb:{(tv ? "tv" : "movie")}:{tmdbId}:{season}:{episode}";
+        if (_cache.TryGet<SkipSegments>(key, out var known) && known is not null)
+        {
+            return Ok(known);
+        }
+
+        var mediaType = tv ? MediaType.Series : MediaType.Movie;
+        await using var db = _factory.Create();
+        var imdb = await db.CatalogItems
+            .Where(c => c.TmdbId == tmdbId && c.MediaType == mediaType && c.ImdbId != null)
+            .Select(c => c.ImdbId)
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false)
+            ?? await _tmdb.GetImdbIdAsync(tmdbId, mediaType, cancellationToken).ConfigureAwait(false);
+
+        SkipSegments? found = null;
+        if (!string.IsNullOrWhiteSpace(imdb))
+        {
+            try
+            {
+                using var client = _http.CreateClient(Wholphin.Engine.Diagnostics.OrcaMetricsHandler.ClientName);
+                using var response = await client.GetAsync(IntroDb.Url(imdb, tv ? season : null, tv ? episode : null), cancellationToken).ConfigureAwait(false);
+                found = response.StatusCode == System.Net.HttpStatusCode.NotFound ? SkipSegments.None
+                    : response.IsSuccessStatusCode ? IntroDb.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false))
+                    : null;
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                _metrics.Increment("introdb.error");   // IntroDB down or unreachable: no skip button, retried soon
+            }
+        }
+
+        // Times rarely change once submitted; an untimed episode is often timed later; a failure is
+        // retried soon. Every play of an episode asks, so even a miss is worth remembering a while.
+        var result = found ?? SkipSegments.None;
+        _cache.Set(key, result, found is null ? TimeSpan.FromMinutes(30) : found.IsEmpty ? TimeSpan.FromHours(12) : TimeSpan.FromDays(7));
+        return Ok(result);
     }
 
     // A throwaway, never-saved Movie/Series carrying only the TMDB id is enough for the providers. No

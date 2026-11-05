@@ -126,4 +126,13 @@ public interface ITmdbClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The primary provider brand, or null when none/unconfigured/on failure.</returns>
     Task<TmdbProviderBrand?> GetPrimaryProviderAsync(int tmdbId, MediaType mediaType, string region, CancellationToken ct = default);
+
+    /// <summary>A series' seasons, Specials included; empty when unconfigured or on failure.</summary>
+    Task<IReadOnlyList<SeasonInfo>> GetSeasonsAsync(int tmdbId, CancellationToken ct = default);
+
+    /// <summary>One season's episodes in order; empty when unconfigured or on failure.</summary>
+    Task<IReadOnlyList<EpisodeInfo>> GetSeasonEpisodesAsync(int tmdbId, int season, CancellationToken ct = default);
+
+    /// <summary>A title's IMDb id ("tt…"); null when unknown, unconfigured or on failure.</summary>
+    Task<string?> GetImdbIdAsync(int tmdbId, MediaType mediaType, CancellationToken ct = default);
 }

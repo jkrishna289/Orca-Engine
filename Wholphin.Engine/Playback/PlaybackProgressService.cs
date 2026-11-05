@@ -84,6 +84,15 @@ public sealed class PlaybackProgressService : IPlaybackProgressService
             .OrderByDescending(p => p.UpdatedAt).Take(Math.Max(1, limit)).ToListAsync(ct).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<PlaybackProgressRecord>> GetSeriesAsync(Guid userId, int tmdbId, CancellationToken ct = default)
+    {
+        ValidateUser(userId);
+        await using var db = _factory.Create();
+        return await db.PlaybackProgress.AsNoTracking()
+            .Where(p => p.UserId == userId && p.TmdbId == tmdbId && p.MediaType == "tv" && p.Revision > 0)
+            .OrderByDescending(p => p.UpdatedAt).ToListAsync(ct).ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<PlaybackProgressRecord>> GetPendingAsync(CancellationToken ct = default)
     {
         await using var db = _factory.Create();
