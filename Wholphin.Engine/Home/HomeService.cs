@@ -172,6 +172,47 @@ public class HomeService
     /// <summary>Builds the home bundle, optionally personalized for a user (cached per user).</summary>
     public async Task<RenderBundle> BuildAsync(ClientCapabilities capabilities, int rowSize, Guid? userId, CancellationToken ct)
     {
+        var bundle = await BuildBundleAsync(capabilities, rowSize, userId, ct).ConfigureAwait(false);
+        await AttachLibraryIdsAsync(bundle, _factory, ct).ConfigureAwait(false);
+        return bundle;
+    }
+
+    /// <summary>
+    /// A title the library has can still reach a row as its TMDB catalog entry, without a library id,
+    /// and a card without one opens the not-in-your-library page even though the show is right there.
+    /// Before the home goes out, every card missing a library id gets the one from the library's own
+    /// catalog entry for the same TMDB id and media type. One query per home, cached or fresh.
+    /// </summary>
+    internal static async Task AttachLibraryIdsAsync(RenderBundle bundle, IWholphinDbContextFactory factory, CancellationToken ct)
+    {
+        var missing = bundle.Rows.SelectMany(r => r.Items).Where(i => i.Media.JellyfinId is null && i.Media.TmdbId is not null).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        var tmdbIds = missing.Select(i => i.Media.TmdbId!.Value).Distinct().ToList();
+        await using var db = factory.Create();
+        var library = await db.CatalogItems.AsNoTracking()
+            .Where(c => c.JellyfinItemId != null && c.TmdbId != null && tmdbIds.Contains(c.TmdbId.Value))
+            .Select(c => new { TmdbId = c.TmdbId!.Value, c.MediaType, c.JellyfinItemId })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        var byTitle = library.GroupBy(c => (c.TmdbId, c.MediaType)).ToDictionary(g => g.Key, g => g.First().JellyfinItemId);
+
+        // Cached bundles are shared between requests: writing the same id into them is harmless.
+        foreach (var item in missing)
+        {
+            if (byTitle.TryGetValue((item.Media.TmdbId!.Value, item.Media.MediaType), out var jellyfinId))
+            {
+                item.Media.JellyfinId = jellyfinId;
+                item.Media.Source = MediaSource.Jellyfin;
+            }
+        }
+    }
+
+    private async Task<RenderBundle> BuildBundleAsync(ClientCapabilities capabilities, int rowSize, Guid? userId, CancellationToken ct)
+    {
         var personalized = userId is { } u && u != Guid.Empty;
 
         // Timed from the very top: the cache-hit path is the one the performance budget actually
