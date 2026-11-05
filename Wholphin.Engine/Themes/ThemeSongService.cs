@@ -36,10 +36,11 @@ public interface IThemeSongService
 
 /// <summary>
 /// Finds a series' theme and keeps it as <c>{DataPath}/wholphin-engine/themes/{tmdbId}.mp3</c>. Sources,
-/// first that has it wins: Plex's theme server (by TVDB id, a ready MP3), ThemerrDB (a curated YouTube
-/// link, by TMDB id), then a YouTube search for the show's theme or title song, scored so a review or a
-/// trailer never stands in for it. One worker fetches one show at a time, so a home screen full of new
-/// shows queues up rather than running a dozen yt-dlp processes at once.
+/// first that has it wins: ThemerrDB (a curated YouTube link, by TMDB id), then a YouTube search for the
+/// show's theme or title song, scored so a review or a trailer never stands in for it. Plex's theme
+/// server is deliberately not a source: it's Plex's own, not published for anyone else to use. One
+/// worker fetches one show at a time, so a home screen full of new shows queues up rather than running a
+/// dozen yt-dlp processes at once.
 /// </summary>
 public sealed class ThemeSongService : IThemeSongService, IDisposable
 {
@@ -159,13 +160,6 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
     private async Task<string?> FetchAsync(int tmdbId, string? title, CancellationToken ct)
     {
         Directory.CreateDirectory(Dir);
-        var detail = await _tmdb.GetSeriesDetailAsync(tmdbId, ct).ConfigureAwait(false);
-
-        if (detail?.ExternalIds?.TvdbId is { } tvdb
-            && await DownloadMp3Async($"https://tvthemes.plexapp.com/{tvdb.ToString(CultureInfo.InvariantCulture)}.mp3", tmdbId, ct).ConfigureAwait(false))
-        {
-            return "plex";
-        }
 
         if (await ThemerrDbAsync(tmdbId, ct).ConfigureAwait(false) is { } curated
             && await FromYouTubeAsync(curated, tmdbId, ct).ConfigureAwait(false))
@@ -173,7 +167,7 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
             return "themerrdb";
         }
 
-        var name = detail?.Name ?? title;
+        var name = (await _tmdb.GetSeriesDetailAsync(tmdbId, ct).ConfigureAwait(false))?.Name ?? title;
         if (!string.IsNullOrWhiteSpace(name)
             && await SearchYouTubeAsync(name, ct).ConfigureAwait(false) is { } found
             && await FromYouTubeAsync(found, tmdbId, ct).ConfigureAwait(false))
@@ -182,25 +176,6 @@ public sealed class ThemeSongService : IThemeSongService, IDisposable
         }
 
         return null;
-    }
-
-    private async Task<bool> DownloadMp3Async(string url, int tmdbId, CancellationToken ct)
-    {
-        using var client = _http.CreateClient(OrcaMetricsHandler.ClientName);
-        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode
-            || response.Content.Headers.ContentType?.MediaType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) != true)
-        {
-            return false;
-        }
-
-        var part = PathFor(tmdbId) + ".part";
-        await using (var file = File.Create(part))
-        {
-            await response.Content.CopyToAsync(file, ct).ConfigureAwait(false);
-        }
-
-        return Publish(part, tmdbId);
     }
 
     private async Task<string?> ThemerrDbAsync(int tmdbId, CancellationToken ct)
