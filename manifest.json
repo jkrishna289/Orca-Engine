@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.9.0",
+        "changelog": "Series get a theme song on their page, including shows that aren't in your library yet. The engine fetches each theme ahead of time for every series on a user's home screen, from Plex's theme server, ThemerrDB or a YouTube search for the show's theme or title track. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.9.0-beta/orca-engine_1.4.9.0.zip",
+        "checksum": "ab3681c1f33365cd6b762c886d7e6f8d",
+        "timestamp": "2026-11-05T12:28:16Z"
+      },
+      {
         "version": "1.4.8.0",
         "changelog": "Series pages can list a season's episodes even when that season isn't in your library yet, and pick up where you left off in an episode you streamed. Streamed movies and episodes get intro, recap and credits times from IntroDB, for Skip Intro on streams. A season pack asked for an episode it doesn't hold no longer plays a different episode instead. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
