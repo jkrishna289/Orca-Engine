@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.13.1",
+        "changelog": "Fixes 1.4.13.0, whose home screen came back empty on existing servers: a new database column was never added, so every catalog query failed. Missing columns are now added on every start. Includes everything in 1.4.13.0: ratings count for as much as their votes support, language weighs as much as genre, titles you keep skipping sink out of For You, and (from 1.4.12.0) starting a title no longer counts as watching it and For You changes daily. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.13.1-beta/orca-engine_1.4.13.1.zip",
+        "checksum": "22f8c6aca8a04be3f99c157d924d1b0a",
+        "timestamp": "2026-11-08T09:42:14Z"
+      },
+      {
         "version": "1.4.13.0",
         "changelog": "Ratings now count for as much as their votes support, so a 10.0 from a handful of votes no longer leads Critically Acclaimed or tops For You. Recommendations weigh the language you watch as much as genre, and titles stop winning just for carrying more tags and cast. A title shown on five or more days that you never focus, open or play sinks out of For You, and comes back after a few weeks. Includes 1.4.12.0: starting a title no longer counts as watching it, shows watched live shape your picks, and For You changes daily. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
