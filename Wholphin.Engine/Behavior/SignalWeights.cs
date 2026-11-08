@@ -22,6 +22,12 @@ public static class SignalWeights
     /// <summary>Completion fraction at or above which a stop counts as effectively finished.</summary>
     public const double NearCompleteThreshold = 0.80;
 
+    /// <summary>How many finishes of one film count. A comfort rewatch must not drown everything else.</summary>
+    public const int MaxFinishesPerFilm = 3;
+
+    /// <summary>How many finished episodes of one series count, so a long show can't outweigh films by length.</summary>
+    public const int MaxFinishesPerSeries = 5;
+
     /// <summary>
     /// Returns the affinity weight contribution for a captured event.
     /// </summary>

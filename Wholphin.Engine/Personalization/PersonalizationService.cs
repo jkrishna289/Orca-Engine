@@ -134,16 +134,10 @@ public class PersonalizationService : IPersonalizationService
             var dayparts = new Dictionary<string, DimensionAccumulator>();
 
             var now = DateTime.UtcNow;
-            foreach (var e in events)
+            foreach (var (e, item) in Countable(events, ev => ResolveItem(ev, byJellyfinId, byCatalogId)))
             {
                 var weight = SignalWeights.For(e.EventType, e.Value);
                 if (weight == 0)
-                {
-                    continue;
-                }
-
-                var item = ResolveItem(e, byJellyfinId, byCatalogId);
-                if (item is null)
                 {
                     continue;
                 }
@@ -391,6 +385,58 @@ public class PersonalizationService : IPersonalizationService
 
         return contributed ? acc.Build(DateTime.UtcNow) : null;
     }
+
+    /// <summary>
+    /// The events that shape taste, each with its title. A title counts at most
+    /// <see cref="SignalWeights.MaxFinishesPerFilm"/> / <see cref="SignalWeights.MaxFinishesPerSeries"/>
+    /// finishes, newest kept: live capture and the daily import both record the same watches, and a
+    /// binge must not outweigh a dozen films. An early stop on a title the viewer has finished (or
+    /// finished episodes of) is an interruption, not a rejection, so it doesn't count against it.
+    /// </summary>
+    /// <param name="events">The user's events.</param>
+    /// <param name="resolve">Maps an event to its catalog title (null = unknown, dropped).</param>
+    /// <returns>The countable events, newest first.</returns>
+    public static List<(BehaviorEvent Event, CatalogItem Item)> Countable(
+        IEnumerable<BehaviorEvent> events,
+        Func<BehaviorEvent, CatalogItem?> resolve)
+    {
+        var resolved = events
+            .Select(e => (Event: e, Item: resolve(e)))
+            .Where(x => x.Item is not null)
+            .OrderByDescending(x => x.Event.Timestamp)
+            .Select(x => (x.Event, Item: x.Item!))
+            .ToList();
+        var finished = resolved.Where(x => IsFinish(x.Event.EventType)).Select(x => x.Item.Id).ToHashSet();
+        var finishes = new Dictionary<long, int>();
+        var countable = new List<(BehaviorEvent Event, CatalogItem Item)>(resolved.Count);
+        foreach (var (e, item) in resolved)
+        {
+            if (IsFinish(e.EventType))
+            {
+                var cap = item.MediaType == MediaType.Series ? SignalWeights.MaxFinishesPerSeries : SignalWeights.MaxFinishesPerFilm;
+                var count = finishes.GetValueOrDefault(item.Id);
+                if (count >= cap)
+                {
+                    continue;
+                }
+
+                finishes[item.Id] = count + 1;
+            }
+            else if (e.EventType == BehaviorEventType.PlaybackStopped
+                     && e.Value < SignalWeights.EarlyAbandonThreshold
+                     && finished.Contains(item.Id))
+            {
+                continue;
+            }
+
+            countable.Add((e, item));
+        }
+
+        return countable;
+    }
+
+    private static bool IsFinish(BehaviorEventType type) =>
+        type is BehaviorEventType.PlaybackCompleted or BehaviorEventType.MarkedPlayed;
 
     private static CatalogItem? ResolveItem(
         BehaviorEvent e,

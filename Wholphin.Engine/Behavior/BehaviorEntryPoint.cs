@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Entities;
@@ -83,7 +84,7 @@ public class BehaviorEntryPoint : IHostedService
             _behavior.Record(new BehaviorEvent
             {
                 UserId = user.Id,
-                JellyfinItemId = e.Item.Id,
+                JellyfinItemId = TasteItemId(e.Item),
                 EventType = BehaviorEventType.PlaybackStarted,
                 Value = 0,
                 ContextJson = context
@@ -108,7 +109,7 @@ public class BehaviorEntryPoint : IHostedService
             _behavior.Record(new BehaviorEvent
             {
                 UserId = user.Id,
-                JellyfinItemId = e.Item.Id,
+                JellyfinItemId = TasteItemId(e.Item),
                 EventType = type,
                 Value = finished ? 1.0 : completion,
                 ContextJson = context
@@ -147,12 +148,22 @@ public class BehaviorEntryPoint : IHostedService
         _behavior.Record(new BehaviorEvent
         {
             UserId = e.UserId,
-            JellyfinItemId = e.Item.Id,
+            JellyfinItemId = TasteItemId(e.Item),
             EventType = type,
             Value = value,
             ContextJson = BuildContext(null, null, null)
         });
     }
+
+    /// <summary>
+    /// The title an event belongs to: an episode's series, else the item itself. Taste, popularity and
+    /// similarity all work on catalog titles, which are series — events stored under the episode id
+    /// matched nothing and were silently dropped, so watching a show live never shaped anything.
+    /// </summary>
+    /// <param name="item">The played or changed item.</param>
+    /// <returns>The Jellyfin id to record the event under.</returns>
+    public static Guid TasteItemId(BaseItem item) =>
+        item is Episode { SeriesId: var series } && series != Guid.Empty ? series : item.Id;
 
     private static bool IsRelevant(BaseItem? item)
     {

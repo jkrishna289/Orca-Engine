@@ -147,6 +147,59 @@ public class WatchHistoryImportTests
     }
 
     [Fact]
+    public void ATwoMinuteSampleIsADislikeNotAWatch()
+    {
+        // Jellyfin raises PlayCount when playback starts and drops the resume point under ~5%, so a
+        // two-minute sample looks exactly like this. It used to import as a full watch (+5).
+        var events = new List<BehaviorEvent>();
+        WatchHistoryImporter.AppendMovie(events, User, Item, new UserItemData { Key = "k", PlayCount = 1, LastPlayedDate = DateTime.UtcNow }, TimeSpan.FromMinutes(100).Ticks);
+
+        var e = Assert.Single(events);
+        Assert.Equal(BehaviorEventType.PlaybackStopped, e.EventType);
+        Assert.True(Weight(events) < 0);
+    }
+
+    [Fact]
+    public void AHalfWatchedFilmCountsByHowFarItGot()
+    {
+        var runtime = TimeSpan.FromMinutes(100).Ticks;
+        var half = new List<BehaviorEvent>();
+        var finished = new List<BehaviorEvent>();
+        WatchHistoryImporter.AppendMovie(half, User, Item, new UserItemData { Key = "k", PlayCount = 1, PlaybackPositionTicks = runtime / 2, LastPlayedDate = DateTime.UtcNow }, runtime);
+        WatchHistoryImporter.AppendMovie(finished, User, Item, new UserItemData { Key = "k", Played = true, PlayCount = 1, LastPlayedDate = DateTime.UtcNow }, runtime);
+
+        Assert.Equal(0.5, Assert.Single(half).Value, 3);
+        Assert.InRange(Weight(half), 0.01, Weight(finished) - 0.01);
+    }
+
+    [Fact]
+    public void AShowOnlySampledIsOneDropOff()
+    {
+        var tally = new WatchHistoryImporter.SeriesTally();
+        tally.Absorb(new UserItemData { Key = "k", PlayCount = 1, LastPlayedDate = DateTime.UtcNow }, TimeSpan.FromMinutes(45).Ticks);
+
+        var events = new List<BehaviorEvent>();
+        tally.Append(events, User, Item);
+
+        Assert.Equal(BehaviorEventType.PlaybackStopped, Assert.Single(events).EventType);
+        Assert.True(Weight(events) < 0);
+    }
+
+    [Fact]
+    public void AnUnfinishedEpisodeOfAWatchedShowAddsNoDropOff()
+    {
+        var tally = new WatchHistoryImporter.SeriesTally();
+        tally.Absorb(new UserItemData { Key = "k", Played = true, PlayCount = 1, LastPlayedDate = DateTime.UtcNow });
+        tally.Absorb(new UserItemData { Key = "k", PlayCount = 1, LastPlayedDate = DateTime.UtcNow }, TimeSpan.FromMinutes(45).Ticks);
+
+        var events = new List<BehaviorEvent>();
+        tally.Append(events, User, Item);
+
+        Assert.All(events, e => Assert.Equal(BehaviorEventType.PlaybackCompleted, e.EventType));
+        Assert.Single(events);
+    }
+
+    [Fact]
     public void ASeriesFavoritedButNeverPlayedStillCounts()
     {
         var tally = new WatchHistoryImporter.SeriesTally();

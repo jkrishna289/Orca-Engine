@@ -50,8 +50,8 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
     // ponytail: flat caps, not a tuned curve. A rewatched film should outweigh a watched-once film,
     // and a fully-watched 60-episode series should not outweigh it sixtyfold. Revisit if the
     // ranking visibly favours long-running shows.
-    private const int MaxPlaysPerTitle = 3;
-    private const int MaxEpisodeRollup = 5;
+    private const int MaxPlaysPerTitle = SignalWeights.MaxFinishesPerFilm;
+    private const int MaxEpisodeRollup = SignalWeights.MaxFinishesPerSeries;
 
     private const int BatchSize = 500;
 
@@ -307,7 +307,7 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
                 // The episode is never a catalog row; everything it knows belongs to the series.
                 if (episode.SeriesId != Guid.Empty)
                 {
-                    Tally(series, episode.SeriesId).Absorb(data);
+                    Tally(series, episode.SeriesId).Absorb(data, episode.RunTimeTicks);
                 }
             }
             else if (item is Series show)
@@ -322,7 +322,7 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
                     unresolved++;
                 }
 
-                AppendMovie(events, user.Id, item.Id, data);
+                AppendMovie(events, user.Id, item.Id, data, item.RunTimeTicks);
             }
 
             // Reporting every item would be one lock per item across tens of thousands of items.
@@ -375,11 +375,14 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
     /// <param name="userId">The Jellyfin user id.</param>
     /// <param name="itemId">The Jellyfin item id.</param>
     /// <param name="data">The user data to convert.</param>
-    public static void AppendMovie(List<BehaviorEvent> events, Guid userId, Guid itemId, UserItemData data)
+    /// <param name="runTimeTicks">The title's runtime, to turn a resume point into how far the viewer got.</param>
+    public static void AppendMovie(List<BehaviorEvent> events, Guid userId, Guid itemId, UserItemData data, long? runTimeTicks = null)
     {
         var at = data.LastPlayedDate?.ToUniversalTime();
 
-        if (data.Played || data.PlayCount > 0)
+        // Only Jellyfin's watched flag means finished. PlayCount goes up when playback STARTS, so
+        // counting it as a watch turned a two-minute sample into a full one.
+        if (data.Played)
         {
             // No play date means it was marked played, not observed being played — a weaker claim,
             // and the weaker signal type says so rather than inventing a timestamp at full weight.
@@ -394,6 +397,12 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
                     at));
             }
         }
+        else if (data.PlayCount > 0)
+        {
+            // Started, never finished: scored by how far they got. Under ~5% Jellyfin drops the resume
+            // point (position 0), which lands in the early-abandon band — a sample, not a watch.
+            events.Add(Event(userId, itemId, BehaviorEventType.PlaybackStopped, ResumeFraction(data, runTimeTicks), at));
+        }
 
         if (data.IsFavorite)
         {
@@ -405,6 +414,13 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
             events.Add(Event(userId, itemId, BehaviorEventType.Rated, rating, at));
         }
     }
+
+    /// <summary>How far into an unfinished title Jellyfin last saw the viewer, 0..1.</summary>
+    /// <param name="data">The Jellyfin user data.</param>
+    /// <param name="runTimeTicks">The title's runtime.</param>
+    /// <returns>The resume fraction; 0 when unknown or when Jellyfin dropped the resume point.</returns>
+    public static double ResumeFraction(UserItemData data, long? runTimeTicks) =>
+        runTimeTicks is > 0 ? Math.Clamp((double)data.PlaybackPositionTicks / runTimeTicks.Value, 0, 1) : 0;
 
     private static SeriesTally Tally(Dictionary<Guid, SeriesTally> map, Guid seriesId)
     {
@@ -482,6 +498,8 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
     public sealed class SeriesTally
     {
         private int _watched;
+        private int _started;
+        private double _furthest;
         private bool _favorite;
         private double _ratingSum;
         private int _ratingCount;
@@ -489,11 +507,18 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
 
         /// <summary>Folds one episode's (or the series' own) user data into the tally.</summary>
         /// <param name="data">The Jellyfin user data.</param>
-        public void Absorb(UserItemData data)
+        /// <param name="runTimeTicks">The episode's runtime, for how far an unfinished one got.</param>
+        public void Absorb(UserItemData data, long? runTimeTicks = null)
         {
-            if (data.Played || data.PlayCount > 0)
+            if (data.Played)
             {
                 _watched++;
+            }
+            else if (data.PlayCount > 0)
+            {
+                // Started (PlayCount rises on start), not finished.
+                _started++;
+                _furthest = Math.Max(_furthest, ResumeFraction(data, runTimeTicks));
             }
 
             _favorite |= data.IsFavorite;
@@ -529,6 +554,12 @@ public sealed class WatchHistoryImporter : IWatchHistoryImporter
                     _lastPlayed is null ? BehaviorEventType.MarkedPlayed : BehaviorEventType.PlaybackCompleted,
                     1.0,
                     _lastPlayed));
+            }
+
+            // Sampled but no episode ever finished: one drop-off for the show, as far as they got.
+            if (_watched == 0 && _started > 0)
+            {
+                events.Add(Event(userId, seriesId, BehaviorEventType.PlaybackStopped, _furthest, _lastPlayed));
             }
 
             if (_favorite)

@@ -509,9 +509,16 @@ public class HomeService
         // Under LLM curation the local recommender only prefilters a wide pool and the LLM
         // genuinely selects the row; otherwise the local ranking IS the row (optionally
         // LLM-reordered by the legacy re-ranker). Both LLM paths are fail-soft passthroughs.
-        var poolSize = flags.LlmCuration ? Math.Max(size * 3, 45) : size;
+        // Without LLM curation the row is drawn from a pool twice its size, rotated daily — the plain
+        // top-N was the same list on every visit until the viewer watched something new.
+        var poolSize = flags.LlmCuration ? Math.Max(size * 3, 45) : size * 2;
         var recs = await _recommender.RecommendAsync(userId, poolSize, ct).ConfigureAwait(false);
         var recItems = recs.Select(r => r.Item).ToList();
+        if (!flags.LlmCuration)
+        {
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, HouseholdClock.Resolve()).DateTime);
+            recItems = ContentRecommender.RotateDaily(recItems, size, userId, today);
+        }
         if (recItems.Count == 0)
         {
             return null;

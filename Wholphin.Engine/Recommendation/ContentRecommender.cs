@@ -73,8 +73,11 @@ public class ContentRecommender : IRecommender
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        // Anything already started, not just finished: For You is for something new. A sample the
+        // viewer dropped shouldn't be pushed back at them, and a title in progress is Continue Watching's.
         var watched = userEvents
-            .Where(e => e.EventType is BehaviorEventType.PlaybackCompleted or BehaviorEventType.MarkedPlayed)
+            .Where(e => e.EventType is BehaviorEventType.PlaybackCompleted or BehaviorEventType.MarkedPlayed
+                or BehaviorEventType.PlaybackStopped or BehaviorEventType.PlaybackStarted)
             .Select(e => e.JellyfinItemId!.Value)
             .ToHashSet();
 
@@ -205,6 +208,36 @@ public class ContentRecommender : IRecommender
         blended.AddRange(picks);
         _metrics.Increment("recommend.exploration", picks.Count);
         return blended;
+    }
+
+    /// <summary>
+    /// Today's <paramref name="count"/> picks from a ranked pool, so a row isn't the same list every
+    /// visit. Weighted sampling without replacement (key = u^(1 + 3·rank/count)): the best match
+    /// shows about nine days in ten and roughly half the row changes each day, from a pool twice the
+    /// row. Seeded per user per day, so it's stable within a day; returned in rank order.
+    /// </summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="ranked">The pool, best first.</param>
+    /// <param name="count">How many to pick.</param>
+    /// <param name="userId">The viewer (each gets their own draw).</param>
+    /// <param name="day">The household-local day.</param>
+    /// <returns>The day's picks, best first.</returns>
+    public static List<T> RotateDaily<T>(IReadOnlyList<T> ranked, int count, Guid userId, DateOnly day)
+    {
+        if (ranked.Count <= count)
+        {
+            return ranked.ToList();
+        }
+
+        // Guid.GetHashCode and a seeded Random are both stable across runs, unlike HashCode.Combine.
+        var random = new Random(userId.GetHashCode() ^ day.DayNumber);
+        return ranked
+            .Select((item, rank) => (Item: item, Rank: rank, Key: Math.Pow(random.NextDouble(), 1.0 + (3.0 * rank / count))))
+            .OrderByDescending(x => x.Key)
+            .Take(count)
+            .OrderBy(x => x.Rank)
+            .Select(x => x.Item)
+            .ToList();
     }
 
     private static double Recency(DateTime? dateAdded, DateTime now)
