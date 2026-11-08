@@ -20,7 +20,7 @@ namespace Wholphin.Engine.Data;
 public class DatabaseInitializer : IHostedService
 {
     /// <summary>The schema version this build expects.</summary>
-    public const int SchemaVersion = 13;
+    public const int SchemaVersion = 14;
 
     /// <summary>
     /// Idempotent migration steps keyed by the version they bring the schema TO. Each statement is
@@ -215,7 +215,7 @@ public class DatabaseInitializer : IHostedService
         ("CatalogItems", "RatingsJson", "TEXT"),
         ("CatalogItems", "MetadataSourcesJson", "TEXT"),
         ("CatalogItems", "MetadataSyncedAt", "TEXT"),
-        // v12 — TMDB vote count, so a 10.0 from three votes stops outranking real favourites.
+        // v14 — TMDB vote count, so a 10.0 from three votes stops outranking real favourites.
         ("CatalogItems", "VoteCount", "INTEGER"),
     };
 
@@ -264,11 +264,6 @@ public class DatabaseInitializer : IHostedService
                 current = Convert.ToInt32(await read.ExecuteScalarAsync(ct).ConfigureAwait(false) ?? 0);
             }
 
-            if (current >= SchemaVersion)
-            {
-                return;
-            }
-
             foreach (var (version, sql) in Migrations)
             {
                 if (version > current)
@@ -278,11 +273,16 @@ public class DatabaseInitializer : IHostedService
                 }
             }
 
-            // Idempotent column additions (safe to run whenever current < SchemaVersion).
+            // Every start, not only on a version bump: 1.4.13.0 added CatalogItems.VoteCount without
+            // bumping SchemaVersion, so databases already at that version never got the column and
+            // every catalog query failed — an empty home. One PRAGMA per table; adds only what's missing.
             await EnsureColumnsAsync(connection, ct).ConfigureAwait(false);
 
-            // PRAGMA can't be parameterized; SchemaVersion is a trusted compile-time constant.
-            await db.Database.ExecuteSqlRawAsync($"PRAGMA user_version = {SchemaVersion};", ct).ConfigureAwait(false);
+            if (current < SchemaVersion)
+            {
+                // PRAGMA can't be parameterized; SchemaVersion is a trusted compile-time constant.
+                await db.Database.ExecuteSqlRawAsync($"PRAGMA user_version = {SchemaVersion};", ct).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {
@@ -306,6 +306,12 @@ public class DatabaseInitializer : IHostedService
                     // PRAGMA table_info columns: cid, name, type, notnull, dflt_value, pk → name is ordinal 1.
                     existing.Add(reader.GetString(1));
                 }
+            }
+
+            // No such table yet (created by a later migration or EnsureCreated): nothing to alter.
+            if (existing.Count == 0)
+            {
+                continue;
             }
 
             foreach (var (table, column, type) in byTable)
