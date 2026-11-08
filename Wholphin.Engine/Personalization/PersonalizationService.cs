@@ -485,7 +485,7 @@ public class PersonalizationService : IPersonalizationService
 
             switch (e.EventType)
             {
-                case BehaviorEventType.CardImpression: c.Shown++; break;
+                case BehaviorEventType.CardImpression: c.ShownDays.Add(DateOnly.FromDateTime(e.Timestamp)); break;
                 case BehaviorEventType.CardFocused: c.Focused++; break;
                 case BehaviorEventType.CardClicked: c.Clicked++; break;
                 case BehaviorEventType.PlaybackStarted:
@@ -502,7 +502,7 @@ public class PersonalizationService : IPersonalizationService
 
         foreach (var c in byItem.Values)
         {
-            var penalty = NegativeSignals.Penalty(c.Shown, c.Focused, c.Clicked, c.Played);
+            var penalty = NegativeSignals.Penalty(c.ShownDays.Count, c.Focused, c.Clicked, c.Played);
             if (penalty <= 0)
             {
                 continue;
@@ -645,7 +645,8 @@ public class PersonalizationService : IPersonalizationService
     {
         public CatalogItem Item { get; set; } = null!;
 
-        public int Shown { get; set; }
+        // Days, not impressions: opening Home five times in one evening is one exposure, not five.
+        public HashSet<DateOnly> ShownDays { get; } = new();
 
         public int Focused { get; set; }
 

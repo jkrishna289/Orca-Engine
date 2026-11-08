@@ -186,6 +186,9 @@ public class DiscoverResult
     /// <summary>Gets or sets the community (TMDB) rating.</summary>
     public float? CommunityRating { get; set; }
 
+    /// <summary>Gets or sets how many votes <see cref="CommunityRating"/> is built on (TMDB; null = unknown).</summary>
+    public int? VoteCount { get; set; }
+
     /// <summary>Gets or sets the TMDB popularity score, when the source supplies it (TMDB direct; null from Jellyseerr).</summary>
     public double? Popularity { get; set; }
 

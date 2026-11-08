@@ -100,12 +100,17 @@ public class DiscoveryRowProvider : IRowProvider
         {
             // No global picks (feature off / no TMDB key): keep the row alive with the local
             // catalog's top-rated titles, exactly as before taste-driven discovery existed.
-            var fallback = await db.CatalogItems.AsNoTracking()
+            // Top raw ratings narrowed in SQL, then re-ranked by vote-weighted rating in memory (the
+            // weighting doesn't translate to SQL), so a 10.0 from three votes can't lead the row.
+            var fallback = (await db.CatalogItems.AsNoTracking()
                 .Where(c => c.CommunityRating != null)
                 .OrderByDescending(c => c.CommunityRating)
-                .Take(Top10RowSize)
+                .Take(Top10RowSize * 10)
                 .ToListAsync(ct)
-                .ConfigureAwait(false);
+                .ConfigureAwait(false))
+                .OrderByDescending(c => Ranking.Calibration.WeightedRating(c.CommunityRating, c.VoteCount) ?? 0)
+                .Take(Top10RowSize)
+                .ToList();
             return fallback.Count == 0 ? null : new ProviderRow
             {
                 Id = "trending",

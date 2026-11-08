@@ -62,6 +62,7 @@ public class TmdbEnricher : ICatalogEnricher
         var candidates = await db.CatalogItems
             .Where(c => c.TmdbId != null
                         && (c.OriginalLanguage == null
+                            || c.VoteCount == null
                             || (c.JellyfinItemId == null
                                 // OfficialRating null = never asked (rows enriched before the
                                 // certification was fetched); "" = asked, TMDB had none.
@@ -159,6 +160,13 @@ public class TmdbEnricher : ICatalogEnricher
             if (item.CommunityRating is null && e.CommunityRating is not null)
             {
                 item.CommunityRating = e.CommunityRating;
+            }
+
+            // Refreshed every pass (votes keep coming); never null after one, so the row isn't re-picked.
+            if (e.VoteCount is { } votes && item.VoteCount != votes)
+            {
+                item.VoteCount = votes;
+                changed = true;
             }
 
             if (item.RuntimeMinutes is null && e.RuntimeMinutes is not null)

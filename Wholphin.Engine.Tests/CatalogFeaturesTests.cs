@@ -63,7 +63,51 @@ public class CatalogFeaturesTests
             RuntimeMinutes = 175, // epic
         };
 
-        // Language 0.8 + runtime 0.5 (+ MediaType "Movie" default 0) = 1.3.
-        Assert.Equal(1.3, CatalogFeatures.Dot(affinity, item), 6);
+        // Language 0.8 at weight 1.0 + runtime 0.5 at weight 0.2 (+ MediaType "Movie" default 0) = 0.9.
+        Assert.Equal(0.9, CatalogFeatures.Dot(affinity, item), 6);
+    }
+
+    [Fact]
+    public void Dot_DoesNotRewardATitleForCarryingMoreMetadata()
+    {
+        // Same taste match per entry; one title just has a much longer tag list. It used to win by
+        // summing every tag, so well-documented titles beat sparsely tagged ones for no reason.
+        var affinity = new AffinityVector();
+        affinity.Genre["Drama"] = 1.0;
+        for (var i = 0; i < 40; i++)
+        {
+            affinity.Tag["tag" + i] = 0.3;
+        }
+
+        var sparse = new CatalogItem { GenresJson = "[\"Drama\"]", TagsJson = "[\"tag0\",\"tag1\"]" };
+        var rich = new CatalogItem
+        {
+            GenresJson = "[\"Drama\"]",
+            TagsJson = System.Text.Json.JsonSerializer.Serialize(Enumerable.Range(0, 40).Select(i => "tag" + i)),
+        };
+
+        Assert.Equal(CatalogFeatures.Dot(affinity, sparse), CatalogFeatures.Dot(affinity, rich), 6);
+    }
+
+    [Fact]
+    public void Dot_LetsLanguageSeparateTitlesOfTheSameGenres()
+    {
+        // A Hindi-film viewer: the Hindi drama must beat a Korean drama with extra genres and tags.
+        var affinity = new AffinityVector();
+        affinity.Genre["Drama"] = 1.0;
+        affinity.Genre["Romance"] = 0.7;
+        affinity.Genre["Comedy"] = 0.6;
+        affinity.Language["hi"] = 1.0;
+        affinity.Tag["romance"] = 0.4;
+
+        var hindi = new CatalogItem { GenresJson = "[\"Drama\",\"Romance\"]", OriginalLanguage = "hi" };
+        var korean = new CatalogItem
+        {
+            GenresJson = "[\"Drama\",\"Romance\",\"Comedy\"]",
+            OriginalLanguage = "ko",
+            TagsJson = "[\"romance\",\"romance\",\"romance\"]",
+        };
+
+        Assert.True(CatalogFeatures.Dot(affinity, hindi) > CatalogFeatures.Dot(affinity, korean));
     }
 }

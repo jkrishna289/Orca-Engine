@@ -196,7 +196,7 @@ public class CandidateScorer
             return 0;
         }
 
-        var quality = Math.Clamp((result.CommunityRating ?? 0) / 10.0, 0, 1);
+        var quality = Math.Clamp((Ranking.Calibration.WeightedRating(result.CommunityRating, result.VoteCount) ?? 0) / 10.0, 0, 1);
         if (quality <= 0)
         {
             return 0;

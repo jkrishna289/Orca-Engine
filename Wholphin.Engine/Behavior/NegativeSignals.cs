@@ -35,6 +35,27 @@ public static class NegativeSignals
     /// <param name="clicked">Click count.</param>
     /// <param name="played">Playback-start/complete/marked count.</param>
     /// <returns>The penalty magnitude (≥ 0).</returns>
+    /// <summary>Days for an ignored title's penalty to halve once it stops being shown.</summary>
+    public const double IgnoreRecoveryHalfLifeDays = 14;
+
+    /// <summary>
+    /// How much to scale a title's recommendation score for being ignored: 1 = untouched, lower the
+    /// more often it was shown on separate days without a focus, click or play. Recovers as the
+    /// last impression ages, so a title isn't buried for good.
+    /// </summary>
+    /// <param name="shownDays">Distinct days the title was shown.</param>
+    /// <param name="focused">Times it was focused.</param>
+    /// <param name="clicked">Times it was clicked.</param>
+    /// <param name="played">Times it was played.</param>
+    /// <param name="daysSinceShown">Days since it was last shown.</param>
+    /// <returns>A multiplier in (0, 1].</returns>
+    public static double IgnoredFactor(int shownDays, int focused, int clicked, int played, double daysSinceShown)
+    {
+        var penalty = Penalty(shownDays, focused, clicked, played)
+            * Math.Pow(0.5, Math.Max(0, daysSinceShown) / IgnoreRecoveryHalfLifeDays);
+        return 1.0 / (1.0 + penalty);
+    }
+
     public static double Penalty(int shown, int focused, int clicked, int played)
     {
         var penalty = 0.0;

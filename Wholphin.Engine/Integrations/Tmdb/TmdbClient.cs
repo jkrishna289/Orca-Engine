@@ -167,6 +167,7 @@ public class TmdbClient : ITmdbClient
                 Overview = detail.Overview,
                 Year = ParseYear(detail.ReleaseDate ?? detail.FirstAirDate),
                 CommunityRating = detail.VoteAverage is { } v ? (float)v : null,
+                VoteCount = detail.VoteCount ?? 0,
                 RuntimeMinutes = runtime,
                 OriginalLanguage = string.IsNullOrWhiteSpace(detail.OriginalLanguage) ? null : detail.OriginalLanguage,
                 CollectionName = string.IsNullOrWhiteSpace(detail.BelongsToCollection?.Name) ? null : detail.BelongsToCollection!.Name,
@@ -655,6 +656,7 @@ public class TmdbClient : ITmdbClient
                 Overview = item.Overview,
                 Year = ParseYear(item.ReleaseDate ?? item.FirstAirDate),
                 CommunityRating = item.VoteAverage is { } v ? (float)v : null,
+                VoteCount = item.VoteCount,
                 Popularity = item.Popularity,
                 OriginalLanguage = item.OriginalLanguage,
                 Genres = item.GenreIds

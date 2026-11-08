@@ -215,6 +215,8 @@ public class DatabaseInitializer : IHostedService
         ("CatalogItems", "RatingsJson", "TEXT"),
         ("CatalogItems", "MetadataSourcesJson", "TEXT"),
         ("CatalogItems", "MetadataSyncedAt", "TEXT"),
+        // v12 — TMDB vote count, so a 10.0 from three votes stops outranking real favourites.
+        ("CatalogItems", "VoteCount", "INTEGER"),
     };
 
     private readonly IWholphinDbContextFactory _factory;

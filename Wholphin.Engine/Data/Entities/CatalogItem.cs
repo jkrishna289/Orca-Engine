@@ -57,6 +57,9 @@ public class CatalogItem
     /// <summary>Gets or sets the community rating.</summary>
     public float? CommunityRating { get; set; }
 
+    /// <summary>Gets or sets how many TMDB votes the rating rests on (null = not fetched yet).</summary>
+    public int? VoteCount { get; set; }
+
     /// <summary>Gets or sets the critic rating.</summary>
     public float? CriticRating { get; set; }
 

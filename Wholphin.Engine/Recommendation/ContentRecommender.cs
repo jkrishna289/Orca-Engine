@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Wholphin.Engine.Behavior;
 using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
@@ -67,11 +68,21 @@ public class ContentRecommender : IRecommender
         await using var db = _factory.Create();
 
         // Exclusions: items the user already finished, or explicitly disliked.
-        var userEvents = await db.BehaviorEvents.AsNoTracking()
-            .Where(e => e.UserId == userId && e.JellyfinItemId.HasValue)
-            .Select(e => new { e.JellyfinItemId, e.EventType })
+        var allEvents = await db.BehaviorEvents.AsNoTracking()
+            .Where(e => e.UserId == userId)
+            .Select(e => new { e.JellyfinItemId, e.CatalogItemId, e.EventType, e.Timestamp })
             .ToListAsync(ct)
             .ConfigureAwait(false);
+        var userEvents = allEvents.Where(e => e.JellyfinItemId.HasValue).ToList();
+
+        // Titles shown on many days and never touched sink (impressions come from the app's home
+        // rows; library titles carry a Jellyfin id, discovered ones a catalog id).
+        var ignored = allEvents
+            .Where(e => e.JellyfinItemId.HasValue || e.CatalogItemId.HasValue)
+            .GroupBy(e => e.JellyfinItemId is { } j ? "j" + j : "c" + e.CatalogItemId)
+            .Select(g => (g.Key, Factor: IgnoredFactor(g.Select(e => (e.EventType, e.Timestamp)), DateTime.UtcNow)))
+            .Where(x => x.Factor < 1.0)
+            .ToDictionary(x => x.Key, x => x.Factor);
 
         // Anything already started, not just finished: For You is for something new. A sample the
         // viewer dropped shouldn't be pushed back at them, and a title in progress is Continue Watching's.
@@ -114,7 +125,7 @@ public class ContentRecommender : IRecommender
         foreach (var c in candidates)
         {
             var personalization = span > 0 ? (raw[c.Id] - min) / span : 0.0;
-            var quality = Math.Clamp((c.CommunityRating ?? 0) / 10.0, 0, 1);
+            var quality = Math.Clamp((Ranking.Calibration.WeightedRating(c.CommunityRating, c.VoteCount) ?? 0) / 10.0, 0, 1);
             var recency = Recency(c.DateAdded, now);
             var availability = c.Availability == AvailabilityState.WatchNow ? 1.0 : 0.5;
 
@@ -128,6 +139,7 @@ public class ContentRecommender : IRecommender
                 Freshness = recency,
                 Availability = availability,
             }.Blend(weights);
+            final *= ignored.GetValueOrDefault(c.JellyfinItemId is { } jid ? "j" + jid : "c" + c.Id, 1.0);
 
             scored.Add(new RecommendationResult(c)
             {
@@ -208,6 +220,43 @@ public class ContentRecommender : IRecommender
         blended.AddRange(picks);
         _metrics.Increment("recommend.exploration", picks.Count);
         return blended;
+    }
+
+    /// <summary>
+    /// The score multiplier for one title from the viewer's funnel events: shown on many separate
+    /// days without a focus, click or play → below 1 (see <see cref="NegativeSignals.IgnoredFactor"/>).
+    /// </summary>
+    /// <param name="events">The title's events.</param>
+    /// <param name="now">The current time.</param>
+    /// <returns>A multiplier in (0, 1].</returns>
+    public static double IgnoredFactor(IEnumerable<(BehaviorEventType Type, DateTime At)> events, DateTime now)
+    {
+        var shownDays = new HashSet<DateOnly>();
+        int focused = 0, clicked = 0, played = 0;
+        var lastShown = DateTime.MinValue;
+        foreach (var (type, at) in events)
+        {
+            switch (type)
+            {
+                case BehaviorEventType.CardImpression:
+                    shownDays.Add(DateOnly.FromDateTime(at));
+                    if (at > lastShown)
+                    {
+                        lastShown = at;
+                    }
+
+                    break;
+                case BehaviorEventType.CardFocused: focused++; break;
+                case BehaviorEventType.CardClicked:
+                case BehaviorEventType.TrailerPlayed: clicked++; break;
+                case BehaviorEventType.PlaybackStarted:
+                case BehaviorEventType.PlaybackStopped:
+                case BehaviorEventType.PlaybackCompleted:
+                case BehaviorEventType.MarkedPlayed: played++; break;
+            }
+        }
+
+        return shownDays.Count == 0 ? 1.0 : NegativeSignals.IgnoredFactor(shownDays.Count, focused, clicked, played, (now - lastShown).TotalDays);
     }
 
     /// <summary>

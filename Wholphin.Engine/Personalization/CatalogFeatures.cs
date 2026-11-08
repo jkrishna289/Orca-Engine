@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.Json;
 using Wholphin.Engine.Data.Entities;
 
@@ -80,56 +81,70 @@ public static class CatalogFeatures
         }
     }
 
+    // Dimension weights. Each list dimension contributes the MEAN affinity of its leading entries,
+    // not the sum: summing let a title with 40 tags and a long cast outscore a sparsely tagged one
+    // just for carrying more metadata, while language (one value per title) barely registered —
+    // so a Hindi-film viewer was out-scored by well-documented Hollywood and Korean titles.
+    private const double GenreWeight = 1.0;
+    private const double StudioWeight = 0.4;
+    private const double TagWeight = 0.6;
+    private const double PersonWeight = 0.8;
+    private const double DecadeWeight = 0.3;
+    private const double MediaTypeWeight = 0.3;
+    private const double LanguageWeight = 1.0;
+    private const double RuntimeWeight = 0.2;
+    private const double MaturityWeight = 0.2;
+    private const double FranchiseWeight = 0.5;
+
+    // Tags and people are long lists in rough order of importance (keywords, billed cast); only the
+    // head says what a title is, and averaging over a long tail would dilute it to nothing.
+    private const int MaxTags = 8;
+    private const int MaxPeople = 5;
+
     /// <summary>
-    /// Computes the raw affinity score of an item: the sum of the user's affinity for every
-    /// feature the item carries (genre, studio, tag, decade, media type).
+    /// Computes the raw affinity score of an item: per dimension (genre, studio, tag, cast, decade,
+    /// media type, language, runtime, maturity, franchise) the user's mean affinity for what the item
+    /// carries, weighted. Positive = aligned, negative = avoided.
     /// </summary>
     /// <param name="affinity">The user's affinity vector.</param>
     /// <param name="item">The catalog item.</param>
-    /// <returns>The dot-product affinity (unbounded; normalize across a candidate set before use).</returns>
+    /// <returns>The affinity score (normalize across a candidate set before use).</returns>
     public static double Dot(AffinityVector affinity, CatalogItem item)
     {
-        double score = 0;
-
-        foreach (var g in Parse(item.GenresJson))
-        {
-            score += affinity.Genre.GetValueOrDefault(g);
-        }
-
-        foreach (var s in Parse(item.StudiosJson))
-        {
-            score += affinity.Studio.GetValueOrDefault(s);
-        }
-
-        foreach (var t in Parse(item.TagsJson))
-        {
-            score += affinity.Tag.GetValueOrDefault(t);
-        }
-
-        foreach (var p in Parse(item.PeopleJson))
-        {
-            score += affinity.Person.GetValueOrDefault(p);
-        }
+        var score = (GenreWeight * Mean(Parse(item.GenresJson), affinity.Genre))
+            + (StudioWeight * Mean(Parse(item.StudiosJson), affinity.Studio))
+            + (TagWeight * Mean(Parse(item.TagsJson).Take(MaxTags), affinity.Tag))
+            + (PersonWeight * Mean(Parse(item.PeopleJson).Take(MaxPeople), affinity.Person))
+            + (MediaTypeWeight * affinity.MediaType.GetValueOrDefault(item.MediaType.ToString()));
 
         if (item.ProductionYear is { } year)
         {
-            score += affinity.Decade.GetValueOrDefault(Decade(year));
+            score += DecadeWeight * affinity.Decade.GetValueOrDefault(Decade(year));
         }
 
-        score += affinity.MediaType.GetValueOrDefault(item.MediaType.ToString());
-
-        // Scalar taste dimensions (runtime length, maturity, language, franchise).
-        var scalar = 0.0;
-        ForEachScalarFeature(item, (dimension, value) => scalar += dimension switch
+        ForEachScalarFeature(item, (dimension, value) => score += dimension switch
         {
-            ScalarDimension.Runtime => affinity.Runtime.GetValueOrDefault(value),
-            ScalarDimension.Maturity => affinity.Maturity.GetValueOrDefault(value),
-            ScalarDimension.Language => affinity.Language.GetValueOrDefault(value),
-            ScalarDimension.Franchise => affinity.Franchise.GetValueOrDefault(value),
+            ScalarDimension.Runtime => RuntimeWeight * affinity.Runtime.GetValueOrDefault(value),
+            ScalarDimension.Maturity => MaturityWeight * affinity.Maturity.GetValueOrDefault(value),
+            ScalarDimension.Language => LanguageWeight * affinity.Language.GetValueOrDefault(value),
+            ScalarDimension.Franchise => FranchiseWeight * affinity.Franchise.GetValueOrDefault(value),
             _ => 0.0,
         });
 
-        return score + scalar;
+        return score;
+    }
+
+    private static double Mean(IEnumerable<string> keys, Dictionary<string, double> affinity)
+    {
+        double sum = 0;
+        var count = 0;
+        foreach (var key in keys)
+        {
+            sum += affinity.GetValueOrDefault(key);
+            count++;
+        }
+
+        return count == 0 ? 0 : sum / count;
     }
 }
 

@@ -77,7 +77,7 @@ public class MoodCollectionService : IMoodCollectionService
             var pool = featured
                 .Where(f => mood.Match(f.Features))
                 .Select(f => f.Item)
-                .OrderByDescending(i => i.CommunityRating ?? 0f)
+                .OrderByDescending(i => Ranking.Calibration.WeightedRating(i.CommunityRating, i.VoteCount) ?? 0)
                 .ThenByDescending(i => i.DateAdded ?? DateTime.MinValue)
                 .Take(rowSize * 3)
                 .ToList();
@@ -108,6 +108,6 @@ public class MoodCollectionService : IMoodCollectionService
     {
         var genres = new HashSet<string>(CatalogFeatures.Parse(item.GenresJson), StringComparer.OrdinalIgnoreCase);
         var tags = new HashSet<string>(CatalogFeatures.Parse(item.TagsJson), StringComparer.OrdinalIgnoreCase);
-        return new MoodFeatures(genres, tags, item.MediaType, item.RuntimeMinutes, item.CommunityRating);
+        return new MoodFeatures(genres, tags, item.MediaType, item.RuntimeMinutes, (float?)Ranking.Calibration.WeightedRating(item.CommunityRating, item.VoteCount));
     }
 }

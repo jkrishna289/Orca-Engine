@@ -107,7 +107,7 @@ public class SelectionStage
             var exploration = tasteMatches
                 .Where(s => !chosen.Contains(s)
                     && s.Score.Novelty > 0
-                    && (s.Candidate.Result.CommunityRating ?? 0) >= ExplorationQualityFloor)
+                    && (Ranking.Calibration.WeightedRating(s.Candidate.Result.CommunityRating, s.Candidate.Result.VoteCount) ?? 0) >= ExplorationQualityFloor)
                 .OrderByDescending(s => s.Score.Novelty)
                 .Take(explorationSlots);
             foreach (var scored in exploration)

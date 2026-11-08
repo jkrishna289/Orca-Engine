@@ -211,6 +211,10 @@ public class TmdbEpisode : TmdbEpisodeStub
     [JsonPropertyName("vote_average")]
     public double? VoteAverage { get; set; }
 
+    /// <summary>Gets or sets how many TMDB votes the average is built on.</summary>
+    [JsonPropertyName("vote_count")]
+    public int? VoteCount { get; set; }
+
     /// <summary>Gets or sets the guest stars.</summary>
     [JsonPropertyName("guest_stars")]
     public List<TmdbPerson> GuestStars { get; set; } = new();
@@ -261,6 +265,10 @@ public class TmdbDetail
     /// <summary>Gets or sets the TMDB vote average.</summary>
     [JsonPropertyName("vote_average")]
     public double? VoteAverage { get; set; }
+
+    /// <summary>Gets or sets how many TMDB votes the average is built on.</summary>
+    [JsonPropertyName("vote_count")]
+    public int? VoteCount { get; set; }
 
     /// <summary>Gets or sets the ISO-639-1 original language (e.g. "en", "hi").</summary>
     [JsonPropertyName("original_language")]
@@ -451,6 +459,10 @@ public class TmdbDiscoverItem
     [JsonPropertyName("vote_average")]
     public double? VoteAverage { get; set; }
 
+    /// <summary>Gets or sets how many TMDB votes the average is built on.</summary>
+    [JsonPropertyName("vote_count")]
+    public int? VoteCount { get; set; }
+
     /// <summary>Gets or sets the TMDB popularity score (unbounded, relative; higher = more popular).</summary>
     [JsonPropertyName("popularity")]
     public double? Popularity { get; set; }
@@ -569,6 +581,9 @@ public class TmdbEnrichment
 
     /// <summary>Gets or sets the community (TMDB) rating.</summary>
     public float? CommunityRating { get; set; }
+
+    /// <summary>Gets or sets how many TMDB votes <see cref="CommunityRating"/> is built on.</summary>
+    public int? VoteCount { get; set; }
 
     /// <summary>Gets or sets the runtime in minutes.</summary>
     public int? RuntimeMinutes { get; set; }

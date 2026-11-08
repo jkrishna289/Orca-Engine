@@ -105,6 +105,7 @@ public class PickPersistence
                     Overview = result.Overview,
                     ProductionYear = result.Year,
                     CommunityRating = result.CommunityRating,
+                    VoteCount = result.VoteCount,
                     GenresJson = result.Genres.Count > 0 ? JsonSerializer.Serialize(result.Genres) : null,
                     OriginalLanguage = result.OriginalLanguage,
                     PosterImageUrl = result.PosterImageUrl,

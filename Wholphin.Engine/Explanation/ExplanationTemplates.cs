@@ -58,7 +58,7 @@ public static class ExplanationTemplates
             return $"Because you like {StripRole(bestPerson)}";
         }
 
-        return (item.CommunityRating ?? 0) >= HighlyRatedThreshold ? "Highly rated" : "Picked for you";
+        return (Ranking.Calibration.WeightedRating(item.CommunityRating, item.VoteCount) ?? 0) >= HighlyRatedThreshold ? "Highly rated" : "Picked for you";
     }
 
     /// <summary>Returns the feature with the highest positive affinity, or (null, 0) when none is positive.</summary>

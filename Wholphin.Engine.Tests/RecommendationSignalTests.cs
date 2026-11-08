@@ -76,6 +76,42 @@ public class RecommendationSignalTests
     }
 
     [Fact]
+    public void AFewPerfectVotesNoLongerBeatABroadlyLovedTitle()
+    {
+        var obscure = Ranking.Calibration.WeightedRating(10.0f, 3)!.Value;
+        var loved = Ranking.Calibration.WeightedRating(8.2f, 50_000)!.Value;
+        var regional = Ranking.Calibration.WeightedRating(7.4f, 150)!.Value; // a typical well-liked Hindi film
+
+        Assert.True(loved > obscure);
+        Assert.True(regional > obscure);
+        Assert.InRange(loved, 8.19, 8.2);
+        Assert.Null(Ranking.Calibration.WeightedRating(0f, 0));   // unreleased: no real rating
+        Assert.Null(Ranking.Calibration.WeightedRating(null, 500));
+        Assert.True(Ranking.Calibration.WeightedRating(10.0f, null) < 9); // not fetched yet: half weight
+    }
+
+    [Fact]
+    public void ATitleIgnoredOnManyDaysSinksAndRecovers()
+    {
+        var now = DateTime.UtcNow;
+        (BehaviorEventType, DateTime) Shown(int daysAgo) => (BehaviorEventType.CardImpression, now.AddDays(-daysAgo));
+
+        var ignored = Enumerable.Range(0, 6).Select(Shown).ToList();
+        Assert.True(ContentRecommender.IgnoredFactor(ignored, now) < 0.5);
+
+        // Same exposure, but the viewer looked at it once: not ignored.
+        var looked = ignored.Append((BehaviorEventType.CardFocused, now)).ToList();
+        Assert.Equal(1.0, ContentRecommender.IgnoredFactor(looked, now));
+
+        // Many impressions on ONE day are one exposure.
+        var oneEvening = Enumerable.Range(0, 10).Select(_ => (BehaviorEventType.CardImpression, now)).ToList();
+        Assert.Equal(1.0, ContentRecommender.IgnoredFactor(oneEvening, now));
+
+        // Not shown for a month: most of the penalty has worn off.
+        Assert.True(ContentRecommender.IgnoredFactor(ignored, now.AddDays(30)) > ContentRecommender.IgnoredFactor(ignored, now));
+    }
+
+    [Fact]
     public void EpisodeEventsBelongToTheirSeries()
     {
         var series = Guid.NewGuid();
