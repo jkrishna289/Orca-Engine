@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Fixes 1.4.13.0, whose home screen came back empty on existing servers: a new database column was never added, so every catalog query failed. Missing columns are now added on every start. Includes everything in 1.4.13.0: ratings count for as much as their votes support, language weighs as much as genre, titles you keep skipping sink out of For You, and (from 1.4.12.0) starting a title no longer counts as watching it and For You changes daily. Requires Jellyfin 12.1 or later. This is a beta release.",
+  "changelog": "A restart no longer leaves the home missing rows: a page whose rows ran out of time is rebuilt within seconds instead of being kept for five minutes. Recently Added, Movies and Series show only titles you can play, so a series with no episodes yet no longer appears there. Search no longer offers a show you already have when Jellyfin has no TMDB id for it. A title requested outside the app (in Jellyseerr or Radarr) shows Adding instead of Request once its page has been opened. Includes 1.4.13.1 and 1.4.13.0. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.4.13.1",
+  "version": "1.4.13.2",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
