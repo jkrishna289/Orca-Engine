@@ -46,28 +46,34 @@ public static class TmdbTitleRows
             .GroupBy(c => (c.TmdbId!.Value, c.MediaType))
             .ToDictionary(g => g.Key, g => g.Aggregate(Preferred));
 
-        // A library copy Jellyfin never matched on TMDB (common for Indian web series, matched on TVDB
-        // only) has no TmdbId, so search offered Dhindora as a request beside the copy in the library.
-        // Match those by title and year, and keep the id so the next lookup is a plain match.
+        // A TMDB title with no library row by id can still be in the library: TMDB lists some regional
+        // shows twice (Dhindora is 135670 in Jellyfin, 275204 in search), and some library rows have no
+        // TMDB id at all. Search offered both as requests beside the copy you own. Match by name and
+        // year; an untagged copy keeps the id, a tagged one keeps its own.
         var tagged = 0;
         var orphans = results.Where(r => !rows.TryGetValue((r.TmdbId, r.MediaType), out var row) || row.JellyfinItemId is null).ToList();
         if (orphans.Count > 0)
         {
             var titles = orphans.Select(r => r.Title.Trim().ToLower()).Distinct().ToList();
-            var untagged = await db.CatalogItems
-                .Where(c => c.JellyfinItemId != null && c.TmdbId == null && titles.Contains(c.Title.Trim().ToLower()))
+            var owned = await db.CatalogItems
+                .Where(c => c.JellyfinItemId != null && titles.Contains(c.Title.Trim().ToLower()))
                 .ToListAsync(ct)
                 .ConfigureAwait(false);
             foreach (var result in orphans)
             {
-                var copy = untagged.FirstOrDefault(c => SameTitle(c, result));
-                if (copy is not null)
+                var copy = owned.FirstOrDefault(c => SameTitle(c, result));
+                if (copy is null)
+                {
+                    continue;
+                }
+
+                if (copy.TmdbId is null)
                 {
                     copy.TmdbId = result.TmdbId;
-                    rows[(result.TmdbId, result.MediaType)] = copy;
-                    untagged.Remove(copy);
                     tagged++;
                 }
+
+                rows[(result.TmdbId, result.MediaType)] = copy;
             }
         }
 
@@ -131,7 +137,7 @@ public static class TmdbTitleRows
     public static CatalogItem Preferred(CatalogItem a, CatalogItem b) =>
         (b.JellyfinItemId is not null && a.JellyfinItemId is null) ? b : a;
 
-    /// <summary>Whether a library row with no TMDB id is this TMDB title: same type, name and year (±1).</summary>
+    /// <summary>Whether a library row is this TMDB title by name: same type, name and year (±1).</summary>
     /// <param name="copy">The library row.</param>
     /// <param name="result">The TMDB title.</param>
     /// <returns>True on a match. Both years are required: a bare name alone matched remakes.</returns>

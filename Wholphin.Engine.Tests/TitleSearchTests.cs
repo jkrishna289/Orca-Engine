@@ -143,4 +143,30 @@ public class TitleSearchTests : IDisposable
         using var check = _factory.Create();
         Assert.Equal(30, check.CatalogItems.Single(c => c.JellyfinItemId == owned).TmdbId);
     }
+
+    [Fact]
+    public async Task ADuplicateTmdbEntryStillFindsTheLibraryCopyAndLeavesItsId()
+    {
+        // The real Dhindora: Jellyfin matched TMDB 135670, and TMDB search returns its duplicate 275204.
+        var owned = Guid.NewGuid();
+        using (var db = _factory.Create())
+        {
+            db.CatalogItems.Add(new CatalogItem { TmdbId = 135670, MediaType = MediaType.Series, Title = "Dhindora", ProductionYear = 2021, JellyfinItemId = owned, Availability = AvailabilityState.WatchNow });
+            db.SaveChanges();
+        }
+
+        Dictionary<(int TmdbId, MediaType Type), CatalogItem> rows;
+        using (var db = _factory.Create())
+        {
+            var duplicate = Title(275204, MediaType.Series, "Dhindora");
+            duplicate.Year = 2021;
+            rows = await TmdbTitleRows.MatchOrImportAsync(db, new[] { duplicate }, maxImports: 5, CancellationToken.None);
+        }
+
+        Assert.Equal(owned, rows[(275204, MediaType.Series)].JellyfinItemId);
+
+        using var check = _factory.Create();
+        Assert.Equal(135670, check.CatalogItems.Single(c => c.JellyfinItemId == owned).TmdbId);
+        Assert.Equal(1, check.CatalogItems.Count()); // nothing imported for the duplicate
+    }
 }
