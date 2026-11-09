@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "The engine's background jobs (trailer downloads and re-encodes, theme songs) now run at the lowest CPU priority, so they only use CPU that playback and the server leave free; on a four-core server a trailer re-encode had been taking about three cores while people browsed. Includes 1.4.13.3: search no longer offers a show you already have, a restart no longer leaves the home missing rows, Recently Added, Movies and Series show only titles you can play, and titles requested outside the app show Adding. Requires Jellyfin 12.1 or later. This is a beta release.",
+  "changelog": "A resumed movie no longer shows twice in Continue Watching. The engine now asks Jellyfin for each title's TMDB, IMDb and TVDB ids: without them, library syncs stored titles with no ids, and progress from a stream never carried over to the library copy. The next library sync fills in the missing ids. Includes 1.4.13.4: background trailer and theme jobs yield the CPU to playback. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.4.13.4",
+  "version": "1.4.13.5",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
