@@ -217,7 +217,7 @@ public sealed class JellyfinProgressBridge : IHostedService, IJellyfinProgressBr
             IncludeItemTypes = Kinds,
             IsVirtualItem = false,
             Recursive = true,
-            DtoOptions = new DtoOptions(false),
+            DtoOptions = Wholphin.Engine.Sync.CatalogMapper.WithProviderIds(),
         });
 
     internal PlaybackIdentity? Identify(BaseItem item)

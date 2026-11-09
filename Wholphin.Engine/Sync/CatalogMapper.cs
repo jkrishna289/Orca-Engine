@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
 using Jellyfin.Data.Enums;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Model.Querying;
 using Wholphin.Engine.Data.Entities;
 using Wholphin.Engine.Data.Enums;
 using MediaType = Wholphin.Engine.Data.Enums.MediaType;
@@ -16,6 +18,16 @@ namespace Wholphin.Engine.Sync;
 public static class CatalogMapper
 {
     private const long TicksPerMinute = 600_000_000L; // 10,000,000 ticks/sec * 60
+
+    /// <summary>
+    /// Query options for items whose provider ids are read (TMDB, IMDb, TVDB). Jellyfin joins the
+    /// provider table only when <see cref="ItemFields.ProviderIds"/> is asked for, so a plain
+    /// <c>new DtoOptions(false)</c> returned every id empty: full library syncs stored no TMDB ids,
+    /// stream progress never found its library copy, and a resumed movie showed twice in Continue
+    /// Watching (once from Jellyfin, once from the engine's own record).
+    /// </summary>
+    /// <returns>Options that load provider ids and nothing else optional.</returns>
+    public static DtoOptions WithProviderIds() => new(false) { Fields = new[] { ItemFields.ProviderIds } };
 
     private const int MaxActors = 8;
     private const int MaxPeople = 15;

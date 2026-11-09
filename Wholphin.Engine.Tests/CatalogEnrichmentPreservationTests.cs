@@ -155,4 +155,12 @@ public class CatalogEnrichmentPreservationTests
             unaccounted.Count == 0,
             $"CatalogItem columns neither mapped nor preserved — a sync will erase these: {string.Join(", ", unaccounted)}");
     }
+
+    [Fact]
+    public void QueriesThatReadProviderIdsAskJellyfinForThem()
+    {
+        // Jellyfin only loads provider ids when asked. Without them a full sync stored no TMDB ids and
+        // a resumed movie showed twice in Continue Watching.
+        Assert.True(CatalogMapper.WithProviderIds().ContainsField(MediaBrowser.Model.Querying.ItemFields.ProviderIds));
+    }
 }

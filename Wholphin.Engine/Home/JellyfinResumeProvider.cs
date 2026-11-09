@@ -75,7 +75,7 @@ public sealed class JellyfinResumeProvider : IResumeProvider
             IsResumable = true,
             IsVirtualItem = false,
             Recursive = true,
-            DtoOptions = new DtoOptions(false),
+            DtoOptions = CatalogMapper.WithProviderIds(),
         };
 
         var scored = new Dictionary<string, (ResumePoint Point, DateTime LastPlayed)>();

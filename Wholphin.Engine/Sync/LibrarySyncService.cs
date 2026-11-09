@@ -58,7 +58,7 @@ public class LibrarySyncService : ILibrarySyncService
             IncludeItemTypes = SyncedKinds,
             Recursive = true,
             IsVirtualItem = false,
-            DtoOptions = new DtoOptions(false),
+            DtoOptions = CatalogMapper.WithProviderIds(),
         };
 
         var items = _libraryManager.GetItemList(query);
