@@ -358,6 +358,7 @@ public class TrailerService : ITrailerService
                 },
             };
             p.Start();
+            ExternalProcess.YieldToPlayback(p);
 
             // Both pipes drained from the start: ffmpeg logs heavily to stderr, and a full, unread pipe
             // blocks the process until the timeout kills it.

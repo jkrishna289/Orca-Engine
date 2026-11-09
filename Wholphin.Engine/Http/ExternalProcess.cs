@@ -45,6 +45,7 @@ public static class ExternalProcess
                 },
             };
             p.Start();
+            YieldToPlayback(p);
 
             // Started before waiting: a process that fills the stdout pipe blocks forever if nobody
             // is draining it, and the timeout below would never be reached.
@@ -85,6 +86,24 @@ public static class ExternalProcess
         catch
         {
             // Already gone, or we lost the right to signal it. Either way there is nothing to do.
+        }
+    }
+
+    /// <summary>
+    /// Drops a started process to idle priority (nice 19 on Linux; its own children inherit it). A
+    /// trailer's full-length 1080p x264 encode held three of a four-core server's cores while viewers
+    /// browsed, beside the theme downloads, competing with Jellyfin's own playback transcodes.
+    /// </summary>
+    /// <param name="p">The started process.</param>
+    public static void YieldToPlayback(Process p)
+    {
+        try
+        {
+            p.PriorityClass = ProcessPriorityClass.Idle;
+        }
+        catch
+        {
+            // Already exited, or not permitted here: it runs at normal priority, as it always did.
         }
     }
 }
