@@ -26,6 +26,8 @@ public static class RowBudget
     /// <param name="budget">How long the producer may take before it's abandoned.</param>
     /// <param name="build">The producer.</param>
     /// <param name="ct">The caller's cancellation token.</param>
+    /// <param name="onDropped">Called when the row is dropped (budget or throw), so the caller can tell a
+    /// page that is missing rows from one whose rows were simply empty.</param>
     /// <returns>
     /// The producer's result, or null when the budget expired or it threw. Only the CALLER's
     /// cancellation — the client gave up on the whole page — propagates.
@@ -43,7 +45,8 @@ public static class RowBudget
         string name,
         TimeSpan budget,
         Func<CancellationToken, Task<T?>> build,
-        CancellationToken ct)
+        CancellationToken ct,
+        Action? onDropped = null)
         where T : class
     {
         using var budgeted = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -59,6 +62,7 @@ public static class RowBudget
         {
             metrics.Increment($"home.row.{name}.timeout");
             detail = $"budget {budget.TotalMilliseconds:F0}ms exceeded";
+            onDropped?.Invoke();
             return null;
         }
         catch (OperationCanceledException)
@@ -70,6 +74,7 @@ public static class RowBudget
         {
             metrics.Increment($"home.row.{name}.error");
             failure = ex;
+            onDropped?.Invoke();
             return null;
         }
         finally

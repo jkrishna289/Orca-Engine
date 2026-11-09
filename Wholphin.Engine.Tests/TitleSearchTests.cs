@@ -112,4 +112,35 @@ public class TitleSearchTests : IDisposable
         Assert.Equal("Interstellar", check.CatalogItems.Single(c => c.TmdbId == 20).Title);
         Assert.Equal("Dune (2021)", check.CatalogItems.Single(c => c.TmdbId == 21).Title);
     }
+
+    [Fact]
+    public async Task ALibraryCopyJellyfinNeverMatchedOnTmdbIsFoundByNameAndYear()
+    {
+        // Dhindora was in the library with only a TVDB id, so search offered it again as a request.
+        var owned = Guid.NewGuid();
+        using (var db = _factory.Create())
+        {
+            db.CatalogItems.AddRange(
+                new CatalogItem { TmdbId = 30, MediaType = MediaType.Series, Title = "Dhindora", ProductionYear = 2021, Availability = AvailabilityState.Request },
+                new CatalogItem { MediaType = MediaType.Series, Title = "Dhindora", ProductionYear = 2021, JellyfinItemId = owned, Availability = AvailabilityState.WatchNow },
+                new CatalogItem { MediaType = MediaType.Movie, Title = "Dune", ProductionYear = 1984, JellyfinItemId = Guid.NewGuid(), Availability = AvailabilityState.WatchNow });
+            db.SaveChanges();
+        }
+
+        Dictionary<(int TmdbId, MediaType Type), CatalogItem> rows;
+        using (var db = _factory.Create())
+        {
+            var dhindora = Title(30, MediaType.Series, "dhindora");
+            dhindora.Year = 2021;
+            var dune = Title(31, MediaType.Movie, "Dune");
+            dune.Year = 2021;
+            rows = await TmdbTitleRows.MatchOrImportAsync(db, new[] { dhindora, dune }, maxImports: 5, CancellationToken.None);
+        }
+
+        Assert.Equal(owned, rows[(30, MediaType.Series)].JellyfinItemId);
+        Assert.Null(rows[(31, MediaType.Movie)].JellyfinItemId); // a remake, not the 1984 film you own
+
+        using var check = _factory.Create();
+        Assert.Equal(30, check.CatalogItems.Single(c => c.JellyfinItemId == owned).TmdbId);
+    }
 }

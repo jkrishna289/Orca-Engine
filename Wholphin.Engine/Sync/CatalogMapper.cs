@@ -111,6 +111,9 @@ public static class CatalogMapper
         // DateAdded comes from Jellyfin for library items, but a requestable row set it when the
         // pick was imported; don't lose that ordering signal to a null.
         mapped.DateAdded ??= existing.DateAdded;
+
+        // Jellyfin often has no TMDB id for regional titles; one the engine matched by name stays.
+        mapped.TmdbId ??= existing.TmdbId;
     }
 
     /// <summary>

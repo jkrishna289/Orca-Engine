@@ -44,6 +44,12 @@ public class HomeService
     /// </summary>
     private static readonly TimeSpan SoftCacheTtl = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Soft TTL for a home that lost rows to their budgets. The cold first build after a restart
+    /// dropped six rows, and that partial page was then served unchanged for the full five minutes.
+    /// </summary>
+    private static readonly TimeSpan IncompleteSoftCacheTtl = TimeSpan.FromSeconds(30);
+
     /// <summary>How long a cached home survives at all. Past this, a request builds inline.</summary>
     private static readonly TimeSpan HardCacheTtl = TimeSpan.FromMinutes(30);
 
@@ -234,7 +240,7 @@ public class HomeService
             // Stale-while-revalidate: past the soft TTL the entry is still served instantly and a
             // single background rebuild refreshes it for the next viewer. Only a hard miss (evicted,
             // or past HardCacheTtl) ever makes someone wait through a full build.
-            if (DateTime.UtcNow - cached.BuiltUtc > SoftCacheTtl)
+            if (DateTime.UtcNow - cached.BuiltUtc > (cached.Complete ? SoftCacheTtl : IncompleteSoftCacheTtl))
             {
                 RefreshInBackground(cacheKey, capabilities, size, userId);
             }
@@ -270,10 +276,10 @@ public class HomeService
             return resumed;
         }
 
-        var built = await BuildFreshAsync(capabilities, size, userId, personalized, settings, ct).ConfigureAwait(false);
+        var (built, complete) = await BuildFreshAsync(capabilities, size, userId, personalized, settings, ct).ConfigureAwait(false);
         if (cacheKey is not null)
         {
-            _cache.Set(cacheKey, new CachedHome(built, DateTime.UtcNow), HardCacheTtl);
+            _cache.Set(cacheKey, new CachedHome(built, DateTime.UtcNow, complete), HardCacheTtl);
         }
 
         _metrics.Increment("home.built");
@@ -300,8 +306,8 @@ public class HomeService
                 // Deliberately NOT the request's token: the refresh has to outlive the response that
                 // triggered it. The per-row budgets bound it instead.
                 var settings = await _settings.ResolveAsync(userId, CancellationToken.None).ConfigureAwait(false);
-                var bundle = await BuildFreshAsync(capabilities, size, userId, personalized: true, settings, CancellationToken.None).ConfigureAwait(false);
-                _cache.Set(cacheKey, new CachedHome(bundle, DateTime.UtcNow), HardCacheTtl);
+                var (bundle, complete) = await BuildFreshAsync(capabilities, size, userId, personalized: true, settings, CancellationToken.None).ConfigureAwait(false);
+                _cache.Set(cacheKey, new CachedHome(bundle, DateTime.UtcNow, complete), HardCacheTtl);
                 _metrics.Increment("home.refreshed");
             }
             catch (Exception)
@@ -315,8 +321,11 @@ public class HomeService
         });
     }
 
-    /// <summary>Builds the bundle from scratch, bypassing the cache entirely.</summary>
-    private async Task<RenderBundle> BuildFreshAsync(
+    /// <summary>
+    /// Builds the bundle from scratch, bypassing the cache entirely. <c>Complete</c> is false when a
+    /// row blew its budget or threw, as on the first build after a restart, when everything is cold.
+    /// </summary>
+    private async Task<(RenderBundle Bundle, bool Complete)> BuildFreshAsync(
         ClientCapabilities capabilities,
         int size,
         Guid? userId,
@@ -326,6 +335,8 @@ public class HomeService
     {
         var flags = settings.Features;
         var buildStartedAt = Stopwatch.GetTimestamp();
+        var dropped = 0;
+        Action onDropped = () => Interlocked.Increment(ref dropped);
 
         // The affinity read is the one genuinely sequential step: the confidence it yields decides
         // the layout AND is handed to every row provider, so it has to resolve before the fan-out.
@@ -358,7 +369,7 @@ public class HomeService
                 "foryou",
                 ExpensiveRowBudget,
                 c => BuildPersonalAsync(userId!.Value, size, settings, flags, capabilities, affinity, confidence, c),
-                ct)
+                ct, onDropped)
             : Task.FromResult<PersonalResult?>(null);
 
         Task<PendingRow?> bywTask = personalized && flags.Personalization && flags.SimilarityRows
@@ -366,11 +377,11 @@ public class HomeService
                 "becauseyouwatched",
                 ExpensiveRowBudget,
                 c => BuildBecauseYouWatchedAsync(userId!.Value, size, flags, c),
-                ct)
+                ct, onDropped)
             : Task.FromResult<PendingRow?>(null);
 
         Task<PendingRow?> newSinceTask = personalized && flags.Personalization && flags.NewSinceAway
-            ? RowOrDefaultAsync<PendingRow>("newsince", FastRowBudget, c => BuildNewSinceAsync(userId!.Value, size, c), ct)
+            ? RowOrDefaultAsync<PendingRow>("newsince", FastRowBudget, c => BuildNewSinceAsync(userId!.Value, size, c), ct, onDropped)
             : Task.FromResult<PendingRow?>(null);
 
         Task<IReadOnlyList<ResumePoint>?> resumeTask = personalized && flags.ContinueWatching
@@ -378,17 +389,17 @@ public class HomeService
                 "continue",
                 FastRowBudget,
                 async c => await _resume.GetResumeAsync(userId!.Value, size, c).ConfigureAwait(false),
-                ct)
+                ct, onDropped)
             : Task.FromResult<IReadOnlyList<ResumePoint>?>(null);
 
         Task<LibraryRows?> libraryTask = RowOrDefaultAsync<LibraryRows>(
             "library",
             FastRowBudget,
             async c => await BuildLibraryRowsAsync(size, c).ConfigureAwait(false),
-            ct);
+            ct, onDropped);
 
         Task<PendingRow?> comingSoonTask = flags.ComingSoon
-            ? RowOrDefaultAsync<PendingRow>("comingsoon", MediumRowBudget, c => BuildComingSoonAsync(userId, size, c), ct)
+            ? RowOrDefaultAsync<PendingRow>("comingsoon", MediumRowBudget, c => BuildComingSoonAsync(userId, size, c), ct, onDropped)
             : Task.FromResult<PendingRow?>(null);
 
         Task<IReadOnlyList<MoodRow>?> moodTask = flags.MoodCollections
@@ -396,7 +407,7 @@ public class HomeService
                 "mood",
                 MediumRowBudget,
                 async c => await _mood.BuildAsync(size, c).ConfigureAwait(false),
-                ct)
+                ct, onDropped)
             : Task.FromResult<IReadOnlyList<MoodRow>?>(null);
 
         // Pluggable row providers: the justified discovery rows (trending with a pinch of taste,
@@ -408,7 +419,7 @@ public class HomeService
                 $"provider.{provider.GetType().Name}",
                 MediumRowBudget,
                 async c => await provider.BuildAsync(rowContext, c).ConfigureAwait(false),
-                ct))
+                ct, onDropped))
             .ToList();
 
         // One wait for the whole page: the slowest row sets the pace, and none of these tasks can
@@ -488,7 +499,7 @@ public class HomeService
         // slow is worth seeing even when nobody waited on it.
         _metrics.Record("home.build", RowBudget.ElapsedMs(buildStartedAt), data: $"{bundle.Rows.Count} rows");
         _metrics.Increment("home.build.rows", bundle.Rows.Count);
-        return bundle;
+        return (bundle, Volatile.Read(ref dropped) == 0);
     }
 
     /// <summary>
@@ -658,20 +669,24 @@ public class HomeService
     {
         await using var db = _factory.Create();
 
-        var recentlyAdded = await db.CatalogItems
+        // Playable library copies only: imported picks carry a DateAdded too, and a series Sonarr
+        // added before any episode downloaded showed up as "Recently Added" with a Coming Soon badge.
+        var owned = db.CatalogItems.Where(c => c.JellyfinItemId != null && c.Availability != AvailabilityState.Unavailable);
+
+        var recentlyAdded = await owned
             .OrderByDescending(c => c.DateAdded)
             .Take(size * OverFetchFactor)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var movies = await db.CatalogItems
+        var movies = await owned
             .Where(c => c.MediaType == MediaType.Movie)
             .OrderByDescending(c => c.DateAdded)
             .Take(size * OverFetchFactor)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var series = await db.CatalogItems
+        var series = await owned
             .Where(c => c.MediaType == MediaType.Series)
             .OrderByDescending(c => c.DateAdded)
             .Take(size * OverFetchFactor)
@@ -686,9 +701,10 @@ public class HomeService
         string name,
         TimeSpan budget,
         Func<CancellationToken, Task<T?>> build,
-        CancellationToken ct)
+        CancellationToken ct,
+        Action? onDropped = null)
         where T : class
-        => RowBudget.OrDefaultAsync(_metrics, name, budget, build, ct);
+        => RowBudget.OrDefaultAsync(_metrics, name, budget, build, ct, onDropped);
 
     /// <summary>
     /// Runs an LLM curation step under <see cref="LlmStepBudget"/>, degrading to the local ordering
@@ -723,7 +739,7 @@ public class HomeService
 
     /// <summary>A cached home plus when it was built, so staleness can be judged independently
     /// of the entry's own (hard) expiry.</summary>
-    private sealed record CachedHome(RenderBundle Bundle, DateTime BuiltUtc);
+    private sealed record CachedHome(RenderBundle Bundle, DateTime BuiltUtc, bool Complete);
 
     /// <summary>The plain catalog rows, produced together off one database context.</summary>
     private sealed record LibraryRows(

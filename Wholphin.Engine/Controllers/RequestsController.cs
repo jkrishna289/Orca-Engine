@@ -1,9 +1,12 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Wholphin.Engine.Data;
 using Wholphin.Engine.Data.Enums;
 using Wholphin.Engine.Integrations.Jellyseerr;
 using Wholphin.Engine.Requests;
@@ -22,17 +25,21 @@ public class RequestsController : ControllerBase
     private readonly IRequestService _requests;
     private readonly IJellyseerrClient _jellyseerr;
     private readonly IAuthorizationContext _authorization;
+    private readonly IWholphinDbContextFactory _factory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RequestsController"/> class.
     /// </summary>
     /// <param name="requests">The request orchestration service.</param>
     /// <param name="jellyseerr">The Jellyseerr client (for status lookups).</param>
-    public RequestsController(IRequestService requests, IJellyseerrClient jellyseerr, IAuthorizationContext authorization)
+    /// <param name="authorization">The caller's Jellyfin authorization.</param>
+    /// <param name="factory">The database context factory.</param>
+    public RequestsController(IRequestService requests, IJellyseerrClient jellyseerr, IAuthorizationContext authorization, IWholphinDbContextFactory factory)
     {
         _requests = requests;
         _jellyseerr = jellyseerr;
         _authorization = authorization;
+        _factory = factory;
     }
 
     /// <summary>Submits an engine-proxied request for a title.</summary>
@@ -83,6 +90,19 @@ public class RequestsController : ControllerBase
         }
 
         var availability = await _jellyseerr.GetAvailabilityAsync(tmdbId, mediaType, cancellationToken).ConfigureAwait(false);
+        if (availability is { } fresh)
+        {
+            // The reconciler only re-polls in-flight titles, so one requested outside the app (in
+            // Jellyseerr itself, or added straight to Radarr) kept a Request badge on its home card
+            // while this page said Adding. Keep what was just learned; the library sync owns the rest.
+            var stored = fresh == AvailabilityState.WatchNow ? AvailabilityState.RecentlyAdded : fresh;
+            await using var db = _factory.Create();
+            await db.CatalogItems
+                .Where(c => c.TmdbId == tmdbId && c.MediaType == mediaType && c.JellyfinItemId == null && c.Availability != stored)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.Availability, stored), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         return new AvailabilityStatusResponse
         {
             TmdbId = tmdbId,

@@ -68,6 +68,25 @@ public class RowBudgetTests
     }
 
     [Fact]
+    public async Task OrDefault_ReportsADropButNotAnEmptyRow()
+    {
+        // The home caches a page that lost rows for seconds, not minutes; an empty row is not a loss.
+        var drops = 0;
+        await RowBudget.OrDefaultAsync<string>(new CountingMetrics(), "empty", Budget, _ => Task.FromResult<string?>(null), CancellationToken.None, () => drops++);
+        Assert.Equal(0, drops);
+
+        await RowBudget.OrDefaultAsync<string>(new CountingMetrics(), "broken", Budget, _ => throw new InvalidOperationException("boom"), CancellationToken.None, () => drops++);
+        await RowBudget.OrDefaultAsync<string>(new CountingMetrics(), "slow", Budget, async c =>
+        {
+            await Task.Delay(Timeout.Infinite, c);
+            return "never";
+        },
+        CancellationToken.None,
+        () => drops++);
+        Assert.Equal(2, drops);
+    }
+
+    [Fact]
     public async Task OrDefault_Propagates_WhenTheCallerCancels()
     {
         var metrics = new CountingMetrics();
