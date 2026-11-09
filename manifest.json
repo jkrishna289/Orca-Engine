@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.13.4",
+        "changelog": "The engine's background jobs (trailer downloads and re-encodes, theme songs) now run at the lowest CPU priority, so they only use CPU that playback and the server leave free; on a four-core server a trailer re-encode had been taking about three cores while people browsed. Includes 1.4.13.3: search no longer offers a show you already have, a restart no longer leaves the home missing rows, Recently Added, Movies and Series show only titles you can play, and titles requested outside the app show Adding. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.13.4-beta/orca-engine_1.4.13.4.zip",
+        "checksum": "6a2963083b6ec3954952cf7d428a815a",
+        "timestamp": "2026-11-09T07:55:02Z"
+      },
+      {
         "version": "1.4.13.3",
         "changelog": "Search no longer offers a show you already have when TMDB lists it twice: Dhindora's library copy is one TMDB entry and search returned its duplicate. A library title with the same name, type and year now counts as the same show. Includes 1.4.13.2: a restart no longer leaves the home missing rows, Recently Added, Movies and Series show only titles you can play, and titles requested outside the app show Adding once their page is opened. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
