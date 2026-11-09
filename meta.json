@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "A restart no longer leaves the home missing rows: a page whose rows ran out of time is rebuilt within seconds instead of being kept for five minutes. Recently Added, Movies and Series show only titles you can play, so a series with no episodes yet no longer appears there. Search no longer offers a show you already have when Jellyfin has no TMDB id for it. A title requested outside the app (in Jellyseerr or Radarr) shows Adding instead of Request once its page has been opened. Includes 1.4.13.1 and 1.4.13.0. Requires Jellyfin 12.1 or later. This is a beta release.",
+  "changelog": "Search no longer offers a show you already have when TMDB lists it twice: Dhindora's library copy is one TMDB entry and search returned its duplicate. A library title with the same name, type and year now counts as the same show. Includes 1.4.13.2: a restart no longer leaves the home missing rows, Recently Added, Movies and Series show only titles you can play, and titles requested outside the app show Adding once their page is opened. Requires Jellyfin 12.1 or later. This is a beta release.",
   "description": "Server-side intelligence engine for the Orca X TV app: personalization, recommendations, caching, and centralized administration.",
   "guid": "b9f3c2e1-7a4d-4e6b-9c8f-1d2a3b4c5d6e",
   "name": "Orca Engine",
@@ -8,7 +8,7 @@
   "owner": "jkrishna289",
   "targetAbi": "12.1.0.0",
   "framework": "net10.0",
-  "version": "1.4.13.2",
+  "version": "1.4.13.3",
   "status": "Active",
   "autoUpdate": false,
   "assemblies": [
