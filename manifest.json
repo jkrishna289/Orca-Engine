@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.13.6",
+        "changelog": "Finding streams no longer hangs for 100 seconds and then reports none: each public indexer is now searched on its own with a 20 second limit, so one unreachable indexer only loses its own results. Includes 1.4.13.5: a resumed movie no longer shows twice in Continue Watching, and library titles keep their TMDB, IMDb and TVDB ids. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.13.6-beta/orca-engine_1.4.13.6.zip",
+        "checksum": "bd6539d3ec7be855416777c0bcfdb9db",
+        "timestamp": "2026-11-11T18:00:29Z"
+      },
+      {
         "version": "1.4.13.5",
         "changelog": "A resumed movie no longer shows twice in Continue Watching. The engine now asks Jellyfin for each title's TMDB, IMDb and TVDB ids: without them, library syncs stored titles with no ids, and progress from a stream never carried over to the library copy. The next library sync fills in the missing ids. Includes 1.4.13.4: background trailer and theme jobs yield the CPU to playback. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
