@@ -41,6 +41,10 @@ public class ProwlarrClient : IProwlarrClient
     private const string MovieCategories = "2000";
     private const string TvCategories = "5000";
 
+    // How long one indexer gets. Healthy ones answer in a few seconds; one behind a Cloudflare
+    // challenge can take ~15 s. Past this it costs the viewer more than its results are worth.
+    internal TimeSpan IndexerBudget { get; set; } = TimeSpan.FromSeconds(20);
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true,
@@ -75,38 +79,19 @@ public class ProwlarrClient : IProwlarrClient
             return Array.Empty<TorrentSource>();
         }
 
-        var url = $"{baseUrl}/api/v1/search"
-            + $"?query={Uri.EscapeDataString(query)}"
-            + $"&categories={(movie ? MovieCategories : TvCategories)}"
-            + "&type=search"
-            + "&limit=200";
+        return await SearchAsync(baseUrl, apiKey, query, movie, cancellationToken).ConfigureAwait(false);
+    }
 
+    /// <summary>The search against an explicit Prowlarr address; split out so tests need no plugin config.</summary>
+    internal async Task<IReadOnlyList<TorrentSource>> SearchAsync(
+        string baseUrl,
+        string apiKey,
+        string query,
+        bool movie,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add(ApiKeyHeader, apiKey);
-
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                _metrics.Increment("prowlarr.search.error");
-                _logger.LogWarning(
-                    "Orca Engine: Prowlarr search returned {Status} for {Query}.",
-                    (int)response.StatusCode,
-                    query);
-                return Array.Empty<TorrentSource>();
-            }
-
-            var results = await response.Content
-                .ReadFromJsonAsync<List<ProwlarrRelease>>(JsonOptions, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (results is null || results.Count == 0)
-            {
-                return Array.Empty<TorrentSource>();
-            }
-
             // Private trackers are never offered for streaming. Streaming reads scattered pieces and
             // stops when the viewer does — on a private tracker that is hit-and-run, which wrecks
             // ratio and gets the operator's account banned.
@@ -120,6 +105,30 @@ public class ProwlarrClient : IProwlarrClient
                 _logger.LogWarning(
                     "Orca Engine: could not read Prowlarr's indexer list — refusing all sources rather than "
                     + "risk streaming from a private tracker.");
+                return Array.Empty<TorrentSource>();
+            }
+
+            // One request per indexer, each with its own deadline. A single search across all of them
+            // only answers once the slowest has: measured, one unreachable indexer (its domain no
+            // longer resolved) held the whole search for the HTTP client's 100 s limit, which then
+            // threw away what the healthy indexers had found. The viewer sat on "searching" for 100 s
+            // and was told there were no streams.
+            var perIndexer = await Task.WhenAll(publicIndexers.Select(id =>
+                SearchIndexerAsync(baseUrl, apiKey, id, query, movie, cancellationToken))).ConfigureAwait(false);
+            var answered = perIndexer.Count(r => r is not null);
+            if (answered < perIndexer.Length)
+            {
+                _metrics.Increment("prowlarr.search.indexer.dropped", perIndexer.Length - answered);
+            }
+
+            var results = perIndexer.Where(r => r is not null).SelectMany(r => r!).ToList();
+            if (results.Count == 0)
+            {
+                _logger.LogInformation(
+                    "Orca Engine: Prowlarr found nothing for {Query} ({Answered}/{Total} indexers answered).",
+                    query,
+                    answered,
+                    perIndexer.Length);
                 return Array.Empty<TorrentSource>();
             }
 
@@ -162,6 +171,58 @@ public class ProwlarrClient : IProwlarrClient
             _metrics.Increment("prowlarr.search.error");
             _logger.LogWarning(ex, "Orca Engine: Prowlarr search failed for {Query}.", query);
             return Array.Empty<TorrentSource>();
+        }
+    }
+
+    /// <summary>One indexer's results, or null when it failed or ran past <see cref="IndexerBudget"/>.</summary>
+    private async Task<List<ProwlarrRelease>?> SearchIndexerAsync(
+        string baseUrl,
+        string apiKey,
+        int indexerId,
+        string query,
+        bool movie,
+        CancellationToken cancellationToken)
+    {
+        var url = $"{baseUrl}/api/v1/search"
+            + $"?query={Uri.EscapeDataString(query)}"
+            + $"&indexerIds={indexerId}"
+            + $"&categories={(movie ? MovieCategories : TvCategories)}"
+            + "&type=search"
+            + "&limit=100";
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(IndexerBudget);
+        try
+        {
+            using var client = _httpClientFactory.CreateClient(OrcaMetricsHandler.ClientName);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add(ApiKeyHeader, apiKey);
+
+            using var response = await client.SendAsync(request, deadline.Token).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Orca Engine: Prowlarr indexer {Indexer} returned {Status} for {Query}.",
+                    indexerId,
+                    (int)response.StatusCode,
+                    query);
+                return null;
+            }
+
+            return await response.Content
+                .ReadFromJsonAsync<List<ProwlarrRelease>>(JsonOptions, deadline.Token)
+                .ConfigureAwait(false) ?? new List<ProwlarrRelease>();
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Its own deadline or its own failure: the other indexers' answers still count.
+            _logger.LogWarning(
+                "Orca Engine: Prowlarr indexer {Indexer} gave no answer for {Query} within {Seconds}s ({Reason}).",
+                indexerId,
+                query,
+                IndexerBudget.TotalSeconds,
+                ex.GetType().Name);
+            return null;
         }
     }
 
