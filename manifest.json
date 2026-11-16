@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.4.14.0",
+        "changelog": "Movie and series pages can show the collections a title belongs to: first the film's TMDB collection, every film in it including the ones you don't have yet, so they can be requested, then each server collection holding the title. Needs an Orca X build with collection shelves. Includes 1.4.13.6: finding streams no longer hangs on one unreachable indexer. Requires Jellyfin 12.1 or later. This is a beta release.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/jkrishna289/Orca-Engine/releases/download/v1.4.14.0-beta/orca-engine_1.4.14.0.zip",
+        "checksum": "dc10f7f78dfb5ad7207fe8e9f2d54ef5",
+        "timestamp": "2026-11-16T15:26:17Z"
+      },
+      {
         "version": "1.4.13.6",
         "changelog": "Finding streams no longer hangs for 100 seconds and then reports none: each public indexer is now searched on its own with a 20 second limit, so one unreachable indexer only loses its own results. Includes 1.4.13.5: a resumed movie no longer shows twice in Continue Watching, and library titles keep their TMDB, IMDb and TVDB ids. Requires Jellyfin 12.1 or later. This is a beta release.",
         "targetAbi": "12.1.0.0",
