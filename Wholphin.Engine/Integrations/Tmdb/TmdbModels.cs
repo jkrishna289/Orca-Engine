@@ -618,3 +618,15 @@ public class TmdbCollection
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 }
+
+/// <summary>A TMDB collection with its films (<c>/collection/{id}</c>).</summary>
+public class TmdbCollectionDetail : TmdbCollection
+{
+    /// <summary>Gets or sets the backdrop path.</summary>
+    [JsonPropertyName("backdrop_path")]
+    public string? BackdropPath { get; set; }
+
+    /// <summary>Gets or sets the films, released and announced.</summary>
+    [JsonPropertyName("parts")]
+    public List<TmdbDiscoverItem> Parts { get; set; } = new();
+}

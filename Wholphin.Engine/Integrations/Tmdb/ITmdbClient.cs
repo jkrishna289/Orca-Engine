@@ -138,4 +138,13 @@ public interface ITmdbClient
 
     /// <summary>A title's IMDb id ("tt…"); null when unknown, unconfigured or on failure.</summary>
     Task<string?> GetImdbIdAsync(int tmdbId, MediaType mediaType, CancellationToken ct = default);
+
+    /// <summary>The id of the TMDB collection a film belongs to; null when it has none, unconfigured or on failure.</summary>
+    Task<int?> GetCollectionIdAsync(int movieTmdbId, CancellationToken ct = default);
+
+    /// <summary>A TMDB collection and its films; null when unknown, unconfigured or on failure.</summary>
+    Task<TmdbCollectionParts?> GetCollectionAsync(int collectionId, CancellationToken ct = default);
 }
+
+/// <summary>A TMDB collection the engine hands to clients: its name, backdrop and films (TMDB's order).</summary>
+public sealed record TmdbCollectionParts(int Id, string Name, string? BackdropImageUrl, IReadOnlyList<DiscoverResult> Parts);

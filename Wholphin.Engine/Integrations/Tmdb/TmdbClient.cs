@@ -804,6 +804,26 @@ public class TmdbClient : ITmdbClient
             ? (await FetchAsync<TmdbExternalIds>(tmdbId, $"/{kind}/{tmdbId}/external_ids", ct).ConfigureAwait(false))?.ImdbId
             : null;
 
+    /// <inheritdoc />
+    public async Task<int?> GetCollectionIdAsync(int movieTmdbId, CancellationToken ct = default)
+    {
+        var id = (await FetchAsync<TmdbDetail>(movieTmdbId, $"/movie/{movieTmdbId}", ct).ConfigureAwait(false))?.BelongsToCollection?.Id ?? 0;
+        return id > 0 ? id : null;
+    }
+
+    /// <inheritdoc />
+    public async Task<TmdbCollectionParts?> GetCollectionAsync(int collectionId, CancellationToken ct = default)
+    {
+        var detail = await FetchAsync<TmdbCollectionDetail>(collectionId, $"/collection/{collectionId}", ct).ConfigureAwait(false);
+        if (detail is null)
+        {
+            return null;
+        }
+
+        var genres = await GetGenreMapAsync(MediaType.Movie, ct).ConfigureAwait(false);
+        return new TmdbCollectionParts(collectionId, detail.Name ?? string.Empty, Image(BackdropSize, detail.BackdropPath), MapPage(detail.Parts, MediaType.Movie, genres));
+    }
+
     internal static IReadOnlyList<EpisodeInfo> ToEpisodes(TmdbSeasonDetail? season)
         => season?.Episodes
             .Where(e => e.SeasonNumber is not null && e.EpisodeNumber is not null)
